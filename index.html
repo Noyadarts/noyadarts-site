@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Noya'Darts, club de fléchettes de Noyarey</title>
+<meta name="description" content="Noya'Darts, club de fléchettes à Noyarey (Isère). Tous les jeudis dès 19 h, salle Chartreuse de la Maison des Associations. Ouvert à tous.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --slate:#1b2224;
+  --slate-2:#242e31;
+  --slate-3:#2f3b3f;
+  --chalk:#eceae2;
+  --chalk-dim:#a7afab;
+  --red:#d4453b;
+  --red-deep:#a92f27;
+  --green:#34a56b;
+  --sisal:#e3d4ae;
+  --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
+:root[data-theme="dark"]{ color-scheme:dark; }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ scroll-behavior:smooth; scroll-padding-top:env(safe-area-inset-top,0px); }
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 700px at 75% -10%, rgba(52,165,107,.10), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(212,69,59,.09), transparent 60%),
+    var(--slate);
+  color:var(--chalk);
+  font-family:var(--body);
+  font-size:1.0625rem;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img{ max-width:100%; }
+a{ color:var(--sisal); }
+:focus-visible{ outline:3px solid var(--sisal); outline-offset:3px; border-radius:4px; }
+
+.wrap{ width:min(1120px, 100% - 2.5rem); margin-inline:auto; }
+
+/* ---------- En-tête ---------- */
+.hero{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:2.5rem;
+  align-items:center;
+  padding:2.5rem 0 4rem;
+}
+@media (min-width:900px){
+  .hero{ grid-template-columns:1.05fr 1fr; gap:3.5rem; padding:4.5rem 0 6rem; min-height:92vh; }
+}
+.brand{
+  font-family:var(--display);
+  font-weight:900;
+  font-size:clamp(4.2rem, 13vw, 9.5rem);
+  line-height:.82;
+  letter-spacing:-.01em;
+  margin:0 0 1.5rem;
+  color:var(--chalk);
+}
+.brand span{ display:block; }
+.brand .sub{
+  display:block;
+  font-size:.26em;
+  font-weight:600;
+  letter-spacing:.02em;
+  line-height:1.1;
+  color:var(--chalk-dim);
+  margin-top:.9rem;
+}
+.lead{ font-size:1.25rem; max-width:34ch; margin:0 0 2rem; }
+.actions{ display:flex; flex-wrap:wrap; gap:.8rem 1.2rem; align-items:center; }
+.btn{
+  display:inline-block;
+  font-family:var(--display);
+  font-weight:800;
+  font-size:1.3rem;
+  letter-spacing:.02em;
+  text-decoration:none;
+  color:var(--chalk);
+  background:var(--red);
+  padding:.7rem 1.5rem .75rem;
+  border-radius:999px;
+  border:0;
+  cursor:pointer;
+  transition:background .15s ease, transform .15s ease;
+}
+.btn:hover{ background:var(--red-deep); }
+.btn:active{ transform:translateY(1px); }
+.hint{ color:var(--chalk-dim); font-size:.98rem; }
+
+/* ---------- Jeu ---------- */
+.game{ display:flex; flex-direction:column; align-items:center; gap:1rem; }
+.board-box{ position:relative; width:100%; max-width:520px; aspect-ratio:1; }
+#board{
+  width:100%; height:100%; display:block;
+  touch-action:none; cursor:crosshair;
+  border-radius:50%;
+}
+.popup{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.6);
+  font-family:var(--display); font-weight:900;
+  font-size:clamp(2rem,6vw,3.2rem);
+  color:var(--chalk);
+  text-shadow:0 3px 0 rgba(0,0,0,.55), 0 0 24px rgba(0,0,0,.6);
+  pointer-events:none; opacity:0; white-space:nowrap;
+}
+.popup.show{ animation:pop .9s ease-out forwards; }
+@keyframes pop{
+  0%{ opacity:0; transform:translate(-50%,-30%) scale(.6); }
+  20%{ opacity:1; transform:translate(-50%,-50%) scale(1.08); }
+  70%{ opacity:1; transform:translate(-50%,-60%) scale(1); }
+  100%{ opacity:0; transform:translate(-50%,-75%) scale(1); }
+}
+
+.scoreboard{
+  width:100%; max-width:520px;
+  background:var(--slate-2);
+  border:2px solid var(--slate-3);
+  border-radius:14px;
+  padding:1rem 1.2rem;
+  display:grid;
+  grid-template-columns:repeat(3,1fr) 1.2fr;
+  gap:.6rem;
+  align-items:end;
+}
+.slot, .total{ text-align:center; }
+.slot small, .total small{ display:block; font-size:.85rem; color:var(--chalk-dim); }
+.slot b{
+  display:block; font-family:var(--display); font-weight:800;
+  font-size:1.9rem; line-height:1.1; color:var(--chalk);
+  border-bottom:2px dashed var(--slate-3); padding-bottom:.15rem;
+  min-height:2.3rem;
+}
+.slot.active b{ border-bottom-color:var(--sisal); }
+.total b{
+  display:block; font-family:var(--display); font-weight:900;
+  font-size:2.6rem; line-height:1; color:var(--sisal);
+}
+.game-msg{ min-height:1.6em; color:var(--chalk-dim); text-align:center; margin:0; font-size:1rem; }
+.game-msg strong{ color:var(--chalk); font-weight:600; }
+
+/* ---------- Sections ---------- */
+section.block{ padding:4.5rem 0; border-top:1px solid var(--slate-3); }
+h2{
+  font-family:var(--display); font-weight:800;
+  font-size:clamp(2.4rem,5.5vw,3.6rem);
+  line-height:.95; margin:0 0 2rem;
+}
+.facts{ display:grid; gap:2rem; }
+@media (min-width:760px){ .facts{ grid-template-columns:repeat(3,1fr); gap:2.5rem; } }
+.fact dt{
+  font-family:var(--display); font-weight:800; font-size:1.7rem;
+  color:var(--sisal); margin-bottom:.35rem;
+}
+.fact dd{ margin:0; max-width:32ch; }
+.fact dd strong{ font-weight:600; }
+
+.story{ display:grid; gap:2rem; }
+@media (min-width:860px){ .story{ grid-template-columns:1fr 1fr; gap:4rem; } }
+.story p{ margin:0 0 1rem; max-width:60ch; }
+.pull{
+  font-family:var(--display); font-weight:800;
+  font-size:clamp(1.8rem,3.6vw,2.6rem); line-height:1.05;
+  margin:0; color:var(--chalk);
+  border-left:6px solid var(--green); padding-left:1.2rem;
+}
+
+/* ---------- Contact ---------- */
+.contact{ display:grid; gap:2.5rem; }
+@media (min-width:860px){ .contact{ grid-template-columns:.9fr 1.1fr; gap:4rem; } }
+.contact p{ max-width:44ch; margin:0 0 1rem; }
+.mail{
+  font-family:var(--display); font-weight:800; font-size:clamp(1.5rem,3vw,2rem);
+  color:var(--sisal); text-decoration:none; word-break:break-all;
+  border-bottom:2px solid currentColor;
+}
+.mail:hover{ color:var(--chalk); }
+form{ display:grid; gap:1rem; }
+label{ display:grid; gap:.35rem; font-weight:500; font-size:.98rem; }
+input, textarea{
+  font:inherit; color:var(--chalk);
+  background:var(--slate-2);
+  border:2px solid var(--slate-3);
+  border-radius:10px;
+  padding:.7rem .9rem;
+  width:100%;
+}
+input:focus, textarea:focus{ border-color:var(--sisal); outline:none; }
+textarea{ min-height:8rem; resize:vertical; }
+.form-note{ font-size:.92rem; color:var(--chalk-dim); margin:0; }
+.form-status{ min-height:1.4em; margin:0; font-size:.98rem; }
+.form-status.err{ color:#ff8a80; }
+.form-status.ok{ color:var(--green); }
+
+footer{ padding:2.5rem 0 3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
+footer .wrap{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; }
+
+
+/* ---------- Curseur fléchette ---------- */
+html, body{ cursor:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke-linecap='round'%3E%3Cline x1='2' y1='2' x2='10' y2='10' stroke='%231b2224' stroke-width='3.2'/%3E%3Cline x1='2' y1='2' x2='10' y2='10' stroke='%23eceae2' stroke-width='1.6'/%3E%3Cline x1='10' y1='10' x2='18' y2='18' stroke='%231b2224' stroke-width='6'/%3E%3Cline x1='10' y1='10' x2='18' y2='18' stroke='%23a7afab' stroke-width='3.6'/%3E%3Cline x1='18' y1='18' x2='22' y2='22' stroke='%23eceae2' stroke-width='1.6'/%3E%3C/g%3E%3Cpath d='M21 21 L31 23.5 L26.5 26.5 L23.5 31 Z' fill='%23d4453b' stroke='%231b2224' stroke-width='1'/%3E%3C/svg%3E") 2 2, auto; }
+a, button, .btn, label, summary, input[type=radio]{ cursor:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke-linecap='round'%3E%3Cline x1='2' y1='2' x2='10' y2='10' stroke='%231b2224' stroke-width='3.2'/%3E%3Cline x1='2' y1='2' x2='10' y2='10' stroke='%23eceae2' stroke-width='1.6'/%3E%3Cline x1='10' y1='10' x2='18' y2='18' stroke='%231b2224' stroke-width='6'/%3E%3Cline x1='10' y1='10' x2='18' y2='18' stroke='%23a7afab' stroke-width='3.6'/%3E%3Cline x1='18' y1='18' x2='22' y2='22' stroke='%23eceae2' stroke-width='1.6'/%3E%3C/g%3E%3Cpath d='M21 21 L31 23.5 L26.5 26.5 L23.5 31 Z' fill='%23d4453b' stroke='%231b2224' stroke-width='1'/%3E%3C/svg%3E") 2 2, pointer; }
+input[type=text], input[type=email], textarea{ cursor:text; }
+#board{ cursor:none; }
+
+/* ---------- Navigation ---------- */
+.topnav{ padding:1.2rem 0 0; }
+.topnav ul{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:.4rem 1.6rem; justify-content:flex-end; }
+.topnav a{ color:var(--chalk-dim); text-decoration:none; font-weight:500; }
+.topnav a:hover{ color:var(--chalk); }
+
+.maplink{ display:inline-block; margin-top:.6rem; font-weight:600; color:var(--sisal); }
+.section-intro{ max-width:60ch; margin:-1rem 0 2.5rem; color:var(--chalk-dim); }
+
+/* ---------- Règles ---------- */
+.rules{ display:grid; gap:2.5rem; align-items:start; }
+@media (min-width:860px){ .rules{ grid-template-columns:auto 1fr; gap:4rem; } }
+.big301{
+  font-family:var(--display); font-weight:900;
+  font-size:clamp(7rem,20vw,13rem); line-height:.8; margin:0;
+  color:transparent; -webkit-text-stroke:3px var(--sisal);
+}
+.big301 small{ display:block; -webkit-text-stroke:0; color:var(--chalk-dim); font-size:1.1rem; font-weight:600; font-family:var(--body); line-height:1.4; margin-top:1rem; max-width:18ch; }
+.rulelist{ margin:0; display:grid; gap:1.4rem; }
+.rulelist dt{ font-family:var(--display); font-weight:800; font-size:1.5rem; color:var(--chalk); }
+.rulelist dd{ margin:.1rem 0 0; max-width:55ch; color:var(--chalk-dim); }
+.rulelist dd strong{ color:var(--chalk); font-weight:600; }
+
+/* ---------- Classement ---------- */
+.records{ display:grid; gap:1rem; margin-bottom:2.5rem; }
+@media (min-width:700px){ .records{ grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); } }
+.record{ border-top:3px solid var(--green); padding-top:.8rem; }
+.record h3{ margin:0; font-size:1rem; font-weight:500; color:var(--chalk-dim); }
+.record .val{ font-family:var(--display); font-weight:900; font-size:2.6rem; line-height:1.05; color:var(--chalk); }
+.record .who{ font-weight:600; }
+.table-scroll{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; min-width:420px; }
+th, td{ text-align:left; padding:.7rem .9rem; border-bottom:1px solid var(--slate-3); }
+th{ font-weight:600; color:var(--chalk-dim); font-size:.95rem; }
+td.rank{ font-family:var(--display); font-weight:800; font-size:1.4rem; color:var(--sisal); width:3.5rem; }
+tbody tr:first-child td{ color:var(--chalk); font-weight:600; }
+.empty{ color:var(--chalk-dim); padding:1.5rem 0; margin:0; }
+.updated{ color:var(--chalk-dim); font-size:.92rem; margin:1rem 0 0; }
+
+/* ---------- Photos ---------- */
+.gallery{ display:grid; gap:.8rem; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+.gallery figure{ margin:0; aspect-ratio:4/3; border-radius:12px; overflow:hidden; background:var(--slate-2); position:relative; }
+.gallery img{ width:100%; height:100%; object-fit:cover; display:block; }
+.gallery figcaption{ position:absolute; left:0; right:0; bottom:0; padding:.6rem .8rem; font-size:.92rem; background:linear-gradient(transparent, rgba(0,0,0,.7)); }
+.gallery .ph{ display:grid; place-items:center; color:var(--chalk-dim); font-size:.95rem;
+  background:
+    radial-gradient(circle at 50% 50%, var(--slate-3) 0 8%, transparent 8.5% 20%, var(--slate-3) 20.5% 22%, transparent 22.5%),
+    var(--slate-2); }
+.gallery .ph span{ margin-top:55%; }
+
+/* ---------- Formulaire : choix ---------- */
+fieldset{ border:0; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:.6rem; }
+legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
+.choice{ display:inline-flex; align-items:center; gap:.5rem; padding:.55rem 1rem; border:2px solid var(--slate-3); border-radius:999px; }
+.choice:has(input:checked){ border-color:var(--sisal); background:var(--slate-2); }
+.choice input{ accent-color:var(--red); margin:0; }
+
+
+/* ---------- Célébration 180 ---------- */
+#fx{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:1000; display:none; }
+.oneeighty{
+  position:fixed; inset:0; z-index:1001; pointer-events:none;
+  display:none; place-items:center;
+  background:radial-gradient(circle at 50% 50%, rgba(27,34,36,.55), rgba(27,34,36,0) 60%);
+}
+.oneeighty span{
+  font-family:var(--display); font-weight:900;
+  font-size:clamp(7rem,28vw,20rem); line-height:1; color:var(--sisal);
+  text-shadow:0 0 30px rgba(212,69,59,.8), 0 0 80px rgba(212,69,59,.5), 0 8px 0 var(--red-deep);
+}
+.oneeighty.on{ display:grid; }
+.oneeighty.on span{ animation:boom 4.5s cubic-bezier(.2,1.4,.4,1) forwards; }
+@keyframes boom{
+  0%{ transform:scale(.2) rotate(-12deg); opacity:0; }
+  12%{ transform:scale(1.15) rotate(3deg); opacity:1; }
+  20%{ transform:scale(1) rotate(0); }
+  30%,40%,50%{ transform:scale(1.05); }
+  35%,45%{ transform:scale(.98); }
+  85%{ transform:scale(1); opacity:1; }
+  100%{ transform:scale(1.3); opacity:0; }
+}
+@media (prefers-reduced-motion: reduce){ .oneeighty.on span{ animation:fadeonly 3s ease forwards; } }
+@keyframes fadeonly{ 0%,80%{ opacity:1; } 100%{ opacity:0; } }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  .popup.show{ animation-duration:.01s; opacity:1; }
+}
+</style>
+</head>
+<body>
+
+<main>
+  <nav class="topnav wrap" aria-label="Sections du site">
+    <ul>
+      <li><a href="#infos">Infos pratiques</a></li>
+      <li><a href="#jeu">Comment on joue</a></li>
+      <li><a href="#classement">Classement</a></li>
+      <li><a href="#photos">Photos</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+  <div class="wrap">
+    <header class="hero">
+      <div>
+        <h1 class="brand">
+          <span>Noya'</span><span>Darts</span>
+          <span class="sub">Club de fléchettes de Noyarey</span>
+        </h1>
+        <p class="lead">Tous les jeudis à partir de 19 h, on se retrouve à la Maison des Associations pour le tournoi du soir. Ouvert à tous, débutants compris.</p>
+        <div class="actions">
+          <a class="btn" href="#contact">Nous contacter</a>
+          <span class="hint">En attendant jeudi, entraîne-toi sur la cible.</span>
+        </div>
+      </div>
+
+      <div class="game" aria-label="Mini-jeu de fléchettes">
+        <div class="board-box">
+          <canvas id="board" tabindex="0" aria-label="Cible de fléchettes. Vise avec la souris ou le doigt, clique ou relâche pour lancer. Touche Espace pour lancer au centre."></canvas>
+          <div class="popup" id="popup" aria-hidden="true"></div>
+        </div>
+        <div class="scoreboard" aria-live="polite">
+          <div class="slot active" id="s0"><small>Fléchette 1</small><b></b></div>
+          <div class="slot" id="s1"><small>Fléchette 2</small><b></b></div>
+          <div class="slot" id="s2"><small>Fléchette 3</small><b></b></div>
+          <div class="total"><small>Total</small><b id="total">0</b></div>
+        </div>
+        <p class="game-msg" id="msg">Vise, puis clique pour lancer. Attention, la main tremble !</p>
+      </div>
+    </header>
+  </div>
+
+  <section class="block" id="infos">
+    <div class="wrap">
+      <h2>Le rendez-vous du jeudi</h2>
+      <dl class="facts">
+        <div class="fact">
+          <dt>Quand</dt>
+          <dd>Tous les <strong>jeudis à partir de 19 h</strong>. Préviens-nous dans l'après-midi si tu viens : on organise le tournoi du soir en fonction des inscrits.</dd>
+        </div>
+        <div class="fact">
+          <dt>Où</dt>
+          <dd><strong>Salle Chartreuse</strong> de la Maison des Associations de Noyarey, en Isère.</dd>
+          <dd><a class="maplink" href="https://maps.app.goo.gl/kagyR61QmXeApAX8A" target="_blank" rel="noopener">Voir sur Google Maps</a></dd>
+        </div>
+        <div class="fact">
+          <dt>Pour qui</dt>
+          <dd><strong>Tout le monde.</strong> Joueur régulier ou jamais tenu une fléchette, tu as ta place.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block" id="club">
+    <div class="wrap story">
+      <p class="pull">Une bande d'amis, une cible, et l'envie de partager ça.</p>
+      <div>
+        <p>Noya'Darts est né d'une idée simple : se retrouver une fois par semaine autour d'une cible, sans prise de tête. On joue, on rigole, on s'encourage, et on progresse un peu au passage.</p>
+        <p>Le club est ouvert à toutes celles et ceux qui veulent essayer. Si tu as une question avant de venir, écris-nous, on te répondra avec plaisir.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="jeu">
+    <div class="wrap rules">
+      <p class="big301" aria-hidden="true">301<small>points à faire tomber à zéro, pile.</small></p>
+      <div>
+        <h2>Comment on joue</h2>
+        <dl class="rulelist">
+          <div><dt>En simple</dt><dd>Des matchs <strong>en un contre un</strong>, organisés en tournoi chaque jeudi soir selon le nombre d'inscrits.</dd></div>
+          <div><dt>Deux legs gagnants</dt><dd>Chaque partie (un <strong>leg</strong>) se joue en 301. Le premier à <strong>remporter deux legs</strong> gagne le match.</dd></div>
+          <div><dt>Sortie double</dt><dd>On soustrait ses points à chaque volée, et il faut <strong>finir exactement à zéro sur un double</strong> (l'anneau extérieur). Pour les débutants, la <strong>sortie simple</strong> est possible sur demande.</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="classement">
+    <div class="wrap">
+      <h2>Classement et records</h2>
+      <p class="section-intro">Les résultats des tournois du jeudi et les meilleures performances du club.</p>
+      <div class="records" id="records"></div>
+      <div class="table-scroll" id="ranking"></div>
+      <p class="updated" id="updated"></p>
+    </div>
+  </section>
+
+  <section class="block" id="photos">
+    <div class="wrap">
+      <h2>En images</h2>
+      <div class="gallery" id="gallery"></div>
+    </div>
+  </section>
+
+  <section class="block" id="contact">
+    <div class="wrap contact">
+      <div>
+        <h2>Écris-nous</h2>
+        <p>Tu viens jeudi ? Inscris-toi dans l'après-midi pour qu'on puisse préparer le tournoi du soir. Pour une question ou juste dire bonjour, écris-nous aussi.</p>
+        <p><a class="mail" id="mailLink" href="#">adresse</a></p>
+      </div>
+      <form id="contactForm" novalidate>
+        <fieldset>
+          <legend>Tu nous écris pour</legend>
+          <label class="choice"><input type="radio" name="kind" value="inscription" checked> T'inscrire jeudi</label>
+          <label class="choice"><input type="radio" name="kind" value="question"> Poser une question</label>
+        </fieldset>
+        <label>Ton prénom
+          <input type="text" name="name" autocomplete="given-name" required>
+        </label>
+        <label>Ton adresse e-mail
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Ton message <span class="hint" id="msgHint">(facultatif pour une inscription)</span>
+          <textarea name="message"></textarea>
+        </label>
+        <div><button class="btn" type="submit" id="sendBtn">M'inscrire pour jeudi</button></div>
+        <p class="form-note">Le bouton ouvre ta messagerie avec le message déjà rédigé.</p>
+        <p class="form-status" id="formStatus" role="status"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="oneeighty" id="oneeighty" role="status" aria-live="assertive"><span>180 !</span></div>
+
+<footer>
+  <div class="wrap">
+    <span>Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
+    <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
+  </div>
+</footer>
+
+<script>
+/* ====== Réglages du club ====== */
+const CLUB_EMAIL = "noyadarts@gmail.com"; // à remplacer par la vraie adresse
+
+/* Classement : à mettre à jour à partir de la feuille Excel du club */
+const CLASSEMENT = {
+  miseAJour: "",                 // ex. "12 octobre 2026"
+  colonnes: ["Joueur", "Points"], // colonnes affichées après le rang
+  joueurs: [],                   // ex. ["Prénom", 42]
+  records: [
+    { titre: "Meilleur score", valeur: "", joueur: "" },
+    { titre: "Meilleure sortie", valeur: "", joueur: "" },
+    { titre: "Meilleure moyenne", valeur: "", joueur: "" }
+  ]
+};
+
+/* Photos : { src: "...", legende: "..." } */
+const PHOTOS = [];
+
+/* ====== Classement ====== */
+(function(){
+  const rec = document.getElementById("records");
+  CLASSEMENT.records.forEach(r => {
+    const d = document.createElement("div"); d.className = "record";
+    const h = document.createElement("h3"); h.textContent = r.titre;
+    const v = document.createElement("div"); v.className = "val"; v.textContent = r.valeur || "À venir";
+    const w = document.createElement("div"); w.className = "who"; w.textContent = r.joueur || "";
+    d.append(h, v, w); rec.appendChild(d);
+  });
+  const box = document.getElementById("ranking");
+  if(!CLASSEMENT.joueurs.length){
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = "Le classement sera publié après les prochains tournois du jeudi.";
+    box.appendChild(p);
+  } else {
+    const t = document.createElement("table");
+    const head = document.createElement("thead"); const hr = document.createElement("tr");
+    ["Rang", ...CLASSEMENT.colonnes].forEach(c => { const th = document.createElement("th"); th.textContent = c; hr.appendChild(th); });
+    head.appendChild(hr); t.appendChild(head);
+    const body = document.createElement("tbody");
+    CLASSEMENT.joueurs.forEach((row, i) => {
+      const tr = document.createElement("tr");
+      const r = document.createElement("td"); r.className = "rank"; r.textContent = i + 1; tr.appendChild(r);
+      row.forEach(cell => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
+      body.appendChild(tr);
+    });
+    t.appendChild(body); box.appendChild(t);
+  }
+  if(CLASSEMENT.miseAJour) document.getElementById("updated").textContent = "Mis à jour le " + CLASSEMENT.miseAJour + ".";
+})();
+
+/* ====== Photos ====== */
+(function(){
+  const g = document.getElementById("gallery");
+  if(PHOTOS.length){
+    PHOTOS.forEach(ph => {
+      const f = document.createElement("figure");
+      const img = document.createElement("img"); img.src = ph.src; img.alt = ph.legende || "Soirée Noya'Darts"; img.loading = "lazy";
+      f.appendChild(img);
+      if(ph.legende){ const c = document.createElement("figcaption"); c.textContent = ph.legende; f.appendChild(c); }
+      g.appendChild(f);
+    });
+  } else {
+    for(let i=0;i<3;i++){
+      const f = document.createElement("figure"); f.className = "ph";
+      const sp = document.createElement("span"); sp.textContent = "Photos des soirées à venir";
+      f.appendChild(sp); g.appendChild(f);
+    }
+  }
+})();
+
+/* ====== Choix du formulaire ====== */
+(function(){
+  const form = document.getElementById("contactForm");
+  const btn = document.getElementById("sendBtn");
+  const hint = document.getElementById("msgHint");
+  form.addEventListener("change", () => {
+    const k = new FormData(form).get("kind");
+    btn.textContent = k === "inscription" ? "M'inscrire pour jeudi" : "Envoyer le message";
+    hint.hidden = k !== "inscription";
+  });
+})();
+
+/* ====== Contact ====== */
+(function(){
+  const link = document.getElementById("mailLink");
+  link.textContent = CLUB_EMAIL;
+  link.href = "mailto:" + CLUB_EMAIL;
+  link.target = "_blank";
+
+  const form = document.getElementById("contactForm");
+  const status = document.getElementById("formStatus");
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const d = new FormData(form);
+    const name = (d.get("name")||"").trim();
+    const email = (d.get("email")||"").trim();
+    const message = (d.get("message")||"").trim();
+    const kind = d.get("kind") || "question";
+    status.className = "form-status";
+    if(!name || (!message && kind !== "inscription")){
+      status.textContent = kind === "inscription" ? "Indique ton prénom pour t'inscrire." : "Indique ton prénom et ton message pour continuer.";
+      status.classList.add("err"); return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      status.textContent = "L'adresse e-mail semble incomplète. Vérifie-la puis réessaie.";
+      status.classList.add("err"); return;
+    }
+    const subject = (kind === "inscription" ? "Inscription au tournoi de jeudi : " : "Message de ") + name + " via le site Noya'Darts";
+    const body = (message || "Je serai présent(e) jeudi soir pour le tournoi.") + "\n\n" + name + "\n" + email;
+    const url = "mailto:" + CLUB_EMAIL + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    const w = window.open(url, "_blank");
+    if(!w){ window.location.href = url; }
+    status.textContent = kind === "inscription" ? "Ta messagerie s'ouvre avec ton inscription prête à partir." : "Ta messagerie s'ouvre avec le message prêt à partir.";
+    status.classList.add("ok");
+  });
+})();
+
+
+/* ====== Célébration 180 ====== */
+(function(){
+  const cv = document.getElementById("fx");
+  const g = cv.getContext("2d");
+  const banner = document.getElementById("oneeighty");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const COLS = ["#d4453b","#34a56b","#e3d4ae","#eceae2","#f2b33d","#5aa9e6"];
+  let parts = [], rockets = [], running = false, start = 0, lastLaunch = 0, W = 0, H = 0, dpr = 1;
+
+  function size(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W*dpr; cv.height = H*dpr; g.setTransform(dpr,0,0,dpr,0,0);
+  }
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  const pick = a => a[Math.floor(Math.random()*a.length)];
+
+  function confetti(n){
+    for(let i=0;i<n;i++) parts.push({ kind:"c", x:rnd(0,W), y:rnd(-H*0.6,-10), vx:rnd(-1.2,1.2), vy:rnd(1.5,4),
+      w:rnd(6,11), h:rnd(9,16), r:rnd(0,6.28), vr:rnd(-.2,.2), sway:rnd(0,6.28), col:pick(COLS), life:1 });
+  }
+  function launch(){
+    rockets.push({ x:rnd(W*.12,W*.88), y:H+10, vx:rnd(-1,1), vy:-rnd(H*0.011+7,H*0.013+9), col:pick(COLS), target:rnd(H*.12,H*.45) });
+  }
+  function explode(r){
+    const n = 70, col2 = pick(COLS);
+    for(let i=0;i<n;i++){
+      const a = (i/n)*Math.PI*2, sp = rnd(2,6.5);
+      parts.push({ kind:"s", x:r.x, y:r.y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, col: i%3 ? r.col : col2, life:1, decay:rnd(.010,.018) });
+    }
+  }
+
+  function tick(now){
+    const t = now - start;
+    g.clearRect(0,0,W,H);
+    if(t < 4200 && now - lastLaunch > 380){ launch(); if(Math.random() < .5) launch(); lastLaunch = now; }
+
+    rockets = rockets.filter(r => {
+      r.x += r.vx; r.y += r.vy; r.vy += 0.18;
+      g.fillStyle = r.col; g.beginPath(); g.arc(r.x, r.y, 2.6, 0, 6.28); g.fill();
+      g.fillStyle = "rgba(236,234,226,.35)"; g.beginPath(); g.arc(r.x - r.vx*2, r.y - r.vy*2, 1.8, 0, 6.28); g.fill();
+      if(r.y <= r.target || r.vy >= 0){ explode(r); return false; }
+      return true;
+    });
+
+    parts = parts.filter(p => {
+      if(p.kind === "s"){
+        p.x += p.vx; p.y += p.vy; p.vx *= .985; p.vy = p.vy*.985 + .06; p.life -= p.decay;
+        if(p.life <= 0) return false;
+        g.globalAlpha = Math.max(0,p.life); g.fillStyle = p.col;
+        g.beginPath(); g.arc(p.x, p.y, 2.2, 0, 6.28); g.fill(); g.globalAlpha = 1;
+        return true;
+      }
+      p.sway += .05; p.x += p.vx + Math.sin(p.sway)*.8; p.y += p.vy; p.r += p.vr;
+      if(t > 5200) p.life -= .02;
+      if(p.y > H + 30 || p.life <= 0) return false;
+      g.save(); g.globalAlpha = Math.max(0,p.life); g.translate(p.x,p.y); g.rotate(p.r);
+      g.fillStyle = p.col; g.fillRect(-p.w/2, -p.h/2*Math.abs(Math.cos(p.sway)), p.w, p.h*Math.abs(Math.cos(p.sway)) + 1);
+      g.restore();
+      return true;
+    });
+
+    if(t < 4200 || parts.length || rockets.length){ requestAnimationFrame(tick); }
+    else { running = false; cv.style.display = "none"; g.clearRect(0,0,W,H); }
+  }
+
+  window.noyaCelebrate = function(){
+    banner.classList.remove("on"); void banner.offsetWidth; banner.classList.add("on");
+    setTimeout(() => banner.classList.remove("on"), reduced ? 3000 : 4600);
+    if(reduced) return;
+    size(); cv.style.display = "block";
+    confetti(220);
+    start = performance.now(); lastLaunch = 0;
+    if(!running){ running = true; requestAnimationFrame(tick); }
+    setTimeout(() => { if(running) confetti(120); }, 1500);
+  };
+  window.addEventListener("resize", () => { if(running) size(); });
+  if(location.hash === "#180") setTimeout(window.noyaCelebrate, 600);
+})();
+
+/* ====== Mini-jeu ====== */
+(function(){
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const popup = document.getElementById("popup");
+  const msg = document.getElementById("msg");
+  const totalEl = document.getElementById("total");
+  const slots = [0,1,2].map(i => document.getElementById("s"+i));
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const ORDER = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+  const R = { bull:6.35, obull:15.9, tIn:99, tOut:107, dIn:162, dOut:170, rim:182, num:205, edge:225 };
+  const C = { black:"#1c1c1a", sisal:"#e6d9b8", red:"#c9372f", green:"#1f8a55", wire:"#9aa3a0", num:"#eceae2", back:"#121617" };
+  const DART_COLORS = ["#d4453b","#34a56b","#e3d4ae"];
+
+  let size = 0, dpr = 1, scale = 1, boardCache = null;
+  let aim = { x:0, y:0 }, aimActive = false;
+  let darts = [], flying = null, record = 0;
+  let t0 = performance.now();
+
+  try { record = parseInt(localStorage.getItem("noyadarts-record")||"0",10) || 0; } catch(e){ record = 0; }
+
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    size = rect.width;
+    canvas.width = Math.round(size*dpr);
+    canvas.height = Math.round(size*dpr);
+    scale = (size/2) / R.edge;
+    boardCache = renderBoard();
+  }
+
+  function renderBoard(){
+    const off = document.createElement("canvas");
+    off.width = canvas.width; off.height = canvas.height;
+    const g = off.getContext("2d");
+    g.setTransform(dpr*scale,0,0,dpr*scale, off.width/2, off.height/2);
+
+    g.beginPath(); g.arc(0,0,R.edge,0,Math.PI*2); g.fillStyle = C.back; g.fill();
+    g.beginPath(); g.arc(0,0,R.rim,0,Math.PI*2); g.fillStyle = "#0e1112"; g.fill();
+
+    const seg = Math.PI*2/20;
+    for(let i=0;i<20;i++){
+      const a0 = -Math.PI/2 + (i-0.5)*seg, a1 = a0 + seg;
+      const dark = i%2===0;
+      ring(g, 0, R.dOut, a0, a1, dark ? C.black : C.sisal);
+      ring(g, R.dIn, R.dOut, a0, a1, dark ? C.red : C.green);
+      ring(g, R.tIn, R.tOut, a0, a1, dark ? C.red : C.green);
+    }
+    g.beginPath(); g.arc(0,0,R.obull,0,Math.PI*2); g.fillStyle = C.green; g.fill();
+    g.beginPath(); g.arc(0,0,R.bull,0,Math.PI*2); g.fillStyle = C.red; g.fill();
+
+    g.strokeStyle = C.wire; g.lineWidth = 0.9;
+    [R.bull,R.obull,R.tIn,R.tOut,R.dIn,R.dOut].forEach(r => { g.beginPath(); g.arc(0,0,r,0,Math.PI*2); g.stroke(); });
+    for(let i=0;i<20;i++){
+      const a = -Math.PI/2 + (i-0.5)*seg;
+      g.beginPath(); g.moveTo(Math.cos(a)*R.obull, Math.sin(a)*R.obull);
+      g.lineTo(Math.cos(a)*R.dOut, Math.sin(a)*R.dOut); g.stroke();
+    }
+
+    g.fillStyle = C.num; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "800 22px 'Big Shoulders Display', 'Arial Narrow', sans-serif";
+    for(let i=0;i<20;i++){
+      const a = -Math.PI/2 + i*seg;
+      g.fillText(String(ORDER[i]), Math.cos(a)*R.num*0.965, Math.sin(a)*R.num*0.965);
+    }
+    return off;
+  }
+
+  function ring(g, r0, r1, a0, a1, fill){
+    g.beginPath(); g.arc(0,0,r1,a0,a1); g.arc(0,0,r0,a1,a0,true); g.closePath();
+    g.fillStyle = fill; g.fill();
+  }
+
+  function scoreAt(x,y){
+    const r = Math.hypot(x,y);
+    if(r <= R.bull) return { pts:50, label:"Bull", big:"Dans le mille !" };
+    if(r <= R.obull) return { pts:25, label:"25", big:"Demi-bull" };
+    if(r > R.dOut) return { pts:0, label:"0", big:"À côté" };
+    let deg = Math.atan2(x, -y) * 180/Math.PI; if(deg < 0) deg += 360;
+    const n = ORDER[Math.floor(((deg + 9) % 360) / 18)];
+    if(r >= R.tIn && r <= R.tOut) return { pts:n*3, label:"T"+n, big:"Triple "+n+" !" };
+    if(r >= R.dIn) return { pts:n*2, label:"D"+n, big:"Double "+n };
+    return { pts:n, label:String(n), big:String(n) };
+  }
+
+  function wobble(t){
+    const A = 14;
+    return {
+      x: A*(Math.sin(t*1.7) + 0.55*Math.sin(t*3.3 + 1.1)),
+      y: A*(Math.cos(t*1.25) + 0.5*Math.sin(t*2.6 + 0.4))
+    };
+  }
+  function gauss(){ return (Math.random()+Math.random()+Math.random()-1.5)*3.4; }
+
+  function toBoard(ev){
+    const rect = canvas.getBoundingClientRect();
+    return { x:(ev.clientX - rect.left - rect.width/2)/scale, y:(ev.clientY - rect.top - rect.height/2)/scale };
+  }
+
+  function throwDart(){
+    if(flying) return;
+    if(darts.length >= 3){ newRound(); return; }
+    const w = wobble((performance.now()-t0)/1000);
+    const target = { x: aim.x + w.x + gauss(), y: aim.y + w.y + gauss() };
+    const color = DART_COLORS[darts.length];
+    if(reduced){ land(target, color); return; }
+    flying = { from:{ x: target.x*0.3 + 40, y: R.edge + 90 }, to:target, color, start:performance.now(), dur:300 };
+  }
+
+  function land(pos, color){
+    const res = scoreAt(pos.x, pos.y);
+    darts.push({ ...pos, color, res });
+    const i = darts.length-1;
+    slots[i].querySelector("b").textContent = res.label;
+    slots.forEach((s,k) => s.classList.toggle("active", k === darts.length && darts.length < 3));
+    const total = darts.reduce((s,d) => s + d.res.pts, 0);
+    totalEl.textContent = total;
+    showPopup(res.big);
+
+    if(darts.length === 3){
+      let text;
+      if(total > record){
+        record = total;
+        try { localStorage.setItem("noyadarts-record", String(record)); } catch(e){}
+        text = "<strong>Nouveau record : " + total + " points.</strong> Clique pour rejouer.";
+      } else {
+        text = total + " points. Ton record : <strong>" + record + "</strong>. Clique pour rejouer.";
+      }
+      if(total === 180){ window.noyaCelebrate && window.noyaCelebrate(); }
+      if(total === 180) text = "<strong>180 !</strong> Le score parfait. Viens nous montrer ça jeudi.";
+      msg.innerHTML = text;
+    } else {
+      msg.innerHTML = "Encore " + (3 - darts.length) + (3 - darts.length > 1 ? " fléchettes." : " fléchette.");
+    }
+  }
+
+  function newRound(){
+    darts = [];
+    slots.forEach((s,k) => { s.querySelector("b").textContent = ""; s.classList.toggle("active", k===0); });
+    totalEl.textContent = "0";
+    msg.innerHTML = record ? "Nouvelle volée. Record à battre : <strong>" + record + "</strong>." : "Nouvelle volée. Vise et lance.";
+  }
+
+  function showPopup(text){
+    popup.textContent = text;
+    popup.classList.remove("show"); void popup.offsetWidth; popup.classList.add("show");
+  }
+
+  function drawDart(g, x, y, color, s){
+    const k = 1/scale;
+    g.save(); g.translate(x,y); g.scale(s,s);
+    g.lineCap = "round";
+    g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 5*k;
+    g.beginPath(); g.moveTo(2*k,3*k); g.lineTo(20*k,34*k); g.stroke();
+    g.strokeStyle = "#c9ccc8"; g.lineWidth = 2.2*k;
+    g.beginPath(); g.moveTo(0,0); g.lineTo(9*k,15*k); g.stroke();
+    g.strokeStyle = "#50585a"; g.lineWidth = 5*k;
+    g.beginPath(); g.moveTo(9*k,15*k); g.lineTo(15*k,25*k); g.stroke();
+    g.fillStyle = color;
+    g.beginPath(); g.moveTo(15*k,25*k); g.lineTo(11*k,38*k); g.lineTo(19*k,34*k); g.lineTo(27*k,36*k); g.closePath(); g.fill();
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(0,0,1.4*k,0,Math.PI*2); g.fill();
+    g.restore();
+  }
+
+  function frame(now){
+    const t = (now - t0)/1000;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(boardCache) ctx.drawImage(boardCache,0,0);
+    ctx.setTransform(dpr*scale,0,0,dpr*scale, canvas.width/2, canvas.height/2);
+
+    darts.forEach(d => drawDart(ctx, d.x, d.y, d.color, 1));
+
+    if(flying){
+      const p = Math.min(1, (now - flying.start)/flying.dur);
+      const e = 1 - Math.pow(1-p, 3);
+      const x = flying.from.x + (flying.to.x - flying.from.x)*e;
+      const y = flying.from.y + (flying.to.y - flying.from.y)*e - Math.sin(p*Math.PI)*40;
+      drawDart(ctx, x, y, flying.color, 2.4 - 1.4*e);
+      if(p >= 1){ const f = flying; flying = null; land(f.to, f.color); }
+    } else if(aimActive && darts.length < 3){
+      const w = wobble(t);
+      const x = aim.x + w.x, y = aim.y + w.y;
+      ctx.strokeStyle = "rgba(236,234,226,.95)"; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x-15,y); ctx.lineTo(x-5,y); ctx.moveTo(x+5,y); ctx.lineTo(x+15,y);
+      ctx.moveTo(x,y-15); ctx.lineTo(x,y-5); ctx.moveTo(x,y+5); ctx.lineTo(x,y+15);
+      ctx.stroke();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  canvas.addEventListener("pointermove", e => { aim = toBoard(e); aimActive = true; });
+  canvas.addEventListener("pointerenter", e => { aim = toBoard(e); aimActive = true; });
+  canvas.addEventListener("pointerleave", e => { if(e.pointerType === "mouse") aimActive = false; });
+  canvas.addEventListener("pointerdown", e => { aim = toBoard(e); aimActive = true; });
+  canvas.addEventListener("pointerup", e => { aim = toBoard(e); throwDart(); });
+  canvas.addEventListener("keydown", e => {
+    if(e.key === " " || e.key === "Enter"){
+      e.preventDefault();
+      if(!aimActive){ aim = { x:0, y:0 }; aimActive = true; }
+      throwDart();
+    }
+  });
+  canvas.addEventListener("focus", () => { if(!aimActive){ aim = { x:0, y:0 }; aimActive = true; } });
+
+  window.addEventListener("resize", resize);
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(resize); }
+  resize();
+  if(record) msg.innerHTML = "Ton record : <strong>" + record + "</strong>. À toi de le battre.";
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
