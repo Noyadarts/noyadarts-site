@@ -271,6 +271,42 @@ th{ font-weight:600; color:var(--chalk-dim); font-size:.95rem; }
 td.rank{ font-family:var(--display); font-weight:800; font-size:1.4rem; color:var(--sisal); width:3.5rem; }
 tbody tr:first-child td{ color:var(--chalk); font-weight:600; }
 .empty{ color:var(--chalk-dim); padding:1.5rem 0; margin:0; }
+.subhead{ font-family:var(--display); font-weight:800; font-size:1.7rem; line-height:1.1; margin:3rem 0 1.2rem; color:var(--chalk); }
+.subhead:first-of-type{ margin-top:0; }
+.periods{ display:grid; gap:2rem 1.6rem; }
+@media (min-width:780px){ .periods{ grid-template-columns:repeat(3,1fr); } }
+.period{ border-top:3px solid var(--red); padding-top:.9rem; }
+.period:nth-child(2){ border-top-color:var(--green); }
+.period:nth-child(3){ border-top-color:var(--sisal); }
+.period h4{ margin:0; font-family:var(--display); font-weight:800; font-size:1.45rem; line-height:1.1; color:var(--chalk); }
+.period .span{ margin:.2rem 0 .4rem; color:var(--chalk-dim); font-size:.92rem; }
+.period dl{ margin:0; }
+.period .rec{ display:grid; grid-template-columns:auto 1fr; column-gap:1rem; align-items:baseline; padding:.75rem 0; border-bottom:1px solid var(--slate-3); }
+.period .rec:last-child{ border-bottom:0; }
+.period dt{ grid-column:1 / -1; color:var(--chalk-dim); font-size:.92rem; }
+.period dd{ margin:0; }
+.period .val{ font-family:var(--display); font-weight:900; font-size:2.3rem; line-height:1.05; color:var(--chalk); min-width:3.4ch; }
+.period .who{ font-weight:600; color:var(--chalk); }
+.period .when{ display:block; color:var(--chalk-dim); font-size:.88rem; font-weight:400; }
+.period .none{ color:var(--chalk-dim); font-size:.95rem; }
+td.player{ font-weight:600; color:var(--chalk); white-space:nowrap; }
+td.pts{ width:40%; min-width:150px; }
+.bar{ display:flex; align-items:center; gap:.7rem; }
+.bar i{ display:block; height:.55rem; border-radius:999px; background:var(--slate-3); flex:0 0 auto; }
+.bar b{ font-family:var(--display); font-weight:800; font-size:1.35rem; color:var(--chalk); }
+tr.top1 .bar i{ background:var(--red); }
+tr.top2 .bar i, tr.top3 .bar i{ background:var(--green); }
+td.num{ color:var(--chalk-dim); font-variant-numeric:tabular-nums; }
+th.num, td.num{ text-align:center; }
+.points-rule{ color:var(--chalk-dim); font-size:.95rem; max-width:70ch; margin:1rem 0 0; }
+.nights{ display:grid; gap:1.4rem 1.6rem; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); }
+.night{ border-left:3px solid var(--slate-3); padding:.2rem 0 .2rem 1rem; }
+.night:first-child{ border-left-color:var(--red); }
+.night time{ display:block; font-family:var(--display); font-weight:800; font-size:1.3rem; color:var(--sisal); }
+.night .win{ margin:.3rem 0 0; color:var(--chalk); font-weight:600; }
+.night .second{ margin:0; color:var(--chalk-dim); font-size:.95rem; }
+.night ul{ list-style:none; margin:.6rem 0 0; padding:0; font-size:.92rem; color:var(--chalk-dim); }
+.night li strong{ color:var(--chalk); font-weight:600; }
 .updated{ color:var(--chalk-dim); font-size:.92rem; margin:1rem 0 0; }
 
 /* ---------- Photos ---------- */
@@ -417,8 +453,17 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
     <div class="wrap">
       <h2>Classement et records</h2>
       <p class="section-intro">Les résultats des tournois du jeudi et les meilleures performances du club.</p>
-      <div class="records" id="records"></div>
+
+      <h3 class="subhead">Records</h3>
+      <div class="periods" id="records"></div>
+      <p class="points-rule">Un record n'est retenu qu'à partir de 50 de moyenne sur un leg, 100 points pour une volée et 60 points pour une sortie.</p>
+
+      <h3 class="subhead" id="champ-title">Championnat annuel</h3>
       <div class="table-scroll" id="ranking"></div>
+      <p class="points-rule">Barème de chaque jeudi : 10 points pour le vainqueur, 7 pour le finaliste, 5 pour le 3e, 3 pour le 4e, 1 point de participation, et 1 point bonus par record de la soirée.</p>
+
+      <h3 class="subhead">Les jeudis de la saison</h3>
+      <div class="nights" id="nights"></div>
       <p class="updated" id="updated"></p>
     </div>
   </section>
@@ -474,51 +519,253 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 /* ====== Réglages du club ====== */
 const CLUB_EMAIL = "noyadarts@gmail.com"; // à remplacer par la vraie adresse
 
-/* Classement : à mettre à jour à partir de la feuille Excel du club */
-const CLASSEMENT = {
-  miseAJour: "",                 // ex. "12 octobre 2026"
-  colonnes: ["Joueur", "Points"], // colonnes affichées après le rang
-  joueurs: [],                   // ex. ["Prénom", 42]
-  records: [
-    { titre: "Meilleur score", valeur: "", joueur: "" },
-    { titre: "Meilleure sortie", valeur: "", joueur: "" },
-    { titre: "Meilleure moyenne", valeur: "", joueur: "" }
-  ]
+/* ====== Classement et records ======
+   Le site lit deux onglets du Google Sheet du club, publiés au format CSV
+   (Fichier > Partager > Publier sur le Web) :
+   - "Darters Championship" (classement du championnat)
+   - "Records BD" (liste de tous les records de soirée)
+   Colle ci-dessous les deux liens obtenus. Tant qu'ils sont vides, ou si
+   Google ne répond pas, le site affiche l'instantané enregistré plus bas. */
+const SHEET_CSV = {
+  championnat: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_XKD4x2suBA-aNQ0Z80MYfIYlT4cQRnrcNENiRld75g5nvAd9nd8FPiqd9JB5XsaguJbRDSVV-8Jd/pub?gid=289128994&single=true&output=csv",
+  records: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_XKD4x2suBA-aNQ0Z80MYfIYlT4cQRnrcNENiRld75g5nvAd9nd8FPiqd9JB5XsaguJbRDSVV-8Jd/pub?gid=1970144292&single=true&output=csv"
 };
+
+/* Instantané des données (secours si les liens ci-dessus ne répondent pas) */
+const SNAPSHOT_CHAMPIONNAT = `Championnat annuel,,,2/7/2026,,,23/7/2026,,,10/9/2026,,,17/9/2026,,,24/9/2026,,
+Nom,Points,,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points
+Bob le fou,37,,5,,1,1,1,11,2,2,9,1,,10,3,1,6
+Bast le Kid,27,,3,1,6,2,,7,4,,3,5,,1,1,,10
+Nico,23,,2,1,8,3,2,7,3,1,6,,,,5,1,2
+Eddy,22,,1,1,11,4,,3,,,,5,,1,2,,7
+Antho,12,,5,,1,5,,1,1,,10,,,,,,
+Christophe,10,,,,,,,,,,,2,,7,4,,3
+Alexandre,8,,,,,,,,,,,3,2,7,5,,1
+Guillaume,5,,4,,3,,,,,,,5,1,2,,,
+Shido,5,,,,,,,,,,,4,,3,5,1,2
+Marc,2,,5,,1,5,,1,,,,,,,,,
+Alan,2,,,,,,,,,,,5,,1,5,,1
+Laurent,1,,,,,5,,1,,,,,,,,,
+Sophie,1,,,,,5,,1,,,,,,,,,
+Thomas,1,,,,,,,,,,,5,,1,,,`;
+const SNAPSHOT_RECORDS = `date,Type,Score,Nom
+24/9/2026,Moyenne Leg,"82,09",Bob le fou
+24/9/2026,Meilleure Volée,140,Shido
+17/9/2026,Meilleure Volée,133,Alexandre
+17/9/2026,Meilleure Sortie,85,Guillaume
+17/9/2026,Moyenne Leg,"50,17",Alexandre
+10/9/2026,Moyenne Leg,"69,46",Nico
+10/9/2026,Meilleure Volée,140,Bob le fou
+10/9/2026,Meilleure Sortie,68,Bob le fou
+23/7/2026,Moyenne Leg,"56,44",Bob le fou
+23/7/2026,Meilleure Volée,125,Nico
+23/7/2026,Meilleure Sortie,99,Nico
+2/7/2026,Moyenne Leg,"56,44",Eddy
+2/7/2026,Meilleure Volée,132,Nico
+2/7/2026,Meilleure Sortie,109,Bast le Kid`;
 
 /* Photos : { src: "...", legende: "..." } */
 const PHOTOS = [];
 
 /* ====== Classement ====== */
 (function(){
-  const rec = document.getElementById("records");
-  CLASSEMENT.records.forEach(r => {
-    const d = document.createElement("div"); d.className = "record";
-    const h = document.createElement("h3"); h.textContent = r.titre;
-    const v = document.createElement("div"); v.className = "val"; v.textContent = r.valeur || "À venir";
-    const w = document.createElement("div"); w.className = "who"; w.textContent = r.joueur || "";
-    d.append(h, v, w); rec.appendChild(d);
-  });
-  const box = document.getElementById("ranking");
-  if(!CLASSEMENT.joueurs.length){
-    const p = document.createElement("p"); p.className = "empty";
-    p.textContent = "Le classement sera publié après les prochains tournois du jeudi.";
-    box.appendChild(p);
-  } else {
-    const t = document.createElement("table");
-    const head = document.createElement("thead"); const hr = document.createElement("tr");
-    ["Rang", ...CLASSEMENT.colonnes].forEach(c => { const th = document.createElement("th"); th.textContent = c; hr.appendChild(th); });
-    head.appendChild(hr); t.appendChild(head);
-    const body = document.createElement("tbody");
-    CLASSEMENT.joueurs.forEach((row, i) => {
-      const tr = document.createElement("tr");
-      const r = document.createElement("td"); r.className = "rank"; r.textContent = i + 1; tr.appendChild(r);
-      row.forEach(cell => { const td = document.createElement("td"); td.textContent = cell; tr.appendChild(td); });
-      body.appendChild(tr);
-    });
-    t.appendChild(body); box.appendChild(t);
+  const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+  const MOIS_COURT = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+
+  function parseCSV(text){
+    const rows = []; let row = [], cell = "", q = false;
+    for(let i = 0; i < text.length; i++){
+      const c = text[i];
+      if(q){
+        if(c === '"'){ if(text[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+        else cell += c;
+      } else if(c === '"') q = true;
+      else if(c === ","){ row.push(cell); cell = ""; }
+      else if(c === "\n" || c === "\r"){
+        if(c === "\r" && text[i+1] === "\n") i++;
+        row.push(cell); rows.push(row); row = []; cell = "";
+      } else cell += c;
+    }
+    if(cell !== "" || row.length){ row.push(cell); rows.push(row); }
+    return rows.map(r => r.map(v => v.trim()));
   }
-  if(CLASSEMENT.miseAJour) document.getElementById("updated").textContent = "Mis à jour le " + CLASSEMENT.miseAJour + ".";
+  function num(v){
+    if(v == null || v === "") return null;
+    const n = parseFloat(String(v).replace(/\s/g,"").replace(",", "."));
+    return isNaN(n) ? null : n;
+  }
+  function parseDate(v){
+    if(!v) return null;
+    let m = String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return +m[2] > 12 ? new Date(+m[3], +m[1]-1, +m[2]) : new Date(+m[3], +m[2]-1, +m[1]);
+    m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+    return null;
+  }
+  const key = d => d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+  const longDate = d => d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear();
+  const shortDate = d => d.getDate() + " " + MOIS_COURT[d.getMonth()];
+  const fmtNum = n => Number.isInteger(n) ? String(n) : n.toLocaleString("fr-FR", { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const norm = t => String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
+
+  /* Onglet "Darters Championship" */
+  function readChampionnat(text){
+    const rows = parseCSV(text);
+    const h = rows.findIndex(r => norm(r[0]) === "nom");
+    if(h < 1) throw new Error("En-tête du championnat introuvable");
+    const dates = rows[h-1], head = rows[h].map(norm);
+    const nights = [];
+    dates.forEach((v, c) => {
+      const d = parseDate(v); if(!d) return;
+      const col = name => { for(let k = c; k < c + 3; k++) if(head[k] === name) return k; return -1; };
+      nights.push({ date:d, rank:col("classement"), recs:col("records"), pts:col("points") });
+    });
+    const players = [];
+    for(let i = h + 1; i < rows.length; i++){
+      const r = rows[i]; if(!r[0]) continue;
+      const res = nights.map(n => ({ rank:num(r[n.rank]), recs:num(r[n.recs]) || 0 }));
+      const played = res.filter(x => x.rank != null);
+      if(!played.length && !num(r[1])) continue;
+      players.push({
+        name:r[0], points:num(r[1]) || 0, res,
+        soirees:played.length,
+        victoires:played.filter(x => x.rank === 1).length,
+        records:res.reduce((a, x) => a + x.recs, 0)
+      });
+    }
+    players.sort((a, b) => b.points - a.points);
+    return { title:dates[0] || "Championnat annuel", nights, players };
+  }
+
+  /* Onglet "Records BD" */
+  function readRecords(text){
+    const rows = parseCSV(text);
+    const h = rows.findIndex(r => r.map(norm).includes("type"));
+    if(h < 0) throw new Error("En-tête des records introuvable");
+    const head = rows[h].map(norm);
+    const iD = head.indexOf("date"), iT = head.indexOf("type"), iS = head.indexOf("score"), iN = head.indexOf("nom");
+    return rows.slice(h + 1).map(r => ({ date:parseDate(r[iD]), type:r[iT], score:num(r[iS]), name:r[iN] }))
+      .filter(x => x.date && x.type && x.score != null && x.name);
+  }
+
+  const TYPES = [
+    { k:"moyenne leg", titre:"Meilleure moyenne", court:"Moyenne" },
+    { k:"meilleure volee", titre:"Meilleure volée", court:"Volée" },
+    { k:"meilleure sortie", titre:"Meilleure sortie", court:"Sortie" }
+  ];
+
+  function render(champ, recs, live){
+    /* Records : dernière soirée, 5 derniers jeudis, saison (juillet à juin) */
+    const box = document.getElementById("records"); box.textContent = "";
+    let dates = champ.nights.filter((n, i) => champ.players.some(p => p.res[i].rank != null)).map(n => n.date);
+    if(!dates.length) dates = recs.map(r => r.date);
+    dates = [...new Map(dates.map(d => [key(d), d])).values()].sort((a, b) => a - b);
+    if(dates.length){
+      const last = dates[dates.length - 1];
+      const five = new Set(dates.slice(-5).map(key));
+      const y0 = last.getMonth() >= 6 ? last.getFullYear() : last.getFullYear() - 1;
+      const seasonStart = new Date(y0, 6, 1), seasonEnd = new Date(y0 + 1, 6, 1);
+      const first5 = dates.slice(-5)[0];
+      const PERIODS = [
+        { titre:"Dernière soirée", span:"Jeudi " + longDate(last), keep:r => key(r.date) === key(last), showDate:false },
+        { titre:"5 derniers jeudis", span:"Du " + shortDate(first5) + " au " + shortDate(last), keep:r => five.has(key(r.date)), showDate:true },
+        { titre:"Saison " + y0 + "-" + (y0 + 1), span:"Depuis le 1er juillet " + y0, keep:r => r.date >= seasonStart && r.date < seasonEnd, showDate:true }
+      ];
+      PERIODS.forEach(per => {
+        const col = el("div", "period");
+        col.append(el("h4", null, per.titre), el("p", "span", per.span));
+        const dl = el("dl");
+        TYPES.forEach(t => {
+          const best = recs.filter(r => norm(r.type) === t.k && per.keep(r))
+            .reduce((b, r) => (!b || r.score > b.score || (r.score === b.score && r.date > b.date)) ? r : b, null);
+          const row = el("div", "rec");
+          row.appendChild(el("dt", null, t.titre));
+          if(best){
+            row.appendChild(el("dd", "val", fmtNum(best.score)));
+            const w = el("dd", "who", best.name);
+            if(per.showDate) w.appendChild(el("span", "when", "le " + longDate(best.date)));
+            row.appendChild(w);
+          } else {
+            row.appendChild(el("dd", "none", "Pas de record"));
+          }
+          dl.appendChild(row);
+        });
+        col.appendChild(dl); box.appendChild(col);
+      });
+    }
+
+    /* Tableau du championnat */
+    document.getElementById("champ-title").textContent = champ.title;
+    const wrap = document.getElementById("ranking"); wrap.textContent = "";
+    if(!champ.players.length){
+      wrap.appendChild(el("p", "empty", "Le classement sera publié après les prochains tournois du jeudi."));
+    } else {
+      const max = champ.players[0].points || 1;
+      const t = el("table"), thead = el("thead"), hr = el("tr");
+      [["Rang"],["Joueur"],["Points"],["Soirées","num"],["Victoires","num"],["Records","num"]]
+        .forEach(([txt, c]) => hr.appendChild(el("th", c, txt)));
+      thead.appendChild(hr); t.appendChild(thead);
+      const tb = el("tbody");
+      let rank = 0, prev = null;
+      champ.players.forEach((p, i) => {
+        if(p.points !== prev){ rank = i + 1; prev = p.points; }
+        const tr = el("tr", rank <= 3 ? "top" + rank : "");
+        tr.appendChild(el("td", "rank", String(rank)));
+        tr.appendChild(el("td", "player", p.name));
+        const td = el("td", "pts"), bar = el("div", "bar"), i2 = el("i");
+        i2.style.width = Math.max(4, Math.round(p.points / max * 100)) + "%";
+        i2.style.maxWidth = "calc(100% - 3rem)";
+        bar.append(i2, el("b", null, fmtNum(p.points))); td.appendChild(bar); tr.appendChild(td);
+        tr.appendChild(el("td", "num", String(p.soirees)));
+        tr.appendChild(el("td", "num", String(p.victoires || "")));
+        tr.appendChild(el("td", "num", String(p.records || "")));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); wrap.appendChild(t);
+    }
+
+    /* Les jeudis de la saison, du plus récent au plus ancien */
+    const nb = document.getElementById("nights"); nb.textContent = "";
+    const byDate = {};
+    recs.forEach(r => (byDate[key(r.date)] = byDate[key(r.date)] || []).push(r));
+    champ.nights.slice().reverse().forEach(n => {
+      const idx = champ.nights.indexOf(n);
+      const who = rk => champ.players.filter(p => p.res[idx].rank === rk).map(p => p.name).join(", ");
+      const nbJ = champ.players.filter(p => p.res[idx].rank != null).length;
+      if(!nbJ) return;
+      const card = el("article", "night");
+      const tm = el("time", null, "Jeudi " + shortDate(n.date)); tm.dateTime = key(n.date); card.appendChild(tm);
+      if(who(1)) card.appendChild(el("p", "win", "Vainqueur : " + who(1)));
+      if(who(2)) card.appendChild(el("p", "second", "Finaliste : " + who(2) + ", " + nbJ + " joueurs"));
+      const list = (byDate[key(n.date)] || []);
+      if(list.length){
+        const ul = el("ul");
+        TYPES.forEach(t => list.filter(r => norm(r.type) === t.k).forEach(r => {
+          const li = el("li"); li.append(t.court + " ", el("strong", null, fmtNum(r.score)), " par " + r.name); ul.appendChild(li);
+        }));
+        card.appendChild(ul);
+      }
+      nb.appendChild(card);
+    });
+
+    const last = champ.nights.length ? champ.nights[champ.nights.length - 1].date : null;
+    document.getElementById("updated").textContent = last
+      ? "Résultats à jour au jeudi " + longDate(last) + (live ? "." : " (dernière sauvegarde du site).")
+      : "";
+  }
+
+  function fromSnapshot(){ render(readChampionnat(SNAPSHOT_CHAMPIONNAT), readRecords(SNAPSHOT_RECORDS), false); }
+  try { fromSnapshot(); } catch(e){ console.error(e); }
+
+  if(SHEET_CSV.championnat || SHEET_CSV.records){
+    const get = (u, fallback) => !u ? Promise.resolve(fallback) :
+      fetch(u + (u.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache:"no-store" })
+        .then(r => { if(!r.ok) throw new Error(r.status); return r.text(); });
+    Promise.all([get(SHEET_CSV.championnat, SNAPSHOT_CHAMPIONNAT), get(SHEET_CSV.records, SNAPSHOT_RECORDS)])
+      .then(([a, b]) => render(readChampionnat(a), readRecords(b), !!(SHEET_CSV.championnat && SHEET_CSV.records)))
+      .catch(err => console.warn("Google Sheet indisponible, instantané affiché.", err));
+  }
 })();
 
 /* ====== Photos ====== */
