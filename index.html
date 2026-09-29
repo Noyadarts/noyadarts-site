@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Noya'Darts, club de fléchettes de Noyarey</title>
 <meta name="description" content="Noya'Darts, club de fléchettes à Noyarey (Isère). Tous les jeudis dès 19 h, salle Chartreuse de la Maison des Associations. Ouvert à tous.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1b2224">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Noya'Darts, club de fléchettes de Noyarey">
+<meta property="og:description" content="Tous les jeudis dès 19 h, salle Chartreuse de la Maison des Associations de Noyarey. Ouvert à tous, débutants compris.">
+<meta property="og:image" content="https://noyadarts.github.io/noyadarts-site/partage.jpg">
+<meta property="og:url" content="https://noyadarts.github.io/noyadarts-site/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -69,6 +77,16 @@ a{ color:var(--sisal); }
   color:var(--chalk);
 }
 .brand span{ display:block; }
+.brand-logo{
+  display:block;
+  width:clamp(240px, 70vw, 440px);
+  height:auto;
+  margin:0 0 0 -.6rem;
+  filter:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  animation:logo-in .7s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes logo-in{ from{ opacity:0; transform:scale(.94) rotate(-2deg); } to{ opacity:1; transform:none; } }
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .brand .sub{
   display:block;
   font-size:.26em;
@@ -205,7 +223,9 @@ textarea{ min-height:8rem; resize:vertical; }
 .form-status.ok{ color:var(--green); }
 
 footer{ padding:2.5rem 0 3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
-footer .wrap{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; }
+footer .wrap{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; }
+.foot-id{ display:flex; align-items:center; gap:.9rem; }
+.foot-id img{ width:56px; height:auto; }
 
 
 /* ---------- Curseur fléchette ---------- */
@@ -301,6 +321,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 @media (prefers-reduced-motion: reduce){
   html{ scroll-behavior:auto; }
   .popup.show{ animation-duration:.01s; opacity:1; }
+  .brand-logo{ animation:none; }
 }
 </style>
 </head>
@@ -320,7 +341,8 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
     <header class="hero">
       <div>
         <h1 class="brand">
-          <span>Noya'</span><span>Darts</span>
+          <img class="brand-logo" src="logo-noyadarts.webp" alt="" width="640" height="576" fetchpriority="high">
+          <span class="sr-only">Noya'Darts</span>
           <span class="sub">Club de fléchettes de Noyarey</span>
         </h1>
         <p class="lead">Tous les jeudis à partir de 19 h, on se retrouve à la Maison des Associations pour le tournoi du soir. Ouvert à tous, débutants compris.</p>
@@ -443,7 +465,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 
 <footer>
   <div class="wrap">
-    <span>Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
+    <span class="foot-id"><img src="logo-noyadarts.webp" alt="" width="640" height="576" loading="lazy">Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
     <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
   </div>
 </footer>
