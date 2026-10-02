@@ -527,28 +527,32 @@ const CLUB_EMAIL = "noyadarts@gmail.com"; // à remplacer par la vraie adresse
    Colle ci-dessous les deux liens obtenus. Tant qu'ils sont vides, ou si
    Google ne répond pas, le site affiche l'instantané enregistré plus bas. */
 const SHEET_CSV = {
-  championnat: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_XKD4x2suBA-aNQ0Z80MYfIYlT4cQRnrcNENiRld75g5nvAd9nd8FPiqd9JB5XsaguJbRDSVV-8Jd/pub?gid=289128994&single=true&output=csv",
-  records: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_XKD4x2suBA-aNQ0Z80MYfIYlT4cQRnrcNENiRld75g5nvAd9nd8FPiqd9JB5XsaguJbRDSVV-8Jd/pub?gid=1970144292&single=true&output=csv"
+  championnat: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1985368764&single=true&output=csv",
+  records: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1726460292&single=true&output=csv"
 };
 
 /* Instantané des données (secours si les liens ci-dessus ne répondent pas) */
-const SNAPSHOT_CHAMPIONNAT = `Championnat annuel,,,2/7/2026,,,23/7/2026,,,10/9/2026,,,17/9/2026,,,24/9/2026,,
-Nom,Points,,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points
-Bob le fou,37,,5,,1,1,1,11,2,2,9,1,,10,3,1,6
-Bast le Kid,27,,3,1,6,2,,7,4,,3,5,,1,1,,10
-Nico,23,,2,1,8,3,2,7,3,1,6,,,,5,1,2
-Eddy,22,,1,1,11,4,,3,,,,5,,1,2,,7
-Antho,12,,5,,1,5,,1,1,,10,,,,,,
-Christophe,10,,,,,,,,,,,2,,7,4,,3
-Alexandre,8,,,,,,,,,,,3,2,7,5,,1
-Guillaume,5,,4,,3,,,,,,,5,1,2,,,
-Shido,5,,,,,,,,,,,4,,3,5,1,2
-Marc,2,,5,,1,5,,1,,,,,,,,,
-Alan,2,,,,,,,,,,,5,,1,5,,1
-Laurent,1,,,,,5,,1,,,,,,,,,
-Sophie,1,,,,,5,,1,,,,,,,,,
-Thomas,1,,,,,,,,,,,5,,1,,,`;
+const SNAPSHOT_CHAMPIONNAT = `Championnat annuel,,,2/7/2026,,,23/7/2026,,,10/9/2026,,,17/9/2026,,,24/9/2026,,,1/10/2026,,
+Nom,Points,,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points,Classement,Records,Points
+Bob le fou,43,,5,,1,1,1,11,2,2,9,1,,10,3,1,6,3,1,6
+Bast le Kid,30,,3,1,6,2,,7,4,,3,5,,1,1,,10,4,,3
+Nico,24,,2,1,8,3,2,7,3,1,6,,,,5,1,2,5,,1
+Eddy,23,,1,1,11,4,,3,,,,5,,1,2,,7,5,,1
+Guillaume,17,,4,,3,,,,,,,5,1,2,,,,1,2,12
+Antho,12,,5,,1,5,,1,1,,10,,,,,,,,,
+Christophe,10,,,,,,,,,,,2,,7,4,,3,,,
+Alexandre,8,,,,,,,,,,,3,2,7,5,,1,,,
+Jerome,7,,,,,,,,,,,,,,,,,2,,7
+Shido,6,,,,,,,,,,,4,,3,5,1,2,5,,1
+Marc,2,,5,,1,5,,1,,,,,,,,,,,,
+Alan,2,,,,,,,,,,,5,,1,5,,1,,,
+Laurent,1,,,,,5,,1,,,,,,,,,,,,
+Sophie,1,,,,,5,,1,,,,,,,,,,,,
+Thomas,1,,,,,,,,,,,5,,1,,,,,,`;
 const SNAPSHOT_RECORDS = `date,Type,Score,Nom
+1/10/2026,Moyenne Leg,"64,5",Bob le fou
+1/10/2026,Meilleure Volée,140,Guillaume
+1/10/2026,Meilleure Sortie,80,Guillaume
 24/9/2026,Moyenne Leg,"82,09",Bob le fou
 24/9/2026,Meilleure Volée,140,Shido
 17/9/2026,Meilleure Volée,133,Alexandre
