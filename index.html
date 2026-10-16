@@ -528,7 +528,9 @@ const CLUB_EMAIL = "noyadarts@gmail.com"; // à remplacer par la vraie adresse
    Google ne répond pas, le site affiche l'instantané enregistré plus bas. */
 const SHEET_CSV = {
   championnat: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1985368764&single=true&output=csv",
-  records: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1726460292&single=true&output=csv"
+  records: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1726460292&single=true&output=csv",
+  // Onglet "Photos" (rempli par le menu "Mettre à jour les photos") : lien CSV à coller ici
+  photos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1621305672&single=true&output=csv"
 };
 
 /* Instantané des données (secours si les liens ci-dessus ne répondent pas) */
@@ -568,7 +570,8 @@ const SNAPSHOT_RECORDS = `date,Type,Score,Nom
 2/7/2026,Meilleure Volée,132,Nico
 2/7/2026,Meilleure Sortie,109,Bast le Kid`;
 
-/* Photos : { src: "...", legende: "..." } */
+/* Photos ajoutées à la main : { src: "...", legende: "..." }
+   (les photos du dossier Google Drive s'ajoutent automatiquement via SHEET_CSV.photos) */
 const PHOTOS = [];
 
 /* ====== Classement ====== */
@@ -775,20 +778,52 @@ const PHOTOS = [];
 /* ====== Photos ====== */
 (function(){
   const g = document.getElementById("gallery");
-  if(PHOTOS.length){
-    PHOTOS.forEach(ph => {
+
+  // Une photo Google Drive (partagée "tous les utilisateurs disposant du lien") ;
+  // deux adresses d'aperçu sont essayées, la photo est retirée si aucune ne répond.
+  const drive = id => ({
+    src: "https://drive.google.com/thumbnail?id=" + id + "&sz=w1600",
+    secours: "https://lh3.googleusercontent.com/d/" + id + "=w1600"
+  });
+
+  function afficher(liste){
+    g.innerHTML = "";
+    if(!liste.length){
+      for(let i=0;i<3;i++){
+        const f = document.createElement("figure"); f.className = "ph";
+        const sp = document.createElement("span"); sp.textContent = "Photos des soirées à venir";
+        f.appendChild(sp); g.appendChild(f);
+      }
+      return;
+    }
+    liste.forEach(ph => {
       const f = document.createElement("figure");
       const img = document.createElement("img"); img.src = ph.src; img.alt = ph.legende || "Soirée Noya'Darts"; img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.onerror = () => {
+        if(ph.secours && img.src !== ph.secours){ img.src = ph.secours; }
+        else { f.remove(); if(!g.querySelector("img")) afficher([]); }
+      };
       f.appendChild(img);
       if(ph.legende){ const c = document.createElement("figcaption"); c.textContent = ph.legende; f.appendChild(c); }
       g.appendChild(f);
     });
-  } else {
-    for(let i=0;i<3;i++){
-      const f = document.createElement("figure"); f.className = "ph";
-      const sp = document.createElement("span"); sp.textContent = "Photos des soirées à venir";
-      f.appendChild(sp); g.appendChild(f);
-    }
+  }
+
+  afficher(PHOTOS);
+
+  if(SHEET_CSV.photos){
+    const u = SHEET_CSV.photos;
+    fetch(u + (u.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache:"no-store" })
+      .then(r => { if(!r.ok) throw new Error(r.status); return r.text(); })
+      .then(txt => {
+        // 1re colonne de chaque ligne = identifiant Drive de la photo (la ligne d'en-tête est ignorée)
+        const ids = txt.split(/\r?\n/)
+          .map(l => (l.match(/^"?([A-Za-z0-9_-]{20,})"?(,|$)/) || [])[1])
+          .filter(Boolean);
+        afficher(ids.map(drive).concat(PHOTOS));
+      })
+      .catch(err => console.warn("Photos du Google Sheet indisponibles.", err));
   }
 })();
 
