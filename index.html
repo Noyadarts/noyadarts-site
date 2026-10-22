@@ -13,6 +13,38 @@
 <meta property="og:description" content="Tous les jeudis dès 19 h, salle Chartreuse de la Maison des Associations de Noyarey. Ouvert à tous, débutants compris.">
 <meta property="og:image" content="https://noyadarts.github.io/noyadarts-site/partage.jpg">
 <meta property="og:url" content="https://noyadarts.github.io/noyadarts-site/">
+<meta property="og:site_name" content="Noya'Darts">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://noyadarts.github.io/noyadarts-site/">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SportsClub",
+  "name": "Noya'Darts",
+  "alternateName": "Club de fléchettes de Noyarey",
+  "description": "Club de fléchettes à Noyarey (Isère). Tournoi tous les jeudis dès 19 h, salle Chartreuse de la Maison des Associations. Ouvert à tous, débutants compris.",
+  "url": "https://noyadarts.github.io/noyadarts-site/",
+  "logo": "https://noyadarts.github.io/noyadarts-site/logo-noyadarts.webp",
+  "image": "https://noyadarts.github.io/noyadarts-site/partage.jpg",
+  "email": "noyadarts@gmail.com",
+  "address": {
+    "@type": "PostalAddress",
+    "name": "Maison des Associations, salle Chartreuse",
+    "addressLocality": "Noyarey",
+    "postalCode": "38360",
+    "addressRegion": "Isère",
+    "addressCountry": "FR"
+  },
+  "hasMap": "https://maps.app.goo.gl/kagyR61QmXeApAX8A",
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": "https://schema.org/Thursday",
+    "opens": "19:00"
+  },
+  "isAccessibleForFree": true
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -325,7 +357,7 @@ th.num, td.num{ text-align:center; }
 .gallery .zoom:focus-visible{ outline:3px solid var(--sisal); outline-offset:-3px; border-radius:12px; }
 
 /* ---------- Photo agrandie (fenêtre modale) ---------- */
-html.lb-open{ overflow:hidden; }
+html.lb-open, html.modal-open{ overflow:hidden; }
 .lightbox{ border:0; padding:0; margin:0; width:100vw; height:100dvh; max-width:100vw; max-height:100dvh; background:transparent; color:var(--chalk); overflow:hidden; }
 .lightbox::backdrop{ background:rgba(12,16,17,.94); }
 .lightbox .lb-stage{ position:absolute; inset:0; display:grid; place-items:center; padding:3.5rem 4.2rem; }
@@ -384,6 +416,71 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
   .popup.show{ animation-duration:.01s; opacity:1; }
   .brand-logo{ animation:none; }
 }
+
+/* ---------- Prochain rendez-vous ---------- */
+.nextnight{
+  margin-top:1.2rem;
+  display:flex; flex-wrap:wrap; align-items:center; gap:.5rem 1.6rem;
+  background:var(--slate-2); border:2px solid var(--slate-3); border-left:6px solid var(--green);
+  border-radius:12px; padding:.75rem 1.2rem;
+}
+.nextnight.today{ border-left-color:var(--red); }
+.nextnight p{ margin:0; }
+.nn-alert{ flex-basis:100%; color:#ff8a80; font-weight:600; }
+.nn-main{ flex:1 1 auto; display:flex; flex-wrap:wrap; align-items:baseline; gap:.1rem .8rem; }
+.nn-label{ color:var(--chalk-dim); font-size:.95rem; }
+.nn-date{ font-family:var(--display); font-weight:800; font-size:1.6rem; line-height:1.1; color:var(--chalk); }
+.nn-where{ color:var(--chalk-dim); }
+.nn-info{ flex-basis:100%; color:var(--sisal); }
+.nn-cta{ font-family:var(--display); font-weight:800; font-size:1.2rem; color:var(--sisal); text-decoration:none; border-bottom:2px solid currentColor; }
+.nn-cta:hover{ color:var(--chalk); }
+
+/* ---------- Noms cliquables, liste repliable ---------- */
+.player-link{ font:inherit; color:inherit; background:none; border:0; border-radius:0; padding:0; text-align:left; border-bottom:1px dashed var(--chalk-dim); }
+.player-link:hover{ color:var(--sisal); border-bottom-color:var(--sisal); }
+.night[hidden]{ display:none; }
+.more-btn{ margin-top:1.4rem; font:600 1rem/1.2 var(--body); color:var(--sisal); background:none; border:2px solid var(--slate-3); border-radius:999px; padding:.55rem 1.2rem; }
+.more-btn:hover{ border-color:var(--sisal); color:var(--chalk); }
+
+/* ---------- Fiche joueur ---------- */
+.pcard{
+  border:2px solid var(--slate-3); border-radius:16px; padding:0;
+  background:var(--slate-2); color:var(--chalk);
+  width:min(560px, 100% - 1.6rem); max-width:none; max-height:min(88dvh, 880px); overflow:auto;
+}
+.pcard::backdrop{ background:rgba(12,16,17,.85); }
+.pc{ position:relative; padding:1.6rem 1.6rem 1.8rem; }
+.pc-close{ position:absolute; top:.8rem; right:.8rem; width:2.6rem; height:2.6rem; display:grid; place-items:center; border:0; border-radius:50%; background:var(--slate-3); color:var(--chalk); font:700 1.5rem/1 var(--body); transition:background .2s; }
+.pc-close:hover{ background:var(--red); }
+.pc-name{ font-family:var(--display); font-weight:900; font-size:clamp(2.2rem,8vw,3rem); line-height:.95; margin:0 3rem .35rem 0; }
+.pc-sub{ margin:0 0 1.4rem; color:var(--chalk-dim); }
+.pc-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:.7rem; margin:0 0 1.8rem; }
+.pc-stats div{ border-top:3px solid var(--slate-3); padding-top:.4rem; }
+.pc-stats div:first-child{ border-top-color:var(--red); }
+.pc-stats dt{ font-size:.85rem; color:var(--chalk-dim); }
+.pc-stats dd{ margin:0; font-family:var(--display); font-weight:900; font-size:2rem; line-height:1.05; color:var(--sisal); }
+.pc-h{ font-family:var(--display); font-weight:800; font-size:1.4rem; line-height:1.1; margin:0 0 .3rem; color:var(--chalk); }
+.pc-recs{ margin:0 0 .5rem; }
+.pc-recs .rec{ display:grid; grid-template-columns:8.5rem auto 1fr; column-gap:.9rem; align-items:baseline; padding:.55rem 0; border-bottom:1px solid var(--slate-3); }
+.pc-recs dt{ color:var(--chalk-dim); font-size:.92rem; }
+.pc-recs dd{ margin:0; }
+.pc-recs .val{ font-family:var(--display); font-weight:900; font-size:1.75rem; line-height:1; color:var(--chalk); }
+.pc-recs .when{ color:var(--chalk-dim); font-size:.88rem; }
+.pc-recs .none{ grid-column:2 / -1; color:var(--chalk-dim); font-size:.92rem; }
+.pc-note{ color:var(--chalk-dim); font-size:.88rem; margin:0 0 1.8rem; }
+.pc table{ min-width:0; font-size:.95rem; }
+.pc th, .pc td{ padding:.5rem .45rem; }
+.pc th:first-child, .pc td:first-child{ padding-left:0; white-space:nowrap; }
+.pc tbody tr:first-child td{ color:inherit; font-weight:inherit; }
+.pc tbody tr td.place-1{ color:var(--red); font-weight:600; }
+.pc tbody tr td.place-2, .pc tbody tr td.place-3{ color:var(--green); font-weight:600; }
+.pc tbody tr td.recs{ color:var(--chalk-dim); font-size:.9rem; }
+@media (max-width:480px){
+  .pc{ padding:1.3rem 1.1rem 1.5rem; }
+  .pc-recs .rec{ grid-template-columns:auto 1fr; }
+  .pc-recs dt{ grid-column:1 / -1; }
+  .pc-recs .none{ grid-column:1 / -1; }
+}
 </style>
 </head>
 <body>
@@ -399,6 +496,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
     </ul>
   </nav>
   <div class="wrap">
+    <div class="nextnight" id="nextnight" hidden></div>
     <header class="hero">
       <div>
         <h1 class="brand">
@@ -508,6 +606,15 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
     <p class="lb-count" id="lbCount"></p>
   </dialog>
 
+  <dialog class="pcard" id="playerCard" aria-labelledby="pcName">
+    <div class="pc">
+      <button type="button" class="pc-close" aria-label="Fermer la fiche">&times;</button>
+      <h2 class="pc-name" id="pcName"></h2>
+      <p class="pc-sub" id="pcSub"></p>
+      <div id="pcBody"></div>
+    </div>
+  </dialog>
+
   <section class="block" id="contact">
     <div class="wrap contact">
       <div>
@@ -563,8 +670,25 @@ const SHEET_CSV = {
   championnat: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1985368764&single=true&output=csv",
   records: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1726460292&single=true&output=csv",
   // Onglet "Photos" (rempli par le menu "Mettre à jour les photos") : lien CSV à coller ici
-  photos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1621305672&single=true&output=csv"
+  photos: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1621305672&single=true&output=csv",
+  // Onglet "Annonces" (jeudis annulés, infos ponctuelles) : lien CSV à coller ici
+  annonces: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=81073882&single=true&output=csv"
 };
+
+/* Annonces ajoutées à la main (en plus de l'onglet "Annonces") :
+   { date: "24/12/2026", annule: true, message: "vacances de Noël" }
+   annule: true = pas de soirée ce jeudi ; annule: false = simple info affichée sous la date. */
+const ANNONCES = [];
+
+/* Mémoire du navigateur : chaque lecture réussie du Google Sheet est gardée,
+   et sert de secours à la visite suivante si Google ne répond pas. */
+const CACHE_PREFIX = "noyadarts-csv-";
+function cacheGet(nom){ try { return localStorage.getItem(CACHE_PREFIX + nom); } catch(e){ return null; } }
+function cacheSet(nom, texte){ try { localStorage.setItem(CACHE_PREFIX + nom, texte); } catch(e){} }
+function fetchCSV(u){
+  return fetch(u + (u.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache:"no-store" })
+    .then(r => { if(!r.ok) throw new Error(r.status); return r.text(); });
+}
 
 /* Instantané des données (secours si les liens ci-dessus ne répondent pas) */
 const SNAPSHOT_CHAMPIONNAT = `Championnat annuel,,,2/7/2026,,,23/7/2026,,,10/9/2026,,,17/9/2026,,,24/9/2026,,,1/10/2026,,
@@ -607,7 +731,7 @@ const SNAPSHOT_RECORDS = `date,Type,Score,Nom
    (les photos du dossier Google Drive s'ajoutent automatiquement via SHEET_CSV.photos) */
 const PHOTOS = [];
 
-/* ====== Classement ====== */
+/* ====== Classement, fiches joueurs et prochain rendez-vous ====== */
 (function(){
   const MOIS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
   const MOIS_COURT = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
@@ -664,7 +788,7 @@ const PHOTOS = [];
     const players = [];
     for(let i = h + 1; i < rows.length; i++){
       const r = rows[i]; if(!r[0]) continue;
-      const res = nights.map(n => ({ rank:num(r[n.rank]), recs:num(r[n.recs]) || 0 }));
+      const res = nights.map(n => ({ rank:num(r[n.rank]), recs:num(r[n.recs]) || 0, pts:num(r[n.pts]) }));
       const played = res.filter(x => x.rank != null);
       if(!played.length && !num(r[1])) continue;
       players.push({
@@ -695,7 +819,128 @@ const PHOTOS = [];
     { k:"meilleure sortie", titre:"Meilleure sortie", court:"Sortie" }
   ];
 
+  const best = list => list.reduce((b, r) => (!b || r.score > b.score || (r.score === b.score && r.date > b.date)) ? r : b, null);
+  const dayMonth = d => d.getDate() + (d.getDate() === 1 ? "er" : "") + " " + MOIS[d.getMonth()];
+  const slug = t => norm(t).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+  /* ---- Fiches joueurs ---- */
+  let current = { champ:{ nights:[], players:[] }, recs:[] };
+  const findPlayer = name => current.champ.players.find(p => norm(p.name) === norm(name));
+  const pc = document.getElementById("playerCard");
+  const PLACE = { 1:"Vainqueur", 2:"Finaliste", 3:"3e", 4:"4e", 5:"Participation" };
+  let pcOpenName = null;
+
+  function playerLink(name){
+    if(!findPlayer(name)) return document.createTextNode(name);
+    const b = el("button", "player-link", name); b.type = "button";
+    b.setAttribute("aria-haspopup", "dialog");
+    b.addEventListener("click", () => openPlayer(name));
+    return b;
+  }
+
+  function fillPlayer(p){
+    const champ = current.champ;
+    pcOpenName = p.name;
+    document.getElementById("pcName").textContent = p.name;
+    const exaequo = champ.players.filter(x => x.rank === p.rank).length > 1;
+    document.getElementById("pcSub").textContent = (p.rank === 1 ? "1er" : p.rank + "e") + (exaequo ? " ex æquo" : "")
+      + " du championnat, " + fmtNum(p.points) + (p.points > 1 ? " points" : " point");
+    const body = document.getElementById("pcBody"); body.textContent = "";
+
+    /* Chiffres clés */
+    const stats = el("dl", "pc-stats");
+    [["Soirées", p.soirees], ["Victoires", p.victoires],
+     ["Podiums", p.res.filter(x => x.rank != null && x.rank <= 3).length], ["Records", p.records]]
+      .forEach(([t, v]) => { const d = el("div"); d.append(el("dt", null, t), el("dd", null, String(v))); stats.appendChild(d); });
+    body.appendChild(stats);
+
+    /* Records personnels, d'après "Records BD" */
+    const mine = current.recs.filter(r => norm(r.name) === norm(p.name));
+    body.appendChild(el("h3", "pc-h", "Ses records"));
+    const dl = el("dl", "pc-recs");
+    TYPES.forEach(t => {
+      const list = mine.filter(r => norm(r.type) === t.k);
+      const b = best(list);
+      const row = el("div", "rec");
+      row.appendChild(el("dt", null, t.titre));
+      if(b){
+        row.appendChild(el("dd", "val", fmtNum(b.score)));
+        row.appendChild(el("dd", "when", "le " + longDate(b.date) + (list.length > 1 ? " (" + list.length + " records au total)" : "")));
+      } else {
+        row.appendChild(el("dd", "none", "Pas encore de record"));
+      }
+      dl.appendChild(row);
+    });
+    body.appendChild(dl);
+    body.appendChild(el("p", "pc-note", "Records de soirée enregistrés au club (minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie)."));
+
+    /* Ses jeudis, du plus récent au plus ancien */
+    body.appendChild(el("h3", "pc-h", "Ses jeudis"));
+    const played = champ.nights.map((n, i) => ({ n, r:p.res[i] })).filter(x => x.r.rank != null).reverse();
+    if(!played.length){
+      body.appendChild(el("p", "pc-note", "Pas encore de soirée jouée cette saison."));
+    } else {
+      const wrap = el("div", "table-scroll"), t = el("table"), hr = el("tr"), tb = el("tbody");
+      [["Jeudi"], ["Résultat"], ["Records"], ["Points", "num"]].forEach(([txt, c]) => hr.appendChild(el("th", c, txt)));
+      const th = el("thead"); th.appendChild(hr); t.appendChild(th);
+      played.forEach(({ n, r }) => {
+        const tr = el("tr");
+        tr.appendChild(el("td", null, shortDate(n.date)));
+        tr.appendChild(el("td", "place-" + r.rank, PLACE[r.rank] || String(r.rank)));
+        const soir = mine.filter(x => key(x.date) === key(n.date));
+        const txt = TYPES.flatMap(tp => soir.filter(x => norm(x.type) === tp.k).map(x => tp.court + " " + fmtNum(x.score))).join(", ")
+          || (r.recs ? r.recs + (r.recs > 1 ? " records" : " record") : "");
+        tr.appendChild(el("td", "recs", txt));
+        tr.appendChild(el("td", "num", r.pts != null ? fmtNum(r.pts) : ""));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
+    }
+  }
+
+  function openPlayer(name){
+    const p = findPlayer(name); if(!p) return false;
+    fillPlayer(p);
+    try { history.replaceState(null, "", "#joueur-" + slug(p.name)); } catch(e){}
+    if(!pc.open){
+      document.documentElement.classList.add("modal-open");
+      if(typeof pc.showModal === "function") pc.showModal(); else pc.setAttribute("open", "");
+    }
+    pc.scrollTop = 0;
+    return true;
+  }
+  function onPlayerClosed(){
+    document.documentElement.classList.remove("modal-open");
+    pcOpenName = null;
+    if(/^#joueur-/.test(location.hash)){ try { history.replaceState(null, "", location.pathname + location.search); } catch(e){} }
+  }
+  function closePlayer(){
+    if(typeof pc.close === "function"){ if(pc.open) pc.close(); }
+    else { pc.removeAttribute("open"); onPlayerClosed(); }
+  }
+  pc.addEventListener("close", onPlayerClosed);
+  pc.querySelector(".pc-close").addEventListener("click", closePlayer);
+  pc.addEventListener("click", e => { if(e.target === pc) closePlayer(); });
+
+  /* Lien direct vers une fiche : .../#joueur-bob-le-fou */
+  const playerFromHash = () => {
+    const m = location.hash.match(/^#joueur-([a-z0-9-]+)$/);
+    return m ? current.champ.players.find(p => slug(p.name) === m[1]) : null;
+  };
+  let hashDone = false;
+  function openFromHash(){
+    if(hashDone) return;
+    const p = playerFromHash();
+    if(p){ hashDone = true; openPlayer(p.name); }
+  }
+  window.addEventListener("hashchange", () => { const p = playerFromHash(); if(p) openPlayer(p.name); });
+
+  let nightsOpen = false;
+  const NIGHTS_VISIBLE = 6;
+
   function render(champ, recs, live){
+    current = { champ, recs };
+    { let rk = 0, pv = null; champ.players.forEach((p, i) => { if(p.points !== pv){ rk = i + 1; pv = p.points; } p.rank = rk; }); }
     /* Records : dernière soirée, 5 derniers jeudis, saison (juillet à juin) */
     const box = document.getElementById("records"); box.textContent = "";
     let dates = champ.nights.filter((n, i) => champ.players.some(p => p.res[i].rank != null)).map(n => n.date);
@@ -717,14 +962,13 @@ const PHOTOS = [];
         col.append(el("h4", null, per.titre), el("p", "span", per.span));
         const dl = el("dl");
         TYPES.forEach(t => {
-          const best = recs.filter(r => norm(r.type) === t.k && per.keep(r))
-            .reduce((b, r) => (!b || r.score > b.score || (r.score === b.score && r.date > b.date)) ? r : b, null);
+          const top = best(recs.filter(r => norm(r.type) === t.k && per.keep(r)));
           const row = el("div", "rec");
           row.appendChild(el("dt", null, t.titre));
-          if(best){
-            row.appendChild(el("dd", "val", fmtNum(best.score)));
-            const w = el("dd", "who", best.name);
-            if(per.showDate) w.appendChild(el("span", "when", "le " + longDate(best.date)));
+          if(top){
+            row.appendChild(el("dd", "val", fmtNum(top.score)));
+            const w = el("dd", "who"); w.appendChild(playerLink(top.name));
+            if(per.showDate) w.appendChild(el("span", "when", "le " + longDate(top.date)));
             row.appendChild(w);
           } else {
             row.appendChild(el("dd", "none", "Pas de record"));
@@ -750,9 +994,10 @@ const PHOTOS = [];
       let rank = 0, prev = null;
       champ.players.forEach((p, i) => {
         if(p.points !== prev){ rank = i + 1; prev = p.points; }
+        p.rank = rank;
         const tr = el("tr", rank <= 3 ? "top" + rank : "");
         tr.appendChild(el("td", "rank", String(rank)));
-        tr.appendChild(el("td", "player", p.name));
+        const tdName = el("td", "player"); tdName.appendChild(playerLink(p.name)); tr.appendChild(tdName);
         const td = el("td", "pts"), bar = el("div", "bar"), i2 = el("i");
         i2.style.width = Math.max(4, Math.round(p.points / max * 100)) + "%";
         i2.style.maxWidth = "calc(100% - 3rem)";
@@ -771,23 +1016,45 @@ const PHOTOS = [];
     recs.forEach(r => (byDate[key(r.date)] = byDate[key(r.date)] || []).push(r));
     champ.nights.slice().reverse().forEach(n => {
       const idx = champ.nights.indexOf(n);
-      const who = rk => champ.players.filter(p => p.res[idx].rank === rk).map(p => p.name).join(", ");
+      const who = rk => champ.players.filter(p => p.res[idx].rank === rk).map(p => p.name);
+      const names = (pEl, list) => { list.forEach((n, i) => { if(i) pEl.append(", "); pEl.append(playerLink(n)); }); return pEl; };
       const nbJ = champ.players.filter(p => p.res[idx].rank != null).length;
       if(!nbJ) return;
       const card = el("article", "night");
       const tm = el("time", null, "Jeudi " + shortDate(n.date)); tm.dateTime = key(n.date); card.appendChild(tm);
-      if(who(1)) card.appendChild(el("p", "win", "Vainqueur : " + who(1)));
-      if(who(2)) card.appendChild(el("p", "second", "Finaliste : " + who(2) + ", " + nbJ + " joueurs"));
+      if(who(1).length) card.appendChild(names(el("p", "win", "Vainqueur : "), who(1)));
+      if(who(2).length){ const s2 = names(el("p", "second", "Finaliste : "), who(2)); s2.append(", " + nbJ + " joueurs"); card.appendChild(s2); }
       const list = (byDate[key(n.date)] || []);
       if(list.length){
         const ul = el("ul");
         TYPES.forEach(t => list.filter(r => norm(r.type) === t.k).forEach(r => {
-          const li = el("li"); li.append(t.court + " ", el("strong", null, fmtNum(r.score)), " par " + r.name); ul.appendChild(li);
+          const li = el("li"); li.append(t.court + " ", el("strong", null, fmtNum(r.score)), " par ", playerLink(r.name)); ul.appendChild(li);
         }));
         card.appendChild(ul);
       }
       nb.appendChild(card);
     });
+
+    /* Au-delà de 6 jeudis, la liste se replie */
+    const oldBtn = document.getElementById("nightsMore"); if(oldBtn) oldBtn.remove();
+    const cards = Array.from(nb.children);
+    if(cards.length > NIGHTS_VISIBLE){
+      const more = el("button", "more-btn"); more.type = "button"; more.id = "nightsMore";
+      more.setAttribute("aria-controls", "nights");
+      const hiddenCount = cards.length - NIGHTS_VISIBLE;
+      const maj = () => {
+        cards.forEach((c, i) => { c.hidden = !nightsOpen && i >= NIGHTS_VISIBLE; });
+        more.textContent = nightsOpen ? "Replier la liste" : (hiddenCount === 1 ? "Voir le jeudi plus ancien" : "Voir les " + hiddenCount + " jeudis plus anciens");
+        more.setAttribute("aria-expanded", String(nightsOpen));
+      };
+      more.addEventListener("click", () => {
+        nightsOpen = !nightsOpen; maj();
+        if(!nightsOpen) nb.previousElementSibling.scrollIntoView({ block:"start" });
+      });
+      maj(); nb.after(more);
+    }
+
+    if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); }
 
     const last = champ.nights.length ? champ.nights[champ.nights.length - 1].date : null;
     document.getElementById("updated").textContent = last
@@ -795,17 +1062,82 @@ const PHOTOS = [];
       : "";
   }
 
-  function fromSnapshot(){ render(readChampionnat(SNAPSHOT_CHAMPIONNAT), readRecords(SNAPSHOT_RECORDS), false); }
-  try { fromSnapshot(); } catch(e){ console.error(e); }
-
-  if(SHEET_CSV.championnat || SHEET_CSV.records){
-    const get = (u, fallback) => !u ? Promise.resolve(fallback) :
-      fetch(u + (u.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache:"no-store" })
-        .then(r => { if(!r.ok) throw new Error(r.status); return r.text(); });
-    Promise.all([get(SHEET_CSV.championnat, SNAPSHOT_CHAMPIONNAT), get(SHEET_CSV.records, SNAPSHOT_RECORDS)])
-      .then(([a, b]) => render(readChampionnat(a), readRecords(b), !!(SHEET_CSV.championnat && SHEET_CSV.records)))
-      .catch(err => console.warn("Google Sheet indisponible, instantané affiché.", err));
+  /* ---- Prochain rendez-vous ---- */
+  function readAnnonces(text){
+    const rows = parseCSV(text);
+    const h = rows.findIndex(r => r.map(norm).includes("date"));
+    if(h < 0) return [];
+    const head = rows[h].map(norm);
+    const iD = head.indexOf("date"), iA = head.findIndex(x => x.startsWith("annul")), iM = head.findIndex(x => x.startsWith("message"));
+    return rows.slice(h + 1).map(r => ({
+      date:parseDate(r[iD]),
+      annule:iA >= 0 && ["oui", "x", "vrai", "true", "1", "annule"].includes(norm(r[iA] || "")),
+      message:iM >= 0 ? (r[iM] || "") : ""
+    })).filter(a => a.date && (a.annule || a.message));
   }
+  function renderBanner(list){
+    const box = document.getElementById("nextnight");
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let d = new Date(today); d.setDate(d.getDate() + (4 - d.getDay() + 7) % 7);
+    if(key(d) === key(today) && now.getHours() >= 23) d.setDate(d.getDate() + 7);
+    const byKey = {}; list.forEach(a => { byKey[key(a.date)] = a; });
+    const skipped = [];
+    while(byKey[key(d)] && byKey[key(d)].annule && skipped.length < 12){ skipped.push(byKey[key(d)]); d = new Date(d); d.setDate(d.getDate() + 7); }
+    const isToday = key(d) === key(today);
+    const info = byKey[key(d)] ? byKey[key(d)].message : "";
+
+    box.textContent = "";
+    box.classList.toggle("today", isToday);
+    if(skipped.length){
+      const dates = skipped.map(a => dayMonth(a.date));
+      const txt = "Pas de soirée " + (dates.length === 1 ? "jeudi " + dates[0] : "les jeudis " + dates.slice(0, -1).join(", ") + " et " + dates[dates.length - 1])
+        + (skipped[0].message ? " : " + skipped[0].message : "") + ".";
+      box.appendChild(el("p", "nn-alert", txt));
+    }
+    const main = el("p", "nn-main");
+    main.append(el("span", "nn-label", isToday ? "C'est ce soir" : "Prochain rendez-vous"),
+      el("strong", "nn-date", "Jeudi " + dayMonth(d) + ", dès 19\u00a0h"),
+      el("span", "nn-where", "salle Chartreuse"));
+    box.appendChild(main);
+    const cta = el("a", "nn-cta", "M'inscrire"); cta.href = "#contact";
+    box.appendChild(cta);
+    if(info) box.appendChild(el("p", "nn-info", info));
+    box.hidden = false;
+  }
+  const annoncesCode = ANNONCES.map(a => ({ date:parseDate(a.date), annule:!!a.annule, message:a.message || "" })).filter(a => a.date);
+  function showBanner(text){
+    let fromSheet = [];
+    if(text){ try { fromSheet = readAnnonces(text); } catch(e){ console.warn(e); } }
+    renderBanner(annoncesCode.concat(fromSheet));
+  }
+  try { showBanner(SHEET_CSV.annonces ? cacheGet("annonces") : null); } catch(e){ console.error(e); }
+  if(SHEET_CSV.annonces){
+    fetchCSV(SHEET_CSV.annonces)
+      .then(t => { showBanner(t); cacheSet("annonces", t); })
+      .catch(err => console.warn("Annonces du Google Sheet indisponibles.", err));
+  }
+
+  /* ---- Classement : mémoire du navigateur, sinon instantané, puis Google Sheet ---- */
+  const show = (a, b, live) => render(readChampionnat(a), readRecords(b), live);
+  const cA = cacheGet("championnat"), cB = cacheGet("records");
+  function showSaved(){
+    try { show(cA && cB ? cA : SNAPSHOT_CHAMPIONNAT, cA && cB ? cB : SNAPSHOT_RECORDS, false); }
+    catch(e){ console.error(e); try { show(SNAPSHOT_CHAMPIONNAT, SNAPSHOT_RECORDS, false); } catch(e2){ console.error(e2); } }
+  }
+  showSaved();
+  openFromHash();
+
+  if(SHEET_CSV.championnat && SHEET_CSV.records){
+    Promise.all([fetchCSV(SHEET_CSV.championnat), fetchCSV(SHEET_CSV.records)])
+      .then(([a, b]) => {
+        try { show(a, b, true); }
+        catch(e){ console.error("Données du Google Sheet illisibles, version enregistrée affichée.", e); showSaved(); return; }
+        cacheSet("championnat", a); cacheSet("records", b);
+      })
+      .catch(err => console.warn("Google Sheet indisponible, version enregistrée affichée.", err))
+      .finally(() => { openFromHash(); hashDone = true; });
+  } else hashDone = true;
 })();
 
 /* ====== Photos ====== */
@@ -896,16 +1228,19 @@ const PHOTOS = [];
 
   afficher(PHOTOS);
 
+  // 1re colonne de chaque ligne = identifiant Drive de la photo (la ligne d'en-tête est ignorée)
+  const idsDe = txt => txt.split(/\r?\n/)
+    .map(l => (l.match(/^"?([A-Za-z0-9_-]{20,})"?(,|$)/) || [])[1])
+    .filter(Boolean);
+
   if(SHEET_CSV.photos){
-    const u = SHEET_CSV.photos;
-    fetch(u + (u.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache:"no-store" })
-      .then(r => { if(!r.ok) throw new Error(r.status); return r.text(); })
+    const enMemoire = cacheGet("photos");
+    if(enMemoire){ const ids = idsDe(enMemoire); if(ids.length) afficher(ids.map(drive).concat(PHOTOS)); }
+    fetchCSV(SHEET_CSV.photos)
       .then(txt => {
-        // 1re colonne de chaque ligne = identifiant Drive de la photo (la ligne d'en-tête est ignorée)
-        const ids = txt.split(/\r?\n/)
-          .map(l => (l.match(/^"?([A-Za-z0-9_-]{20,})"?(,|$)/) || [])[1])
-          .filter(Boolean);
-        afficher(ids.map(drive).concat(PHOTOS));
+        cacheSet("photos", txt);
+        if(txt === enMemoire) return; // rien de nouveau, déjà affiché
+        afficher(idsDe(txt).map(drive).concat(PHOTOS));
       })
       .catch(err => console.warn("Photos du Google Sheet indisponibles.", err));
   }
