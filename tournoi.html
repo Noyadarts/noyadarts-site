@@ -73,7 +73,7 @@ button,select,input{ font:inherit; color:inherit; }
   display:flex; align-items:stretch; gap:clamp(1rem,2vw,2rem);
   margin:1.2rem clamp(1rem,2.5vw,2.5rem) 0; padding:1rem 1.4rem;
   background:var(--slate-2); border-radius:14px; border-left:6px solid var(--red);
-  overflow-x:auto;
+  flex-wrap:wrap; row-gap:1rem;
 }
 .suivre h2{ margin:0; font-family:var(--display); font-weight:800; font-size:1.3rem; color:var(--chalk-dim); align-self:center; white-space:nowrap; }
 .suivre .m{ display:flex; flex-direction:column; justify-content:center; min-width:max-content; padding:0 .3rem; }
@@ -84,6 +84,17 @@ button,select,input{ font:inherit; color:inherit; }
 .suivre .m.clic{ cursor:pointer; }
 .suivre .m.clic:hover b{ color:var(--sisal); }
 .suivre .vide{ align-self:center; color:var(--chalk-dim); }
+.suivre .recs{ display:flex; align-items:stretch; flex-wrap:wrap; gap:.3rem clamp(.6rem,1.2vw,1.2rem); margin-left:auto; padding:.5rem .9rem; background:var(--slate-3); border-radius:10px; }
+.suivre .recs:first-child{ margin-left:0; }
+.suivre .recs h2{ font-size:1.15rem; }
+.suivre .r{ display:flex; flex-direction:column; justify-content:center; min-width:max-content; border-radius:8px; padding:.15rem .4rem; }
+.suivre .r small{ color:var(--chalk-dim); font-size:.95rem; }
+.suivre .r b{ font-family:var(--display); font-weight:900; font-size:clamp(1.5rem,2vw,2rem); line-height:1; color:var(--sisal); }
+.suivre .r span{ font-family:var(--display); font-weight:800; font-size:1.2rem; line-height:1.15; }
+.suivre .r.aucun b{ color:var(--slate-4); }
+.suivre .r.aucun span{ color:var(--chalk-dim); font-weight:600; font-family:var(--body); font-size:.95rem; }
+.suivre .r.clic{ cursor:pointer; }
+.suivre .r.clic:hover{ background:var(--slate-4); }
 
 /* ---------- Mise en page ---------- */
 .scene{
@@ -288,6 +299,22 @@ table.grille{ border-collapse:separate; border-spacing:4px; }
   </div>
 </div>
 
+<!-- Fenêtre : record de la soirée -->
+<div class="fond" id="fondRecord" hidden>
+  <form class="modal" id="formRecord" role="dialog" aria-labelledby="recTitre">
+    <h2 id="recTitre">Record</h2>
+    <p class="aide" id="recAide"></p>
+    <div class="champ"><label for="recScore">Score</label><input id="recScore" inputmode="decimal" style="width:7rem"></div>
+    <div class="champ"><label for="recNom">Joueur</label><select id="recNom"></select></div>
+    <div id="recMsg"></div>
+    <div class="boutons">
+      <button class="btn" type="submit">Enregistrer le record</button>
+      <button class="btn ghost" type="button" id="recEffacer">Effacer le record</button>
+      <button class="btn ghost" type="button" id="recAnnuler">Annuler</button>
+    </div>
+  </form>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -297,6 +324,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1Fe
 const LETTRES = "ABC";
 const RAFRAICHIR_MS = 15000;
 let DATA = null, CODE = "", OCCUPE = 0, ONGLET = "nouveau";
+let VAL = { date: null, records: null };   // records affichés dans « Valider la soirée »
 let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "" };   // brouillon « Nouveau tournoi »
 
 const $ = id => document.getElementById(id);
@@ -329,7 +357,7 @@ async function agir(action, donnees){
   } finally { OCCUPE--; }
 }
 async function rafraichir(){
-  if(!API_URL || OCCUPE || !$("fondScore").hidden || document.hidden) return;
+  if(!API_URL || OCCUPE || !$("fondScore").hidden || !$("fondRecord").hidden || document.hidden) return;
   try { DATA = await lire(); afficher(); }
   catch(e){ $("statut").textContent = "Connexion au Google Sheet impossible pour l'instant, nouvel essai dans quelques secondes."; }
 }
@@ -380,12 +408,23 @@ function blocSuivre(T){
       if(f && f.pret && !f.joue && items.length < 2) items.push({ lib: f.libelle, j1: f.j1, j2: f.j2, finale: f.id });
     });
   }
-  if(T.termine) return "";
-  const html = items.length ? items.map(it =>
+  const html = T.termine ? "" : items.length ? items.map(it =>
     '<div class="m' + (estAdmin() ? " clic" : "") + '" ' + (it.finale ? 'data-finale="' + it.finale + '"' : 'data-match="' + it.match + '"') + '>' +
     "<small>" + esc(it.lib) + "</small><b>" + esc(it.j1) + "<i>contre</i>" + esc(it.j2) + "</b></div>").join("")
     : '<span class="vide">En attente des résultats...</span>';
-  return '<div class="suivre"><h2>À suivre</h2>' + html + "</div>";
+  return '<div class="suivre">' + (T.termine ? "" : "<h2>À suivre</h2>" + html) + blocRecords(T) + "</div>";
+}
+
+const COURT = { "Moyenne Leg": "Moyenne leg", "Meilleure Volée": "Meilleure volée", "Meilleure Sortie": "Meilleure sortie" };
+function blocRecords(T){
+  const recs = T.records || [];
+  return '<div class="recs"><h2>Records du soir</h2>' + DATA.types.map(t => {
+    const r = recs.find(x => x.type === t.nom);
+    return '<div class="r' + (r ? "" : " aucun") + (estAdmin() ? " clic" : "") + '" data-rec="' + esc(t.nom) + '"' +
+      (estAdmin() ? ' title="Noter ou corriger ce record"' : "") + "><small>" + esc(COURT[t.nom] || t.nom) + "</small>" +
+      (r ? "<b>" + esc(String(r.score).replace(".", ",")) + "</b><span>" + esc(r.nom) + "</span>"
+         : "<b>?</b><span>" + (estAdmin() ? "à noter" : "pas encore") + "</span>") + "</div>";
+  }).join("") + "</div>";
 }
 
 function blocPoule(T,p){
@@ -475,6 +514,7 @@ function brancher(){
   if(!estAdmin()) return;
   document.querySelectorAll("[data-match]").forEach(e => e.onclick = () => ouvrirScore({ match: Number(e.dataset.match) }));
   document.querySelectorAll(".suivre [data-finale]").forEach(e => e.onclick = () => ouvrirScore({ finale: e.dataset.finale }));
+  document.querySelectorAll(".suivre [data-rec]").forEach(e => e.onclick = () => ouvrirRecord(e.dataset.rec));
   document.querySelectorAll("select[data-f]").forEach(s => s.onchange = () => scoreArbre(s.dataset.f));
   document.querySelectorAll("td.clic[data-dep]").forEach(td => td.onclick = async () => {
     const nom = td.dataset.dep;
@@ -540,9 +580,34 @@ $("scoreOk").onclick = () => {
   fermerScore(); envoyerScore(r);
 };
 document.addEventListener("keydown", e => {
-  if(e.key === "Escape"){ if(!$("fondScore").hidden) fermerScore(); else if(!$("fondCode").hidden) $("fondCode").hidden = true; else fermerPanneau(); }
+  if(e.key === "Escape"){ if(!$("fondRecord").hidden) fermerRecord(); else if(!$("fondScore").hidden) fermerScore(); else if(!$("fondCode").hidden) $("fondCode").hidden = true; else fermerPanneau(); }
   if(e.key === "Enter" && !$("fondScore").hidden) $("scoreOk").click();
 });
+
+/* ---------------- Fenêtre de record ---------------- */
+let RECORD = null;
+function ouvrirRecord(type){
+  const T = DATA.tournoi, t = DATA.types.find(x => x.nom === type); if(!T || !t) return;
+  const r = (T.records || []).find(x => x.type === type) || {};
+  const joueurs = [].concat(...T.poules).sort((a,b) => a.localeCompare(b));
+  RECORD = type;
+  $("recTitre").textContent = COURT[type] || type;
+  $("recAide").textContent = "Record de la soirée, entre " + t.min + " et " + t.max + ". Il comptera au championnat à la validation de la soirée." +
+    (r.score !== undefined ? " Record actuel : " + String(r.score).replace(".", ",") + " par " + r.nom + "." : "");
+  $("recScore").value = r.score !== undefined ? String(r.score).replace(".", ",") : "";
+  $("recNom").innerHTML = '<option value="">qui ?</option>' + joueurs.map(n => "<option" + (r.nom === n ? " selected" : "") + ">" + esc(n) + "</option>").join("");
+  note($("recMsg"), "");
+  $("fondRecord").hidden = false; $("recScore").focus(); $("recScore").select();
+}
+function fermerRecord(){ $("fondRecord").hidden = true; RECORD = null; }
+async function envoyerRecord(score, nom){
+  try { const msg = await agir("record", { type: RECORD, score, nom }); VAL.date = null; fermerRecord(); toast(msg); }
+  catch(e){ note($("recMsg"), esc(e.message), "err"); }
+}
+$("formRecord").onsubmit = e => { e.preventDefault(); envoyerRecord($("recScore").value.trim(), $("recNom").value); };
+$("recEffacer").onclick = () => envoyerRecord("", "");
+$("recAnnuler").onclick = fermerRecord;
+$("fondRecord").addEventListener("click", e => { if(e.target === $("fondRecord")) fermerRecord(); });
 
 /* ---------------- Code du club ---------------- */
 function estAdmin(){ return !!CODE; }
@@ -676,24 +741,26 @@ function ongletNouveau(c){
 }
 
 /* --- Valider la soirée : classement du tournoi + records --- */
-let VAL = { date: null, records: null };
 async function ongletValider(c){
   const T = DATA.tournoi;
   if(!T){ c.innerHTML = '<p class="aide">Pas de tournoi en cours.</p>'; return; }
   if(!T.termine){ c.innerHTML = '<p class="aide">Le tournoi n\'est pas terminé : il manque le score de la finale' + (T.finale.length > 1 ? " ou de la petite finale" : "") + ".</p>"; return; }
   if(VAL.date !== T.date){
     VAL = { date: T.date, records: null };
-    c.innerHTML = '<p class="aide">Chargement des records déjà saisis...</p>';
-    try { VAL.records = (await agir("chargerSoiree", { date: T.date })).records; }
-    catch(e){ VAL.records = []; }
-    if(ONGLET !== "valider") return;
+    if(T.records && T.records.length){ VAL.records = T.records; }
+    else {
+      c.innerHTML = '<p class="aide">Chargement des records déjà saisis...</p>';
+      try { VAL.records = (await agir("chargerSoiree", { date: T.date })).records; }
+      catch(e){ VAL.records = []; }
+      if(ONGLET !== "valider") return;
+    }
   }
   const participants = Object.keys(T.rangs).sort((a,b) => T.rangs[a] - T.rangs[b] || a.localeCompare(b));
   const place = r => r === 5 ? "Participation" : ["", "Vainqueur", "Finaliste", "3e", "4e"][r];
   let h = (T.enregistre ? '<div class="note ok">Cette soirée est déjà enregistrée au championnat. Tu peux corriger les records et réenregistrer.</div>' : "") +
     "<h3>Classement du " + dateFr(T.date) + "</h3>" +
     participants.map(n => '<div class="ligne"><span>' + esc(n) + "</span><span>" + place(T.rangs[n]) + "</span></div>").join("") +
-    '<h3>Records de la soirée</h3><p class="aide">Laisse vide s\'il n\'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.</p>';
+    '<h3>Records de la soirée</h3><p class="aide">Repris du bandeau « Records du soir ». Laisse vide s\'il n\'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.</p>';
   h += DATA.types.map((t,i) => {
     const r = (VAL.records || []).find(x => x.type === t.nom) || {};
     return '<div class="rec"><label for="rs' + i + '">' + esc(t.nom) + '</label><input id="rs' + i + '" inputmode="decimal" placeholder="' + t.min + " à " + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace(".", ",")) : "") + '">' +
