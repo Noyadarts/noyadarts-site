@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tournoi du jeudi | Noya'Darts</title>
+<meta name="description" content="Le tournoi du jeudi du club de fléchettes Noya'Darts, en direct : poules, phase finale et classement.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b2224">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --slate:#1b2224; --slate-2:#242e31; --slate-3:#2f3b3f; --slate-4:#3b4a4f;
+  --chalk:#eceae2; --chalk-dim:#a7afab;
+  --red:#d4453b; --red-deep:#a92f27; --green:#34a56b; --sisal:#e3d4ae;
+  --win:rgba(52,165,107,.22); --loss:rgba(212,69,59,.14);
+  --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
+:root[data-theme="dark"]{ color-scheme:dark; }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+body{
+  margin:0; min-height:100vh;
+  background:
+    radial-gradient(1200px 700px at 80% -15%, rgba(52,165,107,.10), transparent 60%),
+    radial-gradient(900px 600px at -10% 115%, rgba(212,69,59,.09), transparent 60%),
+    var(--slate);
+  color:var(--chalk); font-family:var(--body); font-size:1.0625rem; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+a{ color:var(--sisal); }
+button,select,input{ font:inherit; color:inherit; }
+:focus-visible{ outline:3px solid var(--sisal); outline-offset:2px; border-radius:4px; }
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+/* ---------- Barre du haut ---------- */
+.top{
+  display:flex; align-items:center; gap:1.2rem;
+  padding:.9rem clamp(1rem,2.5vw,2.5rem);
+  border-bottom:1px solid var(--slate-3);
+}
+.top img{ width:64px; height:auto; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+.top h1{ margin:0; font-family:var(--display); font-weight:900; font-size:clamp(1.7rem,2.6vw,2.6rem); line-height:1; }
+.top .statut{ margin:.25rem 0 0; color:var(--chalk-dim); font-size:1rem; }
+.top .statut.fin{ color:var(--sisal); font-weight:600; }
+.top .actions{ margin-left:auto; display:flex; gap:.6rem; align-items:center; }
+.btn{
+  font-family:var(--display); font-weight:800; font-size:1.15rem; letter-spacing:.02em;
+  background:var(--red); color:var(--chalk); border:0; border-radius:999px;
+  padding:.5rem 1.2rem .55rem; cursor:pointer; transition:background .15s ease;
+}
+.btn:hover{ background:var(--red-deep); }
+.btn:disabled{ opacity:.5; cursor:default; }
+.btn.ghost{ background:transparent; box-shadow:inset 0 0 0 2px var(--slate-4); }
+.btn.ghost:hover{ box-shadow:inset 0 0 0 2px var(--chalk-dim); background:transparent; }
+.btn.small{ font-size:1rem; padding:.35rem .9rem .4rem; }
+.lien{ background:none; border:0; color:var(--sisal); cursor:pointer; padding:0; text-decoration:underline; text-underline-offset:3px; }
+.messages{ padding:0 clamp(1rem,2.5vw,2.5rem); }
+.messages p{ margin:.7rem 0 0; padding:.55rem .9rem; border-radius:8px; background:rgba(212,69,59,.16); color:#f2b8b2; }
+
+/* ---------- À suivre ---------- */
+.suivre{
+  display:flex; align-items:stretch; gap:clamp(1rem,2vw,2rem);
+  margin:1.2rem clamp(1rem,2.5vw,2.5rem) 0; padding:1rem 1.4rem;
+  background:var(--slate-2); border-radius:14px; border-left:6px solid var(--red);
+  overflow-x:auto;
+}
+.suivre h2{ margin:0; font-family:var(--display); font-weight:800; font-size:1.3rem; color:var(--chalk-dim); align-self:center; white-space:nowrap; }
+.suivre .m{ display:flex; flex-direction:column; justify-content:center; min-width:max-content; padding:0 .3rem; }
+.suivre .m + .m{ border-left:1px solid var(--slate-4); padding-left:clamp(1rem,2vw,2rem); }
+.suivre .m small{ color:var(--chalk-dim); font-size:.95rem; }
+.suivre .m b{ font-family:var(--display); font-weight:900; font-size:clamp(1.6rem,2.4vw,2.4rem); line-height:1.05; }
+.suivre .m b i{ font-style:normal; color:var(--red); font-weight:800; margin:0 .35em; font-size:.75em; }
+.suivre .m.clic{ cursor:pointer; }
+.suivre .m.clic:hover b{ color:var(--sisal); }
+.suivre .vide{ align-self:center; color:var(--chalk-dim); }
+
+/* ---------- Mise en page ---------- */
+.scene{
+  display:grid; gap:clamp(1.2rem,2.5vw,2.5rem);
+  grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
+  padding:1.4rem clamp(1rem,2.5vw,2.5rem) 2.5rem;
+  align-items:start;
+}
+@media (max-width:1000px){ .scene{ grid-template-columns:1fr; } }
+.titre{ margin:0 0 .8rem; font-family:var(--display); font-weight:800; font-size:1.6rem; line-height:1.1; }
+.titre small{ font-family:var(--body); font-weight:500; font-size:.95rem; color:var(--chalk-dim); margin-left:.5rem; }
+
+/* ---------- Poules : tableaux croisés ---------- */
+.poule{ margin-bottom:1.8rem; }
+.grille-defil{ overflow-x:auto; }
+table.grille{ border-collapse:separate; border-spacing:4px; }
+.grille th{ font-weight:600; color:var(--chalk-dim); font-size:.95rem; padding:.1rem .3rem; }
+.grille th.col{ font-family:var(--display); font-weight:800; font-size:1.25rem; color:var(--chalk-dim); min-width:3.2rem; }
+.grille th.nom{ text-align:left; white-space:nowrap; padding-right:.8rem; }
+.grille th.nom span{ display:inline-block; width:1.8rem; font-family:var(--display); font-weight:800; color:var(--chalk-dim); font-size:1.2rem; }
+.grille th.nom b{ font-family:var(--display); font-weight:800; font-size:1.55rem; color:var(--chalk); }
+.grille tr.qualif th.nom b{ color:var(--sisal); }
+.grille tr.qualif th.nom span{ color:var(--green); }
+.grille td{
+  width:3.2rem; height:2.7rem; text-align:center; border-radius:7px;
+  font-family:var(--display); font-weight:800; font-size:1.45rem;
+  background:var(--slate-2);
+}
+.grille td.diag{ background:repeating-linear-gradient(135deg, var(--slate-3) 0 4px, transparent 4px 9px); }
+.grille td.v{ background:var(--win); color:#bfe9d1; }
+.grille td.d{ background:var(--loss); color:#e7aaa4; }
+.grille td.err{ outline:2px solid var(--red); }
+.grille td.clic{ cursor:pointer; }
+.grille td.clic:hover{ outline:2px solid var(--sisal); }
+.grille td.stat{ background:transparent; color:var(--chalk); font-size:1.35rem; width:2.6rem; }
+.grille td.rang{ color:var(--sisal); font-size:1.6rem; }
+.grille td.eg{ color:var(--red); }
+.legende{ color:var(--chalk-dim); font-size:.9rem; margin:.3rem 0 0; }
+
+/* ---------- Arbre ---------- */
+.arbre{ position:relative; display:grid; grid-template-columns:1fr 3.5rem 1fr; align-items:center; row-gap:1.4rem; }
+.arbre svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+.demis{ grid-column:1; display:flex; flex-direction:column; gap:2.2rem; }
+.fin{ grid-column:3; }
+.match{ position:relative; background:var(--slate-2); border-radius:10px; padding:.45rem .6rem .5rem; }
+.match .lib{ display:flex; justify-content:space-between; gap:.5rem; font-size:.9rem; color:var(--chalk-dim); margin:0 .2rem .25rem; }
+.match.finale{ box-shadow:inset 0 0 0 2px var(--red); }
+.match.finale .lib{ color:var(--sisal); font-weight:600; }
+.joueur{ display:flex; align-items:center; gap:.5rem; padding:.25rem .4rem; border-radius:6px; }
+.joueur + .joueur{ margin-top:3px; }
+.joueur b{ flex:1; font-family:var(--display); font-weight:800; font-size:1.55rem; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.joueur.attente b{ color:var(--chalk-dim); font-weight:600; font-size:1.2rem; font-style:italic; }
+.joueur.gagne{ background:var(--win); }
+.joueur.gagne b{ color:var(--chalk); }
+.joueur.perd b{ color:var(--chalk-dim); }
+.joueur .legs{ font-family:var(--display); font-weight:900; font-size:1.6rem; min-width:1.6rem; text-align:center; }
+.joueur select{
+  font-family:var(--display); font-weight:800; font-size:1.3rem;
+  background:var(--slate-3); border:0; border-radius:6px; padding:.05rem .3rem; min-width:3.1rem; cursor:pointer;
+}
+.petite{ grid-column:1; }
+.podium{ grid-column:3; align-self:start; }
+.podium ol{ list-style:none; margin:0; padding:0; }
+.podium li{ display:flex; gap:.6rem; align-items:baseline; padding:.2rem 0; }
+.podium li span{ font-family:var(--display); font-weight:800; color:var(--chalk-dim); width:2.4rem; }
+.podium li b{ font-family:var(--display); font-weight:800; font-size:1.5rem; }
+.podium li:first-child b{ font-size:2.3rem; color:var(--sisal); }
+.vainqueur{
+  grid-column:1 / -1; text-align:center; margin-top:.6rem; padding:1rem;
+  font-family:var(--display); font-weight:900; font-size:clamp(1.6rem,2.4vw,2.4rem); line-height:1.1;
+  background:linear-gradient(90deg, transparent, rgba(212,69,59,.18), transparent);
+  border-radius:12px;
+}
+.vainqueur small{ display:block; font-family:var(--body); font-weight:500; font-size:1.05rem; color:var(--chalk-dim); margin-top:.3rem; }
+
+/* ---------- Écran d'attente ---------- */
+.accueil{ max-width:46rem; margin:4rem auto; padding:0 1.5rem; text-align:center; }
+.accueil h2{ font-family:var(--display); font-weight:900; font-size:clamp(2.2rem,5vw,3.6rem); line-height:1; margin:0 0 1rem; }
+.accueil p{ color:var(--chalk-dim); font-size:1.15rem; }
+
+/* ---------- Panneau de gestion ---------- */
+.panneau{
+  position:fixed; top:0; right:0; bottom:0; width:min(520px,100%); z-index:20;
+  background:var(--slate-2); box-shadow:-20px 0 50px rgba(0,0,0,.45);
+  display:flex; flex-direction:column;
+  transform:translateX(105%); transition:transform .25s ease;
+  padding-top:env(safe-area-inset-top,0px);
+}
+.panneau.ouvert{ transform:none; }
+.panneau header{ display:flex; align-items:center; gap:.6rem; padding:1rem 1.2rem .4rem; }
+.panneau header h2{ margin:0; font-family:var(--display); font-weight:900; font-size:1.8rem; flex:1; }
+.onglets{ display:flex; gap:.3rem; padding:0 1.2rem; border-bottom:1px solid var(--slate-4); flex-wrap:wrap; }
+.onglets button{
+  background:none; border:0; padding:.55rem .7rem; cursor:pointer; color:var(--chalk-dim);
+  font-family:var(--display); font-weight:800; font-size:1.15rem; border-bottom:3px solid transparent; margin-bottom:-1px;
+}
+.onglets button[aria-selected="true"]{ color:var(--chalk); border-bottom-color:var(--red); }
+.contenu{ flex:1; overflow-y:auto; padding:1rem 1.2rem 2rem; }
+.contenu h3{ font-family:var(--display); font-weight:800; font-size:1.3rem; margin:1.2rem 0 .5rem; }
+.contenu h3:first-child{ margin-top:0; }
+.aide{ color:var(--chalk-dim); font-size:.92rem; margin:.2rem 0 .6rem; }
+.champ{ display:flex; align-items:center; gap:.6rem; margin:.5rem 0; flex-wrap:wrap; }
+.champ label{ min-width:9rem; }
+.contenu input,.contenu select,.modal input,.modal select{
+  background:var(--slate); border:1px solid var(--slate-4); border-radius:8px; padding:.4rem .55rem;
+}
+.cases{ display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.3rem; }
+.case{ display:flex; gap:.45rem; align-items:center; padding:.35rem .5rem; border-radius:7px; background:var(--slate); cursor:pointer; user-select:none; border:1px solid transparent; text-align:left; }
+.case.on{ background:rgba(52,165,107,.18); border-color:rgba(52,165,107,.55); }
+.case::before{ content:""; width:.95rem; height:.95rem; border-radius:3px; border:2px solid var(--chalk-dim); flex:none; }
+.case.on::before{ background:var(--green); border-color:var(--green); }
+.tirage{ display:grid; gap:.6rem; }
+.bloc{ background:var(--slate); border-radius:10px; padding:.6rem .8rem; }
+.bloc h4{ margin:0 0 .4rem; font-family:var(--display); font-weight:800; font-size:1.2rem; display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
+.ligne{ display:flex; justify-content:space-between; align-items:center; gap:.5rem; padding:.18rem 0; }
+.ligne + .ligne{ border-top:1px solid var(--slate-3); }
+.boutons{ display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+.note{ padding:.6rem .8rem; border-radius:8px; margin:.8rem 0; line-height:1.4; }
+.note.ok{ background:rgba(52,165,107,.18); color:#bfe9d1; }
+.note.err{ background:rgba(212,69,59,.18); color:#f2b8b2; }
+.note.warn{ background:rgba(227,212,174,.14); color:var(--sisal); }
+.rec{ display:grid; grid-template-columns:9.5rem 5.5rem 1fr; gap:.5rem; align-items:center; margin:.4rem 0; }
+
+/* ---------- Fenêtres ---------- */
+.fond{ position:fixed; inset:0; background:rgba(10,14,15,.65); z-index:30; display:grid; place-items:center; padding:1rem; }
+.fond[hidden]{ display:none; }
+.modal{ background:var(--slate-2); border-radius:14px; padding:1.3rem 1.5rem; width:min(560px,100%); box-shadow:0 30px 60px rgba(0,0,0,.5); }
+.modal h2{ margin:0 0 .2rem; font-family:var(--display); font-weight:900; font-size:1.8rem; }
+.duel{ display:grid; grid-template-columns:1fr auto auto auto 1fr; gap:.6rem; align-items:center; margin:1.2rem 0 .4rem; }
+.duel b{ font-family:var(--display); font-weight:800; font-size:1.7rem; line-height:1.1; }
+.duel b:last-child{ text-align:right; }
+.duel select{ font-family:var(--display); font-weight:900; font-size:1.6rem; min-width:4rem; }
+.duel i{ font-style:normal; color:var(--chalk-dim); }
+
+.toast{
+  position:fixed; left:50%; bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:40;
+  background:var(--chalk); color:var(--slate); padding:.6rem 1.1rem; border-radius:10px; font-weight:600;
+  box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:min(90vw,40rem);
+}
+.toast.err{ background:var(--red); color:var(--chalk); }
+.toast[hidden]{ display:none; }
+.charge{ opacity:.55; pointer-events:none; }
+
+@media (prefers-reduced-motion: reduce){ .panneau{ transition:none; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a href="./" title="Retour au site"><img src="logo-noyadarts.webp" alt="Noya'Darts" width="640" height="576"></a>
+  <div>
+    <h1 id="titre">Tournoi du jeudi</h1>
+    <p class="statut" id="statut">Chargement...</p>
+  </div>
+  <div class="actions">
+    <button class="btn ghost small" id="btnPlein" type="button" title="Plein écran (pour le projecteur)">Plein écran</button>
+    <button class="btn small" id="btnGerer" type="button">Gérer</button>
+  </div>
+</div>
+<div class="messages" id="messages"></div>
+<main id="main"></main>
+
+<!-- Panneau de gestion -->
+<aside class="panneau" id="panneau" aria-label="Gestion du tournoi">
+  <header>
+    <h2>Gérer</h2>
+    <button class="lien" id="btnDeconnexion" type="button">Oublier le code</button>
+    <button class="btn ghost small" id="btnFermer" type="button">Fermer</button>
+  </header>
+  <div class="onglets" role="tablist">
+    <button role="tab" data-onglet="nouveau" aria-selected="true">Nouveau tournoi</button>
+    <button role="tab" data-onglet="valider" aria-selected="false">Valider la soirée</button>
+    <button role="tab" data-onglet="joueurs" aria-selected="false">Joueurs</button>
+    <button role="tab" data-onglet="reglages" aria-selected="false">Réglages</button>
+  </div>
+  <div class="contenu" id="contenu"></div>
+</aside>
+
+<!-- Fenêtre : code du club -->
+<div class="fond" id="fondCode" hidden>
+  <form class="modal" id="formCode">
+    <h2>Code du club</h2>
+    <p class="aide">Pour gérer le tournoi depuis cet ordinateur. Il sera retenu sur cet appareil.</p>
+    <div class="champ"><input id="code" type="password" autocomplete="current-password" style="flex:1" aria-label="Code du club"></div>
+    <div id="codeMsg"></div>
+    <div class="boutons"><button class="btn" type="submit">Valider</button><button class="btn ghost" type="button" id="codeAnnuler">Annuler</button></div>
+  </form>
+</div>
+
+<!-- Fenêtre : score d'un match -->
+<div class="fond" id="fondScore" hidden>
+  <div class="modal" role="dialog" aria-labelledby="scoreTitre">
+    <h2 id="scoreTitre">Score</h2>
+    <p class="aide" id="scoreAide"></p>
+    <div class="duel" id="duel"></div>
+    <div id="scoreMsg"></div>
+    <div class="boutons">
+      <button class="btn" id="scoreOk" type="button">Enregistrer le score</button>
+      <button class="btn ghost" id="scoreEffacer" type="button">Effacer le score</button>
+      <button class="btn ghost" id="scoreAnnuler" type="button">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* Adresse de l'application Web du Google Sheet (Déployer > Gérer les déploiements, URL qui finit par /exec). */
+const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1FegismopNkmSIbM2rdMkyiMtWo58iwRw4TJHLZ8NXVMXIH/exec";
+
+const LETTRES = "ABC";
+const RAFRAICHIR_MS = 15000;
+let DATA = null, CODE = "", OCCUPE = 0, ONGLET = "nouveau";
+let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "" };   // brouillon « Nouveau tournoi »
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+const dateFr = iso => { if(!iso) return ""; const [a,m,j] = iso.split("-").map(Number);
+  return new Date(Date.UTC(a,m-1,j)).toLocaleDateString("fr-FR",{ weekday:"long", day:"numeric", month:"long", timeZone:"UTC" }); };
+const legsTxt = n => n + " leg" + (n>1?"s":"") + " gagnant" + (n>1?"s":"");
+
+try { CODE = localStorage.getItem("noyadarts-code") || ""; } catch(e){}
+
+/* ---------------- Échanges avec le Google Sheet ---------------- */
+async function lire(){
+  const r = await fetch(API_URL, { cache:"no-store" });
+  const d = await r.json();
+  if(!d.ok) throw new Error(d.erreur || "Lecture impossible.");
+  return d;
+}
+async function agir(action, donnees){
+  OCCUPE++;
+  try {
+    const r = await fetch(API_URL, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ action, code: CODE }, donnees || {})) });
+    const d = await r.json();
+    if(!d.ok){
+      if(d.codeFaux){ oublierCode(); }
+      throw new Error(d.erreur || "Action impossible.");
+    }
+    DATA = d; afficher();
+    return d.resultat;
+  } finally { OCCUPE--; }
+}
+async function rafraichir(){
+  if(!API_URL || OCCUPE || !$("fondScore").hidden || document.hidden) return;
+  try { DATA = await lire(); afficher(); }
+  catch(e){ $("statut").textContent = "Connexion au Google Sheet impossible pour l'instant, nouvel essai dans quelques secondes."; }
+}
+
+let toastT = null;
+function toast(txt, err){
+  const t = $("toast"); t.textContent = txt; t.className = "toast" + (err ? " err" : ""); t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, err ? 6000 : 3500);
+}
+function note(el, html, cls){ el.innerHTML = html ? '<div class="note ' + cls + '">' + html + '</div>' : ""; }
+
+/* ---------------- Affichage du tournoi ---------------- */
+function afficher(){
+  const T = DATA && DATA.tournoi;
+  document.body.classList.toggle("admin", estAdmin());
+  if(!T){
+    $("titre").textContent = "Tournoi du jeudi";
+    $("statut").textContent = "Pas de tournoi en cours.";
+    $("messages").innerHTML = "";
+    $("main").innerHTML = '<div class="accueil"><h2>Pas encore de tournoi ce soir</h2><p>' +
+      (estAdmin() ? 'Lance-le depuis le panneau « Gérer », onglet « Nouveau tournoi ».' : "Le tournoi s'affichera ici dès qu'il sera lancé.") + '</p></div>';
+    if($("panneau").classList.contains("ouvert")) afficherOnglet();
+    return;
+  }
+  const d = T.date.split("-");
+  $("titre").textContent = "Tournoi du " + dateFr(T.date);
+  $("statut").textContent = T.statut.replace(/ Enregistre-la avec le menu.*$/, "");
+  $("statut").className = "statut" + (T.termine ? " fin" : "");
+  $("messages").innerHTML = T.messages.map(m => "<p>" + esc(m) + "</p>").join("");
+  $("main").innerHTML = blocSuivre(T) + '<div class="scene"><section aria-label="Poules">' +
+    T.poules.map((noms,p) => blocPoule(T,p)).join("") + '</section><section aria-label="Phase finale">' + blocArbre(T) + '</section></div>';
+  brancher();
+  requestAnimationFrame(traits);
+  if($("panneau").classList.contains("ouvert")) afficherOnglet();
+}
+
+/* Prochains matchs : le premier match non joué de chaque poule, dans l'ordre prévu */
+function blocSuivre(T){
+  let items = [];
+  if(!T.finies){
+    T.poules.forEach((noms,p) => {
+      const m = T.matchs.find(x => x.poule === p && x.etat !== "✔");
+      if(m) items.push({ lib: "Poule " + LETTRES[p] + ", match " + m.num, j1: m.j1, j2: m.j2, match: m.i });
+    });
+  } else {
+    ["D1","D2","PF","F"].forEach(id => {
+      const f = T.finale.find(x => x.id === id);
+      if(f && f.pret && !f.joue && items.length < 2) items.push({ lib: f.libelle, j1: f.j1, j2: f.j2, finale: f.id });
+    });
+  }
+  if(T.termine) return "";
+  const html = items.length ? items.map(it =>
+    '<div class="m' + (estAdmin() ? " clic" : "") + '" ' + (it.finale ? 'data-finale="' + it.finale + '"' : 'data-match="' + it.match + '"') + '>' +
+    "<small>" + esc(it.lib) + "</small><b>" + esc(it.j1) + "<i>contre</i>" + esc(it.j2) + "</b></div>").join("")
+    : '<span class="vide">En attente des résultats...</span>';
+  return '<div class="suivre"><h2>À suivre</h2>' + html + "</div>";
+}
+
+function blocPoule(T,p){
+  const noms = T.poules[p], cl = T.classements[p], L = T.legs[p];
+  const st = {}; cl.forEach(x => st[x.nom] = x);
+  const idx = {}; T.matchs.filter(m => m.poule === p).forEach(m => { idx[m.j1 + "|" + m.j2] = m; idx[m.j2 + "|" + m.j1] = m; });
+  let h = '<div class="poule"><h2 class="titre">Poule ' + LETTRES[p] + "<small>" + legsTxt(L) + "</small></h2>";
+  h += '<div class="grille-defil"><table class="grille"><thead><tr><th></th>' +
+    noms.map((n,j) => '<th class="col" title="' + esc(n) + '">' + (j+1) + "</th>").join("") +
+    '<th title="Victoires">V</th><th title="Différence de legs">Diff</th><th title="Rang">Rang</th></tr></thead><tbody>';
+  noms.forEach((n,i) => {
+    const s = st[n], q = T.qualifies.indexOf(n) >= 0;
+    h += '<tr class="' + (q ? "qualif" : "") + '"><th class="nom"><span>' + (i+1) + "</span><b>" + esc(n) + "</b></th>";
+    noms.forEach((o,j) => {
+      if(i === j){ h += '<td class="diag"></td>'; return; }
+      const m = idx[n + "|" + o];
+      const moi = m.j1 === n ? m.a : m.b, lui = m.j1 === n ? m.b : m.a;
+      const joue = m.etat === "✔", err = m.etat.indexOf("⚠") === 0;
+      const cls = (joue ? (moi > lui ? "v" : "d") : "") + (err ? " err" : "") + (estAdmin() ? " clic" : "");
+      h += '<td class="' + cls + '" data-match="' + m.i + '" title="' + esc(n + " contre " + o) + (err ? " : " + esc(m.etat) : "") + '">' +
+        (joue ? moi + "-" + lui : (err ? "?" : "")) + "</td>";
+    });
+    h += '<td class="stat">' + s.V + '</td><td class="stat">' + (s.diff > 0 ? "+" : "") + s.diff +
+      '</td><td class="stat rang' + (s.egalite ? " eg" : "") + (estAdmin() && (s.egalite || s.dep !== "") ? " clic" : "") + '" data-dep="' + esc(n) + '"' +
+      (s.egalite ? ' title="Égalité parfaite : à départager au bull"' : "") + ">" + s.rang + (s.egalite ? "=" : "") + "</td></tr>";
+  });
+  h += "</tbody></table></div>";
+  const nb = T.matchs.filter(m => m.poule === p).length, joues = T.matchs.filter(m => m.poule === p && m.etat === "✔").length;
+  h += '<p class="legende">' + joues + " match" + (joues>1?"s":"") + " joué" + (joues>1?"s":"") + " sur " + nb +
+    ". Chaque case donne le score du joueur de la ligne." + (estAdmin() ? " Clique sur une case pour noter un score." : "") + "</p></div>";
+  return h;
+}
+
+function blocMatch(T, id, finale){
+  const f = T.finale.find(x => x.id === id); if(!f) return "";
+  const L = T.legsFinale;
+  const ligne = (nom, legs, autre) => {
+    const cls = !f.pret ? "attente" : (f.joue ? (nom === f.gagnant ? "gagne" : "perd") : "");
+    let score;
+    if(estAdmin() && f.pret){
+      score = '<select data-f="' + id + '" data-cote="' + autre + '" aria-label="Legs gagnés par ' + esc(nom) + '"><option value=""></option>' +
+        Array.from({length:L+1},(_,k)=>'<option' + (legs === k ? " selected" : "") + ">" + k + "</option>").join("") + "</select>";
+    } else score = '<span class="legs">' + (legs === "" ? "" : legs) + "</span>";
+    return '<div class="joueur ' + cls + '"><b>' + esc(nom) + "</b>" + score + "</div>";
+  };
+  const etat = f.etat === "✔" || f.etat === "En attente" || f.etat === "À jouer" ? "" : f.etat;
+  return '<div class="match' + (finale ? " finale" : "") + '" id="m-' + id + '"><div class="lib"><span>' + f.libelle + "</span><span>" + esc(etat) + "</span></div>" +
+    ligne(f.j1, f.a, "a") + ligne(f.j2, f.b, "b") + "</div>";
+}
+
+function blocArbre(T){
+  const directe = T.finale.length === 1;
+  let h = '<h2 class="titre">Phase finale<small>' + legsTxt(T.legsFinale) + "</small></h2>";
+  if(directe){
+    h += '<div class="arbre"><div class="demis" style="grid-column:1 / -1">' + blocMatch(T,"F",true) + "</div>";
+  } else {
+    h += '<div class="arbre" id="arbre"><svg id="svgTraits" aria-hidden="true"></svg><div class="demis">' + blocMatch(T,"D1") + blocMatch(T,"D2") +
+      '</div><div class="fin">' + blocMatch(T,"F",true) + '</div><div class="petite">' + blocMatch(T,"PF") + "</div>";
+  }
+  if(T.podium[0]) h += '<div class="podium"><ol>' + ["1er","2e","3e","4e"].slice(0, T.podium.length).map((r,i) =>
+      "<li><span>" + r + "</span><b>" + esc(T.podium[i] || "") + "</b></li>").join("") + "</ol></div>";
+  if(T.termine){
+    h += '<div class="vainqueur">🏆 ' + esc(T.podium[0]) + " remporte la soirée<small>" +
+      (T.enregistre ? "Soirée enregistrée au championnat." : (estAdmin() ? "Pense à valider la soirée (panneau Gérer) pour l'enregistrer au championnat." : "")) + "</small></div>";
+  }
+  return h + "</div>";
+}
+
+/* Traits de l'arbre : des demi-finales vers la finale */
+function traits(){
+  const svg = $("svgTraits"), arbre = $("arbre"); if(!svg || !arbre) return;
+  const base = arbre.getBoundingClientRect();
+  const box = id => { const e = $("m-" + id); return e ? e.getBoundingClientRect() : null; };
+  const d1 = box("D1"), d2 = box("D2"), f = box("F"); if(!d1 || !d2 || !f) return;
+  const x0 = d1.right - base.left, x1 = f.left - base.left, xm = (x0 + x1) / 2;
+  const y = r => r.top + r.height / 2 - base.top;
+  const T = DATA.tournoi;
+  const fait = id => (T.finale.find(x => x.id === id) || {}).joue;
+  const trait = (pts, on) => '<polyline fill="none" stroke="' + (on ? "#d4453b" : "#3b4a4f") + '" stroke-width="3" stroke-linejoin="round" points="' + pts + '"/>';
+  svg.innerHTML =
+    trait(x0+","+y(d1)+" "+xm+","+y(d1)+" "+xm+","+y(f)+" "+x1+","+y(f), fait("D1")) +
+    trait(x0+","+y(d2)+" "+xm+","+y(d2)+" "+xm+","+y(f)+" "+x1+","+y(f), fait("D2"));
+}
+window.addEventListener("resize", () => requestAnimationFrame(traits));
+
+function brancher(){
+  if(!estAdmin()) return;
+  document.querySelectorAll("[data-match]").forEach(e => e.onclick = () => ouvrirScore({ match: Number(e.dataset.match) }));
+  document.querySelectorAll(".suivre [data-finale]").forEach(e => e.onclick = () => ouvrirScore({ finale: e.dataset.finale }));
+  document.querySelectorAll("select[data-f]").forEach(s => s.onchange = () => scoreArbre(s.dataset.f));
+  document.querySelectorAll("td.clic[data-dep]").forEach(td => td.onclick = async () => {
+    const nom = td.dataset.dep;
+    const v = prompt("Départage de " + nom + " après le bull : 1 pour le premier, 2 pour le suivant... (vide pour effacer)", "");
+    if(v === null) return;
+    $("main").classList.add("charge");
+    try { await agir("departage", { nom, valeur: v.trim() }); toast("Départage enregistré."); }
+    catch(e){ toast(e.message, true); }
+    finally { $("main").classList.remove("charge"); }
+  });
+}
+
+/* Score saisi directement dans l'arbre : envoyé dès que les deux menus forment un score valable */
+async function scoreArbre(id){
+  const T = DATA.tournoi, L = T.legsFinale;
+  const a = document.querySelector('select[data-f="' + id + '"][data-cote="a"]').value;
+  const b = document.querySelector('select[data-f="' + id + '"][data-cote="b"]').value;
+  if(a === "" && b === ""){ return envoyerScore({ finale:id, a:"", b:"" }); }
+  if(a === "" || b === "") return;
+  const x = Number(a), y = Number(b);
+  if((x === L) === (y === L)){ toast("Score impossible : il faut " + L + " legs pour gagner le match.", true); return; }
+  envoyerScore({ finale:id, a:x, b:y });
+}
+
+async function envoyerScore(req){
+  $("main").classList.add("charge");
+  try { await agir("score", req); toast("Score enregistré."); }
+  catch(e){ toast(e.message, true); afficher(); }
+  finally { $("main").classList.remove("charge"); }
+}
+
+/* ---------------- Fenêtre de score ---------------- */
+let SCORE = null;
+function ouvrirScore(req){
+  const T = DATA.tournoi; let j1, j2, a, b, L, titre;
+  if(req.finale){
+    const f = T.finale.find(x => x.id === req.finale);
+    if(!f.pret){ toast("Les joueurs de ce match ne sont pas encore connus.", true); return; }
+    j1 = f.j1; j2 = f.j2; a = f.a; b = f.b; L = T.legsFinale; titre = f.libelle;
+  } else {
+    const m = T.matchs[req.match];
+    j1 = m.j1; j2 = m.j2; a = m.a; b = m.b; L = T.legs[m.poule]; titre = "Poule " + LETTRES[m.poule] + ", match " + m.num;
+  }
+  SCORE = Object.assign({ L }, req);
+  const opts = v => '<option value=""></option>' + Array.from({length:L+1},(_,k)=>'<option' + (v === k ? " selected" : "") + ">" + k + "</option>").join("");
+  $("scoreTitre").textContent = titre;
+  $("scoreAide").textContent = legsTxt(L) + " : choisis le nombre de legs gagnés par chaque joueur.";
+  $("duel").innerHTML = "<b>" + esc(j1) + '</b><select id="sa" aria-label="Legs de ' + esc(j1) + '">' + opts(a) + "</select><i>à</i>" +
+    '<select id="sb" aria-label="Legs de ' + esc(j2) + '">' + opts(b) + "</select><b>" + esc(j2) + "</b>";
+  note($("scoreMsg"), "");
+  $("fondScore").hidden = false;
+  $("sa").focus();
+}
+function fermerScore(){ $("fondScore").hidden = true; SCORE = null; }
+$("scoreAnnuler").onclick = fermerScore;
+$("fondScore").addEventListener("click", e => { if(e.target === $("fondScore")) fermerScore(); });
+$("scoreEffacer").onclick = () => { const r = Object.assign({}, SCORE, { a:"", b:"" }); fermerScore(); envoyerScore(r); };
+$("scoreOk").onclick = () => {
+  const a = $("sa").value, b = $("sb").value, L = SCORE.L;
+  if(a === "" || b === ""){ note($("scoreMsg"), "Choisis les legs des deux joueurs.", "err"); return; }
+  if((Number(a) === L) === (Number(b) === L)){ note($("scoreMsg"), "Score impossible : il faut " + L + " legs pour gagner le match.", "err"); return; }
+  const r = Object.assign({}, SCORE, { a:Number(a), b:Number(b) }); delete r.L;
+  fermerScore(); envoyerScore(r);
+};
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape"){ if(!$("fondScore").hidden) fermerScore(); else if(!$("fondCode").hidden) $("fondCode").hidden = true; else fermerPanneau(); }
+  if(e.key === "Enter" && !$("fondScore").hidden) $("scoreOk").click();
+});
+
+/* ---------------- Code du club ---------------- */
+function estAdmin(){ return !!CODE; }
+function oublierCode(){ CODE = ""; try { localStorage.removeItem("noyadarts-code"); } catch(e){} fermerPanneau(); afficher(); }
+$("btnDeconnexion").onclick = () => { oublierCode(); toast("Code oublié sur cet appareil."); };
+$("btnGerer").onclick = () => {
+  if(!API_URL) return;
+  if(estAdmin()) return ouvrirPanneau();
+  $("code").value = ""; note($("codeMsg"), ""); $("fondCode").hidden = false; $("code").focus();
+};
+$("codeAnnuler").onclick = () => $("fondCode").hidden = true;
+$("formCode").onsubmit = async e => {
+  e.preventDefault();
+  const essai = $("code").value.trim(); if(!essai) return;
+  CODE = essai;
+  try {
+    await agir("verifier");
+    try { localStorage.setItem("noyadarts-code", CODE); } catch(e){}
+    $("fondCode").hidden = true; ouvrirPanneau(); afficher();
+  } catch(err){ CODE = ""; note($("codeMsg"), esc(err.message), "err"); }
+};
+$("btnPlein").onclick = () => {
+  if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {});
+};
+document.addEventListener("fullscreenchange", () => { $("btnPlein").textContent = document.fullscreenElement ? "Quitter le plein écran" : "Plein écran"; });
+
+/* ---------------- Panneau de gestion ---------------- */
+function ouvrirPanneau(){
+  if(DATA && DATA.tournoi && DATA.tournoi.termine && !DATA.tournoi.enregistre) ONGLET = "valider";
+  $("panneau").classList.add("ouvert"); afficherOnglet();
+}
+function fermerPanneau(){ $("panneau").classList.remove("ouvert"); }
+$("btnFermer").onclick = fermerPanneau;
+document.querySelectorAll(".onglets button").forEach(b => b.onclick = () => { ONGLET = b.dataset.onglet; afficherOnglet(); });
+
+function afficherOnglet(){
+  document.querySelectorAll(".onglets button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.onglet === ONGLET)));
+  const c = $("contenu");
+  if(c.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return; // ne pas effacer une saisie en cours
+  ({ nouveau: ongletNouveau, valider: ongletValider, joueurs: ongletJoueurs, reglages: ongletReglages })[ONGLET](c);
+}
+
+/* --- Nouveau tournoi --- */
+function prochainJeudi(){
+  const d = new Date(); const avance = (4 - d.getDay() + 7) % 7; d.setDate(d.getDate() + avance);
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+const presents = () => DATA.joueurs.filter(n => NV.presents[n]);
+const nbAuto = n => n >= DATA.seuils.seuil3 ? 3 : n >= DATA.seuils.seuil2 ? 2 : 1;
+function tailles(){ const k = NV.nb, t = []; for(let p=0;p<k;p++) t.push(presents().filter(n => NV.affect[n] === p).length); return t; }
+function legsPoule(p){
+  if(NV.legs[p]) return NV.legs[p];
+  const t = tailles(), mn = Math.min(...t), mx = Math.max(...t);
+  return (t.length > 1 && mn < mx && t[p] === mn) ? 3 : 2;
+}
+function tirer(){
+  const l = presents().slice();
+  for(let i=l.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [l[i],l[j]] = [l[j],l[i]]; }
+  NV.affect = {}; l.forEach((n,i) => NV.affect[n] = i % NV.nb); NV.legs = {};
+}
+function ongletNouveau(c){
+  if(!NV.date) NV.date = prochainJeudi();
+  if(NV.nb === null){ NV.nb = nbAuto(presents().length); tirer(); }
+  const T = DATA.tournoi, opts = (v,max) => Array.from({length:max},(_,k)=>'<option value="' + (k+1) + '"' + (v === k+1 ? " selected" : "") + ">" + legsTxt(k+1) + "</option>").join("");
+  let h = '<div class="champ"><label for="nvDate">Date</label><input type="date" id="nvDate" value="' + NV.date + '"></div>';
+  if(T) h += '<p class="aide">Lancer un nouveau tournoi remplacera celui du ' + dateFr(T.date) + (T.enregistre ? " (déjà enregistré)." : ", qui n'est pas encore enregistré au championnat.") + "</p>";
+  h += "<h3>Joueurs présents (" + presents().length + ")</h3><div class=\"cases\">" +
+    DATA.joueurs.map(n => '<button type="button" class="case' + (NV.presents[n] ? " on" : "") + '" data-j="' + esc(n) + '">' + esc(n) + "</button>").join("") + "</div>";
+  h += '<div class="champ"><input id="nvNouveau" placeholder="Nouveau joueur" style="flex:1"><button class="btn small" id="nvAjouter" type="button">Ajouter</button></div><div id="nvAjoutMsg"></div>';
+  h += '<h3>Poules</h3><div class="champ"><label for="nvNb">Nombre de poules</label><select id="nvNb">' + [1,2,3].map(k => "<option" + (NV.nb === k ? " selected" : "") + ">" + k + "</option>").join("") +
+    '</select><button class="btn ghost small" id="nvTirage" type="button">Refaire le tirage</button></div>' +
+    '<p class="aide">Réglage du club : 2 poules dès ' + DATA.seuils.seuil2 + " joueurs, 3 dès " + DATA.seuils.seuil3 + ". Pour déplacer un joueur, change sa poule.</p>";
+  if(presents().length){
+    h += '<div class="tirage">';
+    for(let p=0;p<NV.nb;p++){
+      const noms = presents().filter(n => NV.affect[n] === p);
+      h += '<div class="bloc"><h4>Poule ' + LETTRES[p] + " (" + noms.length + ')<select data-legs="' + p + '" aria-label="Legs gagnants de la poule ' + LETTRES[p] + '">' + opts(legsPoule(p), DATA.legsMax) + "</select></h4>" +
+        noms.map(n => '<div class="ligne"><span>' + esc(n) + '</span><select data-mv="' + esc(n) + '" aria-label="Poule de ' + esc(n) + '">' +
+          Array.from({length:NV.nb},(_,q)=>'<option value="' + q + '"' + (q===p?" selected":"") + ">Poule " + LETTRES[q] + "</option>").join("") + "</select></div>").join("") + "</div>";
+    }
+    h += "</div>";
+  }
+  h += '<div class="champ" style="margin-top:1rem"><label for="nvLegsF">Phase finale</label><select id="nvLegsF">' + opts(NV.legsF, DATA.legsMax) + "</select></div>";
+  h += '<div id="nvMsg"></div><div class="boutons"><button class="btn" id="nvLancer" type="button">Lancer le tournoi</button></div>';
+  c.innerHTML = h;
+
+  $("nvDate").onchange = e => NV.date = e.target.value;
+  c.querySelectorAll("[data-j]").forEach(b => b.onclick = () => {
+    const n = b.dataset.j; NV.presents[n] = !NV.presents[n];
+    const k = nbAuto(presents().length); if(k !== NV.nb) NV.nb = k;
+    tirer(); ongletNouveau(c);
+  });
+  $("nvNb").onchange = e => { NV.nb = Number(e.target.value); tirer(); ongletNouveau(c); };
+  $("nvTirage").onclick = () => { tirer(); ongletNouveau(c); };
+  c.querySelectorAll("[data-mv]").forEach(s => s.onchange = () => { NV.affect[s.dataset.mv] = Number(s.value); ongletNouveau(c); });
+  c.querySelectorAll("[data-legs]").forEach(s => s.onchange = () => { NV.legs[Number(s.dataset.legs)] = Number(s.value); });
+  $("nvLegsF").onchange = e => NV.legsF = Number(e.target.value);
+  const ajout = async forcer => {
+    const nom = $("nvNouveau").value.trim(); if(!nom) return;
+    try {
+      const r = await agir("ajouterJoueur", { nom, forcer });
+      if(!r.ajoute){
+        note($("nvAjoutMsg"), "« " + esc(r.nom) + " » ressemble à : <b>" + r.proches.map(esc).join(", ") + '</b>. Est-ce bien un nouveau joueur ? <div class="boutons"><button class="btn small" id="nvOui">Oui, l\'ajouter</button><button class="btn ghost small" id="nvNon">Non</button></div>', "warn");
+        $("nvOui").onclick = () => ajout(true);
+        $("nvNon").onclick = () => note($("nvAjoutMsg"), "");
+        return;
+      }
+      NV.presents[r.nom] = true; NV.nb = nbAuto(presents().length); tirer(); ongletNouveau(c);
+      toast("« " + r.nom + " » est ajouté au championnat et marqué présent.");
+    } catch(e){ note($("nvAjoutMsg"), esc(e.message), "err"); }
+  };
+  $("nvAjouter").onclick = () => ajout(false);
+  $("nvNouveau").onkeydown = e => { if(e.key === "Enter") ajout(false); };
+  const lancer = async remplacer => {
+    const poules = [], legs = [];
+    for(let p=0;p<NV.nb;p++){ poules.push(presents().filter(n => NV.affect[n] === p)); legs.push(legsPoule(p)); }
+    $("nvLancer").disabled = true;
+    try {
+      const r = await agir("lancer", { date: NV.date, poules, legs, legsFinale: NV.legsF, remplacer });
+      if(r && r.confirmer){
+        note($("nvMsg"), esc(r.confirmer) + '<div class="boutons"><button class="btn small" id="nvRemplacer">Oui, remplacer</button><button class="btn ghost small" id="nvGarder">Annuler</button></div>', "warn");
+        $("nvRemplacer").onclick = () => lancer(true);
+        $("nvGarder").onclick = () => { note($("nvMsg"), ""); $("nvLancer").disabled = false; };
+        return;
+      }
+      NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "" };
+      fermerPanneau(); toast(r.message);
+    } catch(e){ note($("nvMsg"), esc(e.message), "err"); $("nvLancer").disabled = false; }
+  };
+  $("nvLancer").onclick = () => lancer(false);
+}
+
+/* --- Valider la soirée : classement du tournoi + records --- */
+let VAL = { date: null, records: null };
+async function ongletValider(c){
+  const T = DATA.tournoi;
+  if(!T){ c.innerHTML = '<p class="aide">Pas de tournoi en cours.</p>'; return; }
+  if(!T.termine){ c.innerHTML = '<p class="aide">Le tournoi n\'est pas terminé : il manque le score de la finale' + (T.finale.length > 1 ? " ou de la petite finale" : "") + ".</p>"; return; }
+  if(VAL.date !== T.date){
+    VAL = { date: T.date, records: null };
+    c.innerHTML = '<p class="aide">Chargement des records déjà saisis...</p>';
+    try { VAL.records = (await agir("chargerSoiree", { date: T.date })).records; }
+    catch(e){ VAL.records = []; }
+    if(ONGLET !== "valider") return;
+  }
+  const participants = Object.keys(T.rangs).sort((a,b) => T.rangs[a] - T.rangs[b] || a.localeCompare(b));
+  const place = r => r === 5 ? "Participation" : ["", "Vainqueur", "Finaliste", "3e", "4e"][r];
+  let h = (T.enregistre ? '<div class="note ok">Cette soirée est déjà enregistrée au championnat. Tu peux corriger les records et réenregistrer.</div>' : "") +
+    "<h3>Classement du " + dateFr(T.date) + "</h3>" +
+    participants.map(n => '<div class="ligne"><span>' + esc(n) + "</span><span>" + place(T.rangs[n]) + "</span></div>").join("") +
+    '<h3>Records de la soirée</h3><p class="aide">Laisse vide s\'il n\'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.</p>';
+  h += DATA.types.map((t,i) => {
+    const r = (VAL.records || []).find(x => x.type === t.nom) || {};
+    return '<div class="rec"><label for="rs' + i + '">' + esc(t.nom) + '</label><input id="rs' + i + '" inputmode="decimal" placeholder="' + t.min + " à " + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace(".", ",")) : "") + '">' +
+      '<select id="rn' + i + '" aria-label="Auteur du record ' + esc(t.nom) + '"><option value="">qui ?</option>' + participants.map(n => "<option" + (r.nom === n ? " selected" : "") + ">" + esc(n) + "</option>").join("") + "</select></div>";
+  }).join("");
+  h += '<div id="valMsg"></div><div class="boutons"><button class="btn" id="valOk" type="button">Enregistrer la soirée</button></div>';
+  c.innerHTML = h;
+  $("valOk").onclick = async () => {
+    const records = DATA.types.map((t,i) => ({ type: t.nom, score: $("rs" + i).value, nom: $("rn" + i).value }));
+    $("valOk").disabled = true; note($("valMsg"), "Enregistrement...", "warn");
+    try {
+      const msg = await agir("enregistrer", { date: T.date, rangs: T.rangs, records });
+      VAL.date = null; ONGLET = "valider"; afficherOnglet(); toast(msg);
+    } catch(e){ note($("valMsg"), esc(e.message), "err"); $("valOk").disabled = false; }
+  };
+}
+
+/* --- Joueurs : ajouter, renommer, supprimer --- */
+function ongletJoueurs(c){
+  let h = '<h3>Ajouter un joueur</h3><div class="champ"><input id="jNouveau" placeholder="Nom du joueur" style="flex:1"><button class="btn small" id="jAjouter" type="button">Ajouter</button></div><div id="jMsg"></div>' +
+    '<h3>Joueurs du championnat (' + DATA.joueurs.length + ")</h3>" +
+    DATA.joueurs.map(n => '<div class="ligne"><span>' + esc(n) + '</span><span><button class="lien" data-ren="' + esc(n) + '">Renommer</button> &nbsp; <button class="lien" data-sup="' + esc(n) + '">Supprimer</button></span></div>').join("");
+  c.innerHTML = h;
+  const msg = (html, cls) => { note($("jMsg"), html, cls); $("jMsg").scrollIntoView({ block:"nearest" }); };
+  const ajout = async forcer => {
+    const nom = $("jNouveau").value.trim(); if(!nom) return;
+    try {
+      const r = await agir("ajouterJoueur", { nom, forcer });
+      if(!r.ajoute){
+        msg("« " + esc(r.nom) + " » ressemble à : <b>" + r.proches.map(esc).join(", ") + '</b>. Est-ce bien un nouveau joueur ? <div class="boutons"><button class="btn small" id="jOui">Oui, l\'ajouter</button><button class="btn ghost small" id="jNon">Non</button></div>', "warn");
+        $("jOui").onclick = () => ajout(true); $("jNon").onclick = () => msg("");
+        return;
+      }
+      ongletJoueurs(c); toast("« " + r.nom + " » est ajouté au championnat.");
+    } catch(e){ msg(esc(e.message), "err"); }
+  };
+  $("jAjouter").onclick = () => ajout(false);
+  $("jNouveau").onkeydown = e => { if(e.key === "Enter") ajout(false); };
+  c.querySelectorAll("[data-ren]").forEach(b => b.onclick = () => {
+    const ancien = b.dataset.ren;
+    msg('Nouveau nom pour « ' + esc(ancien) + ' » :<div class="champ"><input id="jRen" value="' + esc(ancien) + '" style="flex:1"><button class="btn small" id="jRenOk">Renommer</button><button class="btn ghost small" id="jRenNon">Annuler</button></div>' +
+      '<span class="aide">Ses résultats, points et records sont conservés.</span>', "warn");
+    const go = async forcer => {
+      try {
+        const r = await agir("renommer", { ancien, nouveau: $("jRen") ? $("jRen").value : b.dataset.nouveau, forcer });
+        if(!r.renomme){
+          b.dataset.nouveau = r.nom;
+          msg("« " + esc(r.nom) + " » ressemble à : <b>" + r.proches.map(esc).join(", ") + '</b>. Est-ce bien le nom voulu ? <div class="boutons"><button class="btn small" id="jRenOui">Oui, renommer</button><button class="btn ghost small" id="jRenNon">Annuler</button></div>', "warn");
+          $("jRenOui").onclick = () => go(true); $("jRenNon").onclick = () => msg("");
+          return;
+        }
+        ongletJoueurs(c); toast(r.message);
+      } catch(e){ msg(esc(e.message), "err"); }
+    };
+    $("jRenOk").onclick = () => go(false); $("jRenNon").onclick = () => msg("");
+    $("jRen").onkeydown = e => { if(e.key === "Enter") go(false); };
+    $("jRen").focus(); $("jRen").select();
+  });
+  c.querySelectorAll("[data-sup]").forEach(b => b.onclick = async () => {
+    const nom = b.dataset.sup;
+    try {
+      const i = await agir("infosJoueur", { nom });
+      const perte = (i.soirees || i.records) ? "Ses résultats (" + i.soirees + " soirée(s), " + i.points + " point(s)) et ses " + i.records + " record(s) seront <b>définitivement perdus</b>."
+        : "Il n'a aucun résultat enregistré.";
+      msg("Supprimer <b>" + esc(nom) + "</b> ? " + perte + '<div class="boutons"><button class="btn small" id="jSupOui">Oui, supprimer</button><button class="btn ghost small" id="jSupNon">Annuler</button></div>', "err");
+      $("jSupNon").onclick = () => msg("");
+      $("jSupOui").onclick = () => {
+        msg("Dernière confirmation : supprimer <b>" + esc(nom) + '</b> pour de bon ?<div class="boutons"><button class="btn small" id="jSupOui2">Supprimer définitivement</button><button class="btn ghost small" id="jSupNon2">Annuler</button></div>', "err");
+        $("jSupNon2").onclick = () => msg("");
+        $("jSupOui2").onclick = async () => {
+          try { const t = await agir("supprimer", { nom }); ongletJoueurs(c); toast(t); }
+          catch(e){ msg(esc(e.message), "err"); }
+        };
+      };
+    } catch(e){ msg(esc(e.message), "err"); }
+  });
+}
+
+/* --- Réglages --- */
+function ongletReglages(c){
+  c.innerHTML = '<h3>Nombre de poules</h3><p class="aide">Proposé automatiquement au lancement d\'un tournoi, selon le nombre de joueurs présents.</p>' +
+    '<div class="champ"><label for="rS2">2 poules dès</label><input id="rS2" type="number" min="4" value="' + DATA.seuils.seuil2 + '" style="width:5rem"> joueurs</div>' +
+    '<div class="champ"><label for="rS3">3 poules dès</label><input id="rS3" type="number" min="6" value="' + DATA.seuils.seuil3 + '" style="width:5rem"> joueurs</div>' +
+    '<div id="rMsg"></div><div class="boutons"><button class="btn" id="rOk" type="button">Enregistrer les réglages</button></div>' +
+    '<h3>Cet ordinateur</h3><p class="aide">Le code du club est retenu sur cet appareil. « Oublier le code » (en haut du panneau) le retire.</p>';
+  $("rOk").onclick = async () => {
+    try { await agir("reglages", { seuil2: Number($("rS2").value), seuil3: Number($("rS3").value) }); NV.nb = null; note($("rMsg"), "Réglages enregistrés.", "ok"); }
+    catch(e){ note($("rMsg"), esc(e.message), "err"); }
+  };
+}
+
+/* ---------------- Démarrage ---------------- */
+if(!API_URL){
+  $("statut").textContent = "Page pas encore reliée au Google Sheet.";
+  $("main").innerHTML = '<div class="accueil"><h2>Presque prêt</h2><p>Il reste à publier le script du Google Sheet en application Web, puis à coller son adresse dans la constante API_URL de cette page.</p></div>';
+  $("btnGerer").disabled = true;
+} else {
+  rafraichir();
+  setInterval(rafraichir, RAFRAICHIR_MS);
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) rafraichir(); });
+}
+</script>
+</body>
+</html>
