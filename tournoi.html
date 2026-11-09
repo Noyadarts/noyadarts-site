@@ -221,6 +221,7 @@ table.classement{ border-collapse:collapse; }
 .case.on{ background:rgba(52,165,107,.18); border-color:rgba(52,165,107,.55); }
 .case::before{ content:""; width:.95rem; height:.95rem; border-radius:3px; border:2px solid var(--chalk-dim); flex:none; }
 .case.on::before{ background:var(--green); border-color:var(--green); }
+.replies{ grid-column:1 / -1; margin:.5rem 0 .1rem; color:var(--chalk-dim); font-size:.88rem; }
 .tirage{ display:grid; gap:.6rem; }
 .bloc{ background:var(--slate); border-radius:10px; padding:.6rem .8rem; }
 .bloc h4{ margin:0 0 .4rem; font-family:var(--display); font-weight:800; font-size:1.2rem; display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
@@ -361,7 +362,7 @@ const LETTRES = "ABC";
 const RAFRAICHIR_MS = 15000;
 let DATA = null, CODE = "", OCCUPE = 0, ONGLET = "nouveau";
 let VAL = { date: null, records: null };   // records affichés dans « Valider la soirée »
-let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "" };   // brouillon « Nouveau tournoi »
+let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false };   // brouillon « Nouveau tournoi »
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
@@ -780,6 +781,15 @@ function prochainJeudi(){
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 const presents = () => DATA.joueurs.filter(n => NV.presents[n]);
+/* Joueur affiché d'office : présent, jamais venu, ou venu dans les DATA.habitues dernières semaines avant la date du tournoi */
+function habitue(n){
+  const v = (DATA.venues || {})[n];
+  if(NV.presents[n] || !v) return true;
+  const p = (NV.date || "").split("-").map(Number);
+  const d = p.length === 3 && p[0] ? new Date(p[0], p[1]-1, p[2]) : new Date();
+  d.setDate(d.getDate() - 7 * (DATA.habitues || 6));
+  return v >= d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
 const nbAuto = n => n >= DATA.seuils.seuil3 ? 3 : n >= DATA.seuils.seuil2 ? 2 : 1;
 function tailles(){ const k = NV.nb, t = []; for(let p=0;p<k;p++) t.push(presents().filter(n => NV.affect[n] === p).length); return t; }
 function legsPoule(p){
@@ -798,8 +808,15 @@ function ongletNouveau(c){
   const T = DATA.tournoi, opts = (v,max) => Array.from({length:max},(_,k)=>'<option value="' + (k+1) + '"' + (v === k+1 ? " selected" : "") + ">" + legsTxt(k+1) + "</option>").join("");
   let h = '<div class="champ"><label for="nvDate">Date</label><input type="date" id="nvDate" value="' + NV.date + '"></div>';
   if(T) h += '<p class="aide">Lancer un nouveau tournoi remplacera celui du ' + dateFr(T.date) + (T.enregistre ? " (déjà enregistré)." : ", qui n'est pas encore enregistré au championnat.") + "</p>";
-  h += "<h3>Joueurs présents (" + presents().length + ")</h3><div class=\"cases\">" +
-    DATA.joueurs.map(n => '<button type="button" class="case' + (NV.presents[n] ? " on" : "") + '" data-j="' + esc(n) + '">' + esc(n) + "</button>").join("") + "</div>";
+  const caseJ = n => '<button type="button" class="case' + (NV.presents[n] ? " on" : "") + '" data-j="' + esc(n) + '">' + esc(n) + "</button>";
+  const autres = DATA.joueurs.filter(n => !habitue(n)), sem = DATA.habitues || 6;
+  h += "<h3>Joueurs présents (" + presents().length + ")</h3><div class=\"cases\">" + DATA.joueurs.filter(habitue).map(caseJ).join("");
+  if(autres.length){
+    if(NV.tous) h += '<p class="replies">Pas venus depuis plus de ' + sem + " semaines :</p>" + autres.map(caseJ).join("");
+    h += '<p class="replies"><button type="button" class="lien" id="nvTous">' + (NV.tous ? "Replier les anciens joueurs"
+      : (autres.length > 1 ? "Voir les " + autres.length + " autres joueurs (pas venus" : "Voir l'autre joueur (pas venu") + " depuis plus de " + sem + " semaines)") + "</button></p>";
+  }
+  h += "</div>";
   h += '<div class="champ"><input id="nvNouveau" placeholder="Nouveau joueur" style="flex:1"><button class="btn small" id="nvAjouter" type="button">Ajouter</button></div><div id="nvAjoutMsg"></div>';
   h += '<h3>Poules</h3><div class="champ"><label for="nvNb">Nombre de poules</label><select id="nvNb">' + [1,2,3].map(k => "<option" + (NV.nb === k ? " selected" : "") + ">" + k + "</option>").join("") +
     '</select><button class="btn ghost small" id="nvTirage" type="button">Refaire le tirage</button></div>' +
@@ -818,7 +835,8 @@ function ongletNouveau(c){
   h += '<div id="nvMsg"></div><div class="boutons"><button class="btn" id="nvLancer" type="button">Lancer le tournoi</button></div>';
   c.innerHTML = h;
 
-  $("nvDate").onchange = e => NV.date = e.target.value;
+  $("nvDate").onchange = e => { NV.date = e.target.value; ongletNouveau(c); };
+  if($("nvTous")) $("nvTous").onclick = () => { NV.tous = !NV.tous; ongletNouveau(c); };
   c.querySelectorAll("[data-j]").forEach(b => b.onclick = () => {
     const n = b.dataset.j; NV.presents[n] = !NV.presents[n];
     const k = nbAuto(presents().length); if(k !== NV.nb) NV.nb = k;
@@ -857,7 +875,7 @@ function ongletNouveau(c){
         $("nvGarder").onclick = () => { note($("nvMsg"), ""); $("nvLancer").disabled = false; };
         return;
       }
-      NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "" };
+      NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false };
       fermerPanneau(); toast(r.message);
     } catch(e){ note($("nvMsg"), esc(e.message), "err"); $("nvLancer").disabled = false; }
   };
