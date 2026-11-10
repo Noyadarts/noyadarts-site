@@ -439,6 +439,11 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .nn-info{ flex-basis:100%; color:var(--sisal); }
 .nn-cta{ font-family:var(--display); font-weight:800; font-size:1.2rem; color:var(--sisal); text-decoration:none; border-bottom:2px solid currentColor; }
 .nn-cta:hover{ color:var(--chalk); }
+.nn-live{ color:var(--chalk); background:var(--red); border:0; border-radius:999px; padding:.35rem .95rem; }
+.nn-live::before{ content:""; display:inline-block; width:.55rem; height:.55rem; margin-right:.5rem; border-radius:50%; background:var(--chalk); vertical-align:.12em; animation:nnPulse 1.6s ease-in-out infinite; }
+.nn-live:hover{ background:var(--red-deep); color:var(--chalk); }
+@keyframes nnPulse{ 50%{ opacity:.25; } }
+@media (prefers-reduced-motion: reduce){ .nn-live::before{ animation:none; } }
 
 /* ---------- Noms cliquables, liste repliable ---------- */
 .player-link{ font:inherit; color:inherit; background:none; border:0; border-radius:0; padding:0; text-align:left; border-bottom:1px dashed var(--chalk-dim); }
@@ -492,6 +497,20 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc-duo .who{ margin:.15rem 0 .1rem; font-family:var(--display); font-weight:800; font-size:1.45rem; line-height:1.1; color:var(--chalk); }
 .pc-duo .who.none{ font-family:var(--body); font-weight:400; font-size:.95rem; color:var(--chalk-dim); }
 .pc-duo .why{ margin:0; color:var(--chalk-dim); font-size:.88rem; }
+.pc-duo.solo{ grid-template-columns:1fr; }
+.pc-duo .often{ border-top-color:var(--sisal); }
+.pc-legs{ margin:-.2rem 0 .7rem; color:var(--chalk-dim); font-size:.92rem; }
+.pc-form{ display:flex; flex-wrap:wrap; align-items:center; gap:.3rem .8rem; margin:0 0 1rem; }
+.pc-form .lbl{ color:var(--chalk-dim); font-size:.92rem; }
+.pc-form .dots{ display:flex; gap:.35rem; }
+.pc-form .f{ width:1.75rem; height:1.75rem; border-radius:50%; display:grid; place-items:center; font:800 1rem/1 var(--display); }
+.pc-form .f.v{ background:var(--green); color:var(--slate); }
+.pc-form .f.d{ background:var(--red); color:var(--chalk); }
+.pc-form .f:last-child{ box-shadow:0 0 0 2px var(--slate-2), 0 0 0 4px var(--sisal); }
+.pc-faces{ margin:.4rem 0 .5rem; border-top:1px solid var(--slate-3); }
+.pc-faces summary{ padding:.6rem 0; color:var(--sisal); font-weight:600; }
+.pc-faces summary:hover{ color:var(--chalk); }
+.pc-faces[open] summary{ margin-bottom:.2rem; }
 @media (max-width:480px){
   .pc{ padding:1.3rem 1.1rem 1.5rem; }
   .pc-recs .rec{ grid-template-columns:auto 1fr; }
@@ -847,8 +866,9 @@ const PHOTOS = [];
       start = h + 1;
     } else if(!rows.some(r => parseDate(r[0]))) throw new Error("En-tête des matchs introuvable");
     else console.warn("Matchs BD : en-tête « Vainqueur » introuvable, colonnes lues dans l'ordre A à H.");
-    return rows.slice(start).map(r => ({
-      date:parseDate(r[iD]), phase:r[iP] || "", j1:r[iJ1], l1:num(r[iL1]), j2:r[iJ2], l2:num(r[iL2]), winner:r[iV]
+    /* ord : position dans l'onglet (le script garde l'ordre des matchs d'une soirée : poules, puis phase finale) */
+    return rows.slice(start).map((r, k) => ({
+      date:parseDate(r[iD]), phase:r[iP] || "", j1:r[iJ1], l1:num(r[iL1]), j2:r[iJ2], l2:num(r[iL2]), winner:r[iV], ord:k
     })).filter(m => m.date && m.j1 && m.j2 && m.winner);
   }
 
@@ -904,11 +924,14 @@ const PHOTOS = [];
   const vSur = (v, n) => v + (v > 1 ? " victoires" : " victoire") + " en " + n + (n > 1 ? " matchs" : " match");
 
   /* Statistiques tirées de "Matchs BD" */
+  const FORME = 5; // nombre de matchs de la « forme du moment »
   function fillMatchs(body, p){
     if(!SHEET_CSV.matchs) return;
     body.appendChild(el("h3", "pc-h", "Ses matchs"));
     const me = norm(p.name);
-    const mine = matchs.filter(m => norm(m.j1) === me || norm(m.j2) === me);
+    /* Du plus récent au plus ancien : date, puis ordre de la soirée (poules, puis phase finale) */
+    const mine = matchs.filter(m => norm(m.j1) === me || norm(m.j2) === me)
+      .sort((a, b) => b.date - a.date || b.ord - a.ord);
     const debut = matchs.length ? matchs.reduce((a, m) => m.date < a ? m.date : a, matchs[0].date) : null;
     const depuis = debut ? "Matchs archivés depuis le " + dayMonth(debut) + " " + debut.getFullYear() + "." : "";
     if(!mine.length){
@@ -916,10 +939,32 @@ const PHOTOS = [];
       return;
     }
     const won = m => norm(m.winner) === me;
+    const side = m => norm(m.j1) === me ? { adv:m.j2, pour:m.l1, contre:m.l2 } : { adv:m.j1, pour:m.l2, contre:m.l1 };
     const v = mine.filter(won).length;
     const win = el("p", "pc-win");
     win.append(el("b", null, pct(v, mine.length)), el("span", null, "de victoires (" + vSur(v, mine.length) + ")"));
     body.appendChild(win);
+
+    /* Legs gagnés et perdus (matchs dont le score est connu) */
+    let lp = 0, lc = 0;
+    mine.forEach(m => { const s = side(m); if(s.pour != null && s.contre != null){ lp += s.pour; lc += s.contre; } });
+    if(lp + lc) body.appendChild(el("p", "pc-legs", "Legs : " + lp + (lp > 1 ? " gagnés" : " gagné") + ", " + lc + (lc > 1 ? " perdus" : " perdu") + " (" + pct(lp, lp + lc) + ")"));
+
+    /* Forme du moment : derniers matchs, le plus récent à droite */
+    const recents = mine.slice(0, FORME).reverse();
+    const forme = el("div", "pc-form");
+    forme.appendChild(el("span", "lbl", recents.length > 1 ? "Ses " + recents.length + " derniers matchs" : "Son dernier match"));
+    const dots = el("span", "dots");
+    recents.forEach(m => {
+      const s = side(m), g = won(m);
+      const d = el("span", "f " + (g ? "v" : "d"), g ? "V" : "D");
+      const txt = (g ? "Victoire" : "Défaite") + " contre " + s.adv
+        + (s.pour != null && s.contre != null ? " " + s.pour + "-" + s.contre : "") + ", " + shortDate(m.date) + (m.phase ? " (" + m.phase + ")" : "");
+      d.title = txt; d.setAttribute("aria-label", txt); d.setAttribute("role", "img");
+      dots.appendChild(d);
+    });
+    forme.appendChild(dots);
+    body.appendChild(forme);
 
     /* Par phase */
     const rows = PHASES.map(ph => {
@@ -938,36 +983,60 @@ const PHOTOS = [];
       t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
     }
 
-    /* Face-à-face : victime favorite et bête noire */
+    /* Face-à-face (mine est trié du plus récent au plus ancien : le premier nom rencontré est le plus récent) */
     const face = {};
     mine.forEach(m => {
-      const adv = norm(m.j1) === me ? m.j2 : m.j1, k = norm(adv);
-      const f = face[k] = face[k] || { name:adv, n:0, v:0, last:m.date };
+      const s = side(m), k = norm(s.adv);
+      const f = face[k] = face[k] || { name:s.adv, n:0, v:0, lp:0, lc:0, last:m.date };
       f.n++; if(won(m)) f.v++;
-      if(m.date >= f.last){ f.last = m.date; f.name = adv; }
+      if(s.pour != null && s.contre != null){ f.lp += s.pour; f.lc += s.contre; }
     });
-    const assez = Object.values(face).filter(f => f.n >= MIN_FACE);
+    const tous = Object.values(face);
+    const assez = tous.filter(f => f.n >= MIN_FACE);
     const taux = f => f.v / f.n;
     const prey = assez.filter(f => taux(f) > .5)
       .sort((a, b) => taux(b) - taux(a) || b.v - a.v || b.last - a.last)[0];
     const nemesis = assez.filter(f => taux(f) < .5)
       .sort((a, b) => taux(a) - taux(b) || (b.n - b.v) - (a.n - a.v) || b.last - a.last)[0];
-    const duo = el("div", "pc-duo");
-    [["prey", "Sa victime favorite", prey, f => vSur(f.v, f.n)],
-     ["nemesis", "Sa bête noire", nemesis, f => { const d = f.n - f.v; return d + (d > 1 ? " défaites" : " défaite") + " en " + f.n + " matchs"; }]]
-      .forEach(([cls, titre, f, why]) => {
-        const box = el("div", cls);
-        box.appendChild(el("h4", null, titre));
-        if(f){
-          const w = el("p", "who"); w.appendChild(playerLink(f.name)); box.appendChild(w);
-          box.appendChild(el("p", "why", why(f)));
-        } else {
-          box.appendChild(el("p", "who none", "Personne pour l'instant"));
-        }
-        duo.appendChild(box);
-      });
+    const defaites = f => { const d = f.n - f.v; return d + (d > 1 ? " défaites" : " défaite") + " en " + f.n + (f.n > 1 ? " matchs" : " match"); };
+    const bilan = f => f.v + " V, " + (f.n - f.v) + " D en " + f.n + (f.n > 1 ? " matchs" : " match");
+    const boxes = (prey || nemesis)
+      ? [["prey", "Sa victime favorite", prey, f => vSur(f.v, f.n)], ["nemesis", "Sa bête noire", nemesis, defaites]]
+      /* Pas encore de victime favorite ni de bête noire : l'adversaire le plus affronté */
+      : [["often", "Son adversaire le plus fréquent", tous.slice().sort((a, b) => b.n - a.n || b.last - a.last)[0], bilan]];
+    const duo = el("div", "pc-duo" + (boxes.length === 1 ? " solo" : ""));
+    boxes.forEach(([cls, titre, f, why]) => {
+      const box = el("div", cls);
+      box.appendChild(el("h4", null, titre));
+      if(f){
+        const w = el("p", "who"); w.appendChild(playerLink(f.name)); box.appendChild(w);
+        box.appendChild(el("p", "why", why(f)));
+      } else {
+        box.appendChild(el("p", "who none", "Personne pour l'instant"));
+      }
+      duo.appendChild(box);
+    });
     body.appendChild(duo);
-    body.appendChild(el("p", "pc-note", "Victime favorite et bête noire : au moins " + MIN_FACE + " matchs contre le même joueur. " + depuis));
+
+    /* Tous ses face-à-face, repliés */
+    const det = el("details", "pc-faces");
+    det.appendChild(el("summary", null, "Tous ses face-à-face (" + tous.length + (tous.length > 1 ? " adversaires)" : " adversaire)")));
+    const wrap = el("div", "table-scroll"), t = el("table"), hr = el("tr"), tb = el("tbody");
+    [["Adversaire"], ["Matchs", "num"], ["V", "num"], ["D", "num"], ["Legs", "num"]].forEach(([txt, c]) => hr.appendChild(el("th", c, txt)));
+    const th = el("thead"); th.appendChild(hr); t.appendChild(th);
+    tous.slice().sort((a, b) => b.n - a.n || taux(b) - taux(a) || a.name.localeCompare(b.name, "fr")).forEach(f => {
+      const tr = el("tr"), td = el("td");
+      td.appendChild(playerLink(f.name));
+      tr.append(td, el("td", "num", String(f.n)), el("td", "num", String(f.v)), el("td", "num", String(f.n - f.v)),
+        el("td", "num", f.lp + f.lc ? f.lp + "-" + f.lc : ""));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t); det.appendChild(wrap);
+    body.appendChild(det);
+
+    body.appendChild(el("p", "pc-note", (prey || nemesis
+      ? "Victime favorite et bête noire : au moins " + MIN_FACE + " matchs contre le même joueur. "
+      : "Victime favorite et bête noire apparaîtront après " + MIN_FACE + " matchs contre le même joueur. ") + depuis));
   }
 
   function fillPlayer(p){
@@ -1255,6 +1324,14 @@ const PHOTOS = [];
       el("strong", "nn-date", "Jeudi " + dayMonth(d) + ", dès 19\u00a0h"),
       el("span", "nn-where", "salle Chartreuse"));
     box.appendChild(main);
+    /* Jeudi soir (dès 18 h, jusqu'à 2 h du matin) : lien vers le tournoi en direct, sauf soirée annulée */
+    const soir = new Date(now); if(now.getHours() < 2) soir.setDate(soir.getDate() - 1);
+    const enDirect = soir.getDay() === 4 && (now.getHours() >= 18 || now.getHours() < 2)
+      && !(byKey[key(soir)] && byKey[key(soir)].annule);
+    if(enDirect){
+      const live = el("a", "nn-cta nn-live", "Suivre le tournoi en direct"); live.href = "tournoi.html";
+      box.appendChild(live);
+    }
     const cta = el("a", "nn-cta", "M'inscrire"); cta.href = "#contact";
     box.appendChild(cta);
     if(info) box.appendChild(el("p", "nn-info", info));
@@ -1264,8 +1341,12 @@ const PHOTOS = [];
   function showBanner(text){
     let fromSheet = [];
     if(text){ try { fromSheet = readAnnonces(text); } catch(e){ console.warn(e); } }
-    renderBanner(annoncesCode.concat(fromSheet));
+    bannerList = annoncesCode.concat(fromSheet);
+    renderBanner(bannerList);
   }
+  /* Page laissée ouverte : le bandeau se remet à jour (lien du tournoi en direct à partir de 18 h) */
+  let bannerList = annoncesCode;
+  setInterval(() => { try { renderBanner(bannerList); } catch(e){} }, 5 * 60 * 1000);
   try { showBanner(SHEET_CSV.annonces ? cacheGet("annonces") : null); } catch(e){ console.error(e); }
   if(SHEET_CSV.annonces){
     fetchCSV(SHEET_CSV.annonces)
