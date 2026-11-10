@@ -19,6 +19,9 @@
  * dans n'importe quel ordre (« À suivre » annoncé à la main ou proposé), joueurs en pause,
  * affiches de la phase finale modifiables à la main.
  *
+ * Contrôle du fichier (menu "Vérifier le fichier") : en-têtes, dates, noms et cohérence des onglets,
+ * avec correction automatique des en-têtes. Soirée enregistrée par erreur : menu "Retirer une soirée".
+ *
  * Résultats de tous les matchs archivés dans l'onglet "Matchs BD" à la validation de la soirée
  * (pour de futures statistiques).
  *
@@ -74,6 +77,7 @@ const SOIREE_1ER_OCTOBRE = {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu("🎯 Noya'Darts")
     .addItem('Saisir une soirée', 'ouvrirSaisie')
+    .addItem('Retirer une soirée', 'retirerSoiree')
     .addItem('Ajouter un joueur', 'menuAjouterJoueur')
     .addItem('Renommer un joueur', 'ouvrirRenommage')
     .addItem('Supprimer un joueur', 'ouvrirSuppression')
@@ -90,6 +94,7 @@ function onOpen() {
     .addItem('Changer le dossier photos', 'choisirDossierPhotos')
     .addItem('Voir le site', 'ouvrirSite')
     .addSeparator()
+    .addItem('Vérifier le fichier', 'verifierFichier')
     .addItem('Réparer le fichier', 'installer')
     .addToUi();
 }
@@ -149,7 +154,8 @@ function installer() {
 
   let msg = "Le fichier est prêt.\n\n";
   const dejaRecords = lireRecordsBD_().some(function (l) { return l.cle === SOIREE_1ER_OCTOBRE.date; });
-  if (!colonneSoiree_(feuille_(CFG.champ), SOIREE_1ER_OCTOBRE.date, false) || !dejaRecords) {
+  const retiree = PropertiesService.getDocumentProperties().getProperty('soiree1erOctobreRetiree'); // retirée exprès : ne pas la réimporter
+  if (!retiree && (!colonneSoiree_(feuille_(CFG.champ), SOIREE_1ER_OCTOBRE.date, false) || !dejaRecords)) {
     enregistrerSoiree(SOIREE_1ER_OCTOBRE);
     msg += "La soirée du 1er octobre (et le joueur Jerome) a été ajoutée.\n\n";
   }
@@ -1512,9 +1518,10 @@ function feuilleMatchs_() {
   let sh = ss_().getSheetByName(CFG.matchs);
   if (!sh) {
     sh = ss_().insertSheet(CFG.matchs);
-    sh.getRange(1, 1, 1, ENTETES_MATCHS.length).setValues([ENTETES_MATCHS]).setFontWeight('bold');
     sh.setFrozenRows(1);
   }
+  // En-têtes réécrits à chaque fois : le site en a besoin pour lire l'onglet
+  sh.getRange(1, 1, 1, ENTETES_MATCHS.length).setValues([ENTETES_MATCHS]).setFontWeight('bold');
   return sh;
 }
 
@@ -1534,6 +1541,343 @@ function ecrireMatchsBD_(iso, nouvelles) {
   if (lignes.length) {
     sh.getRange(2, 1, lignes.length, n).setValues(lignes);
     sh.getRange(2, 1, lignes.length, 1).setNumberFormat('d/m/yyyy');
+  }
+}
+
+/* ===================== VÉRIFIER LE FICHIER ===================== */
+/*
+ * Menu « Vérifier le fichier » : contrôle les onglets lus par le site et par ce script
+ * (en-têtes, dates, noms, cohérence entre championnat, « Records BD » et « Matchs BD »).
+ * Ne modifie rien, sauf les en-têtes si on accepte la correction proposée.
+ */
+
+const ENTETES_RECORDS = ['Date', 'Type', 'Score', 'Nom'];
+const ENTETES_PHOTOS = ['id', 'Nom du fichier', 'Ajoutée le'];
+
+function verifierFichier() {
+  const ui = SpreadsheetApp.getUi();
+  let r;
+  try { r = verifierFichier_(); } catch (e) { ui.alert('Vérification impossible : ' + e.message); return; }
+  const liste = function (t) {
+    const max = 12;
+    return t.slice(0, max).map(function (x) { return '• ' + x; }).join('\n') + (t.length > max ? '\n• ... et ' + (t.length - max) + ' autre(s)' : '');
+  };
+  let msg = '';
+  if (r.problemes.length) msg += 'À corriger à la main :\n' + liste(r.problemes) + '\n\n';
+  if (r.corrections.length) msg += 'En-têtes à remettre d\'aplomb :\n' + liste(r.corrections.map(function (c) { return c.texte; })) + '\n\n';
+  if (r.infos.length) msg += 'Pour info :\n' + liste(r.infos) + '\n\n';
+  if (!r.problemes.length && !r.corrections.length) {
+    ui.alert('Vérification du fichier', 'Tout est en ordre ✅\n\n' + msg.trim(), ui.ButtonSet.OK);
+    return;
+  }
+  if (!r.corrections.length) {
+    ui.alert('Vérification du fichier', msg.trim(), ui.ButtonSet.OK);
+    return;
+  }
+  const rep = ui.alert('Vérification du fichier', msg + 'Corriger les en-têtes automatiquement ?', ui.ButtonSet.YES_NO);
+  if (rep !== ui.Button.YES) return;
+  r.corrections.forEach(function (c) { c.corriger(); });
+  SpreadsheetApp.flush();
+  ui.alert('En-têtes corrigés (' + r.corrections.length + '). Le site sera à jour d\'ici 5 minutes.' +
+    (r.problemes.length ? '\n\nIl reste ' + r.problemes.length + ' point(s) à corriger à la main.' : ''));
+}
+
+/** Renvoie { problemes: [texte], corrections: [{ texte, corriger }], infos: [texte] }. */
+function verifierFichier_() {
+  const ss = ss_();
+  const problemes = [], corrections = [], infos = [];
+  const cell = function (r, c) { return lettre_(c) + r; };
+  const frDate = function (iso) { const d = iso.split('-'); return Number(d[2]) + '/' + Number(d[1]) + '/' + d[0]; };
+  const vide = function (v) { return v === '' || v === null; };
+
+  // Ligne d'en-têtes attendue (comparée sans majuscules ni espaces en trop)
+  const entetes = function (sh, ligne, col, attendus, nomOnglet) {
+    const lus = sh.getRange(ligne, col, 1, attendus.length).getValues()[0];
+    const ok = attendus.every(function (a, i) { return norm_(lus[i]) === norm_(a); });
+    if (ok) return true;
+    corrections.push({
+      texte: '« ' + nomOnglet + ' », ' + cell(ligne, col) + ':' + cell(ligne, col + attendus.length - 1) +
+        ' : « ' + lus.map(function (x) { return String(x); }).join(', ') + ' » au lieu de « ' + attendus.join(', ') + ' »',
+      corriger: function () { sh.getRange(ligne, col, 1, attendus.length).setValues([attendus]).setFontWeight('bold'); },
+    });
+    return false;
+  };
+
+  // 1. Onglets indispensables
+  [CFG.champ, CFG.bd, CFG.rec, CFG.params].forEach(function (n) {
+    if (!ss.getSheetByName(n)) problemes.push('Onglet introuvable : « ' + n + ' » (il ne faut pas le renommer).');
+  });
+
+  // 2. Championnat
+  const joueurs = [], soirees = {}; // soirees[iso] = { col, rangs: { nom: rang }, recs: { nom: n } }
+  const champ = ss.getSheetByName(CFG.champ);
+  if (champ) {
+    const a2 = champ.getRange(2, 1, 1, 2).getValues()[0];
+    if (norm_(a2[0]) !== 'nom') problemes.push('« ' + CFG.champ + ' », A2 : il faut « Nom » (trouvé « ' + a2[0] + ' »). Sans ça, le site n\'affiche plus le classement.');
+    if (norm_(a2[1]) !== 'points') problemes.push('« ' + CFG.champ + ' », B2 : il faut « Points » (trouvé « ' + a2[1] + ' »).');
+
+    const last = derniereLigneJoueur_(champ);
+    const maxR = champ.getMaxRows();
+    // Noms après une ligne vide : ignorés par le script
+    if (maxR > last) {
+      const apres = champ.getRange(last + 1, 1, maxR - last, 1).getValues()
+        .map(function (l, i) { return { nom: String(l[0]).trim(), ligne: last + 1 + i }; })
+        .filter(function (x) { return x.nom; });
+      if (apres.length) problemes.push('« ' + CFG.champ + ' » : ligne vide en ' + (last + 1) + ', les joueurs en dessous sont ignorés (' +
+        apres.map(function (x) { return x.nom + ' ligne ' + x.ligne; }).join(', ') + '). Supprime la ligne vide.');
+    }
+    const noms = last >= 3 ? champ.getRange(3, 1, last - 2, 1).getValues().map(function (l) { return String(l[0]).trim(); }) : [];
+    const vus = {};
+    noms.forEach(function (n) {
+      joueurs.push(n);
+      const k = cleNom_(n);
+      if (vus[k]) problemes.push('« ' + CFG.champ + ' » : « ' + vus[k] + ' » et « ' + n + ' » sont le même joueur en double.');
+      else vus[k] = n;
+    });
+
+    const lastCol = Math.max(champ.getLastColumn(), CFG.col1 + 2);
+    const ligne1 = champ.getRange(1, 1, 1, lastCol).getValues()[0];
+    const data = last >= 3 ? champ.getRange(3, 1, last - 2, lastCol).getValues() : [];
+    const bareme = {};
+    const pSh = ss.getSheetByName(CFG.params);
+    if (pSh) {
+      pSh.getRange(1, 1, Math.max(pSh.getLastRow(), 1), 2).getValues().forEach(function (l) {
+        if (!vide(l[0]) && !isNaN(Number(l[0]))) bareme[Number(l[0])] = l[1];
+      });
+    }
+    for (let c = CFG.col1; c <= lastCol; c += 3) {
+      const v = ligne1[c - 1], iso = cleDate_(v);
+      const remplie = data.some(function (l) { return !vide(l[c - 1]) || !vide(l[c]); });
+      if (!iso) {
+        if (!vide(v)) problemes.push('« ' + CFG.champ + ' », ' + cell(1, c) + ' : « ' + v + ' » n\'est pas une date. Chaque soirée prend 3 colonnes, avec sa date en ligne 1.');
+        else if (remplie) problemes.push('« ' + CFG.champ + ' », colonnes ' + lettre_(c) + ' à ' + lettre_(c + 2) + ' : des résultats sans date en ' + cell(1, c) + '.');
+        continue;
+      }
+      if (soirees[iso]) { problemes.push('« ' + CFG.champ + ' » : la soirée du ' + frDate(iso) + ' apparaît deux fois (' + cell(1, soirees[iso].col) + ' et ' + cell(1, c) + ').'); continue; }
+      entetes(champ, 2, c, ['Classement', 'Records', 'Points'], CFG.champ);
+      const s = soirees[iso] = { col: c, rangs: {}, recs: {} };
+      data.forEach(function (l, i) {
+        const rg = l[c - 1];
+        if (vide(rg)) { if (Number(l[c]) > 0) problemes.push('« ' + CFG.champ + ' », ' + cell(3 + i, c + 1) + ' : ' + noms[i] + ' a des records le ' + frDate(iso) + ' sans classement.'); return; }
+        if (bareme[Number(rg)] === undefined) problemes.push('« ' + CFG.champ + ' », ' + cell(3 + i, c) + ' : classement « ' + rg + ' » inconnu du barème (' + noms[i] + ', ' + frDate(iso) + ').');
+        s.rangs[noms[i]] = Number(rg);
+        if (Number(l[c]) > 0) s.recs[noms[i]] = Number(l[c]);
+      });
+      const nb = function (x) { return Object.keys(s.rangs).filter(function (n) { return s.rangs[n] === x; }).length; };
+      if (nb(1) !== 1 || nb(2) !== 1) problemes.push('Soirée du ' + frDate(iso) + ' : ' + nb(1) + ' vainqueur(s) et ' + nb(2) + ' finaliste(s) au championnat (il en faut un de chaque).');
+    }
+  }
+  const estJoueur = function (n) { return joueurs.indexOf(String(n).trim()) >= 0; };
+
+  // 3. Barème des points
+  const params = ss.getSheetByName(CFG.params);
+  if (params) {
+    const bar = {};
+    params.getRange(1, 1, Math.max(params.getLastRow(), 1), 2).getValues().forEach(function (l) {
+      if (!vide(l[0]) && !isNaN(Number(l[0]))) bar[Number(l[0])] = l[1];
+    });
+    RANGS.forEach(function (r) {
+      if (bar[r.v] === undefined) problemes.push('« ' + CFG.params + ' » : pas de points pour le classement ' + r.v + ' (' + r.l + ') en colonnes A:B.');
+      else if (vide(bar[r.v]) || isNaN(Number(bar[r.v]))) problemes.push('« ' + CFG.params + ' » : les points du classement ' + r.v + ' ne sont pas un nombre (« ' + bar[r.v] + ' »).');
+    });
+    const e1 = params.getRange('E1').getValue();
+    if (vide(e1) || isNaN(Number(e1))) problemes.push('« ' + CFG.params + ' », E1 : les points par record ne sont pas un nombre (« ' + e1 + ' »).');
+  }
+
+  // 4. Records BD
+  const bd = ss.getSheetByName(CFG.bd);
+  const recsParSoiree = {}; // iso -> { nom: n }
+  if (bd) {
+    entetes(bd, 1, 1, ENTETES_RECORDS, CFG.bd);
+    const last = bd.getLastRow();
+    const lignes = last >= 2 ? bd.getRange(2, 1, last - 1, 4).getValues() : [];
+    const types = TYPES.map(function (t) { return norm_(t.nom); });
+    lignes.forEach(function (l, i) {
+      const r = i + 2;
+      if (l.every(vide)) return;
+      const iso = cleDate_(l[0]);
+      if (!iso) { problemes.push('« ' + CFG.bd + ' », ligne ' + r + ' : « ' + l[0] + ' » n\'est pas une date, la ligne est ignorée.'); return; }
+      if (types.indexOf(norm_(l[1])) < 0) problemes.push('« ' + CFG.bd + ' », ligne ' + r + ' : type « ' + l[1] + ' » inconnu.');
+      if (vide(l[2]) || isNaN(Number(l[2]))) problemes.push('« ' + CFG.bd + ' », ligne ' + r + ' : score « ' + l[2] + ' » qui n\'est pas un nombre.');
+      const nom = String(l[3]).trim();
+      if (champ && !estJoueur(nom)) problemes.push('« ' + CFG.bd + ' », ligne ' + r + ' : « ' + nom + ' » n\'est pas dans le championnat.');
+      if (champ && !soirees[iso]) problemes.push('« ' + CFG.bd + ' », ligne ' + r + ' : record du ' + frDate(iso) + ', soirée absente du championnat.');
+      else if (soirees[iso] && soirees[iso].rangs[nom] === undefined && estJoueur(nom)) problemes.push('« ' + CFG.bd + ' », ligne ' + r + ' : ' + nom + ' a un record le ' + frDate(iso) + ' mais n\'a pas joué ce soir-là au championnat.');
+      const k = recsParSoiree[iso] = recsParSoiree[iso] || {};
+      k[nom] = (k[nom] || 0) + 1;
+    });
+    // Nombre de records : colonne « Records » du championnat contre « Records BD »
+    Object.keys(soirees).forEach(function (iso) {
+      const a = soirees[iso].recs, b = recsParSoiree[iso] || {};
+      Object.keys(a).concat(Object.keys(b)).filter(function (n, i, t) { return t.indexOf(n) === i; }).forEach(function (n) {
+        if ((a[n] || 0) !== (b[n] || 0)) problemes.push('Soirée du ' + frDate(iso) + ' : ' + n + ' a ' + (a[n] || 0) + ' record(s) au championnat mais ' + (b[n] || 0) + ' dans « ' + CFG.bd + ' ». Rouvre la soirée (Saisir une soirée) et enregistre-la à nouveau.');
+      });
+    });
+  }
+
+  // 5. Matchs BD
+  const mb = ss.getSheetByName(CFG.matchs);
+  if (!mb) infos.push('Onglet « ' + CFG.matchs + ' » absent : il sera créé à la prochaine validation d\'un tournoi.');
+  else {
+    entetes(mb, 1, 1, ENTETES_MATCHS, CFG.matchs);
+    const last = mb.getLastRow();
+    const lignes = last >= 2 ? mb.getRange(2, 1, last - 1, ENTETES_MATCHS.length).getValues() : [];
+    const inconnus = {}, sansSoiree = {};
+    lignes.forEach(function (l, i) {
+      const r = i + 2;
+      if (l.every(vide)) return;
+      const iso = cleDate_(l[0]);
+      if (!iso) { problemes.push('« ' + CFG.matchs + ' », ligne ' + r + ' : « ' + l[0] + ' » n\'est pas une date, la ligne est ignorée.'); return; }
+      const j1 = String(l[2]).trim(), j2 = String(l[4]).trim(), v = String(l[7]).trim();
+      if (!j1 || !j2) problemes.push('« ' + CFG.matchs + ' », ligne ' + r + ' : il manque un joueur.');
+      else if (cleNom_(v) !== cleNom_(j1) && cleNom_(v) !== cleNom_(j2)) problemes.push('« ' + CFG.matchs + ' », ligne ' + r + ' : le vainqueur « ' + v + ' » n\'est ni ' + j1 + ' ni ' + j2 + '.');
+      if (champ) [j1, j2].forEach(function (n) { if (n && !estJoueur(n)) inconnus[n] = true; });
+      if (champ && !soirees[iso]) sansSoiree[iso] = true;
+    });
+    if (Object.keys(inconnus).length) infos.push('« ' + CFG.matchs + ' » : joueurs absents du championnat (supprimés ou renommés à la main ?) : ' + Object.keys(inconnus).join(', ') + '. Leurs matchs restent comptés pour leurs adversaires.');
+    Object.keys(sansSoiree).sort().forEach(function (iso) {
+      problemes.push('« ' + CFG.matchs + ' » : matchs du ' + frDate(iso) + ', soirée absente du championnat. Pour les effacer : menu « Retirer une soirée ».');
+    });
+  }
+
+  // 6. Photos et Annonces (facultatifs)
+  const ph = ss.getSheetByName(CFG.photos);
+  if (ph) entetes(ph, 1, 1, ENTETES_PHOTOS, CFG.photos);
+  const an = ss.getSheetByName('Annonces');
+  if (an) {
+    const h = an.getRange(1, 1, 1, Math.max(an.getLastColumn(), 1)).getValues()[0].map(norm_);
+    if (h.indexOf('date') < 0) problemes.push('« Annonces », ligne 1 : il faut une colonne « Date » (avec « Annulé » et « Message »), sinon le site ignore les annonces.');
+  }
+
+  if (champ) infos.push(Object.keys(soirees).length + ' soirée(s) et ' + joueurs.length + ' joueur(s) au championnat.');
+  return { problemes: problemes, corrections: corrections, infos: infos };
+}
+
+/* ===================== RETIRER UNE SOIRÉE ===================== */
+/*
+ * Menu « Retirer une soirée » : efface une soirée enregistrée par erreur, partout à la fois :
+ * ses colonnes du championnat (points recalculés), ses records dans « Records BD »
+ * et ses matchs dans « Matchs BD ». Les joueurs restent dans la liste.
+ */
+
+function retirerSoiree() {
+  const ui = SpreadsheetApp.getUi();
+  let dates;
+  try { dates = datesSoirees_(); } catch (e) { ui.alert(e.message); return; }
+  if (!dates.length) { ui.alert('Aucune soirée enregistrée.'); return; }
+  const fr = function (iso) { const d = iso.split('-'); return Number(d[2]) + '/' + Number(d[1]) + '/' + d[0]; };
+  const rep = ui.prompt('Retirer une soirée',
+    'Date de la soirée à retirer (par exemple ' + fr(dates[0]) + ') :\n\nDernières soirées : ' +
+    dates.slice(0, 8).map(fr).join(', ') + (dates.length > 8 ? '...' : ''), ui.ButtonSet.OK_CANCEL);
+  if (rep.getSelectedButton() !== ui.Button.OK) return;
+  const iso = lireDateSaisie_(rep.getResponseText(), dates);
+  if (!iso) { ui.alert('Date non reconnue : « ' + rep.getResponseText() + ' ». Écris-la comme ' + fr(dates[0]) + '.'); return; }
+  if (dates.indexOf(iso) < 0) { ui.alert('Aucune soirée enregistrée le ' + fr(iso) + '.'); return; }
+
+  const b = bilanSoiree_(iso);
+  const quoi = [];
+  if (b.joueurs) quoi.push('le classement de ' + b.joueurs + ' joueur(s) au championnat (points recalculés)');
+  if (b.records) quoi.push(b.records + ' record(s) dans « ' + CFG.bd + ' »');
+  if (b.matchs) quoi.push(b.matchs + ' match(s) dans « ' + CFG.matchs + ' »');
+  const ok = ui.alert('Retirer la soirée du ' + fr(iso) + ' ?',
+    'Seront effacés : ' + quoi.join(', ') + '.\n\n' +
+    'Les joueurs restent dans la liste. Pour revenir en arrière : ressaisir la soirée, ou Fichier > Historique des versions.',
+    ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  try { ui.alert(retirerSoiree_(iso)); } catch (e) { ui.alert(e.message); }
+}
+
+/** Dates de toutes les soirées connues (championnat, Records BD, Matchs BD), de la plus récente à la plus ancienne. */
+function datesSoirees_() {
+  const out = {};
+  const sh = feuille_(CFG.champ);
+  const lastCol = Math.max(sh.getLastColumn(), CFG.col1 + 2);
+  const ligne1 = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  for (let c = CFG.col1; c <= lastCol; c += 3) { const k = cleDate_(ligne1[c - 1]); if (k) out[k] = true; }
+  lireRecordsBD_().forEach(function (l) { if (l.cle) out[l.cle] = true; });
+  lignesMatchsBD_().forEach(function (l) { const k = cleDate_(l[0]); if (k) out[k] = true; });
+  return Object.keys(out).sort().reverse();
+}
+
+/** Lignes de « Matchs BD » (vide si l'onglet n'existe pas). */
+function lignesMatchsBD_() {
+  const sh = ss_().getSheetByName(CFG.matchs);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, ENTETES_MATCHS.length).getValues();
+}
+
+/** « 5/11/2026 », « 05/11/26 », « 5/11 » (année des soirées connues) ou « 2026-11-05 » → 'aaaa-mm-jj'. */
+function lireDateSaisie_(txt, dates) {
+  txt = String(txt || '').trim();
+  let m = txt.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  let j, mo, a;
+  if (m) { a = +m[1]; mo = +m[2]; j = +m[3]; }
+  else {
+    m = txt.match(/^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2}|\d{4}))?$/);
+    if (!m) return null;
+    j = +m[1]; mo = +m[2]; a = m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : null;
+  }
+  if (mo < 1 || mo > 12 || j < 1 || j > 31) return null;
+  const fin = '-' + ('0' + mo).slice(-2) + '-' + ('0' + j).slice(-2);
+  if (a) return a + fin;
+  const connue = (dates || []).filter(function (d) { return d.slice(4) === fin; })[0]; // la plus récente
+  return connue || (new Date().getFullYear() + fin);
+}
+
+/** Ce que contient une soirée : { joueurs, records, matchs }. */
+function bilanSoiree_(iso) {
+  const sh = feuille_(CFG.champ);
+  const info = colonneSoiree_(sh, iso, false);
+  let joueurs = 0;
+  const last = derniereLigneJoueur_(sh);
+  if (info && last >= 3) {
+    joueurs = sh.getRange(3, info.col, last - 2, 1).getValues().filter(function (l) { return l[0] !== '' && l[0] !== null; }).length;
+  }
+  return {
+    joueurs: joueurs,
+    records: lireRecordsBD_().filter(function (l) { return l.cle === iso; }).length,
+    matchs: lignesMatchsBD_().filter(function (l) { return cleDate_(l[0]) === iso; }).length,
+  };
+}
+
+/** Efface la soirée partout et renvoie le message de confirmation. */
+function retirerSoiree_(iso) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const b = bilanSoiree_(iso);
+    const sh = feuille_(CFG.champ);
+    const info = colonneSoiree_(sh, iso, false);
+    if (info) {
+      try { sh.getRange(1, info.col, 1, 3).breakApart(); } catch (e) { /* pas fusionné */ }
+      sh.deleteColumns(info.col, 3); // les soirées suivantes reculent de 3 colonnes, l'ordre est gardé
+    }
+    if (b.records) ecrireRecordsBD_(iso, []);
+    if (b.matchs) ecrireMatchsBD_(iso, []);
+    // La soirée du 1er octobre est réimportée par « Réparer le fichier » si elle manque : on note qu'elle a été retirée exprès
+    if (iso === SOIREE_1ER_OCTOBRE.date) PropertiesService.getDocumentProperties().setProperty('soiree1erOctobreRetiree', 'oui');
+
+    // Points recalculés, championnat retrié, onglet Records recalculé (comme à l'enregistrement d'une soirée)
+    refreshFormules_(sh);
+    SpreadsheetApp.flush();
+    const n = derniereLigneJoueur_(sh) - 2;
+    if (n > 0) sh.getRange(3, 1, n, sh.getLastColumn()).sort([{ column: 2, ascending: false }, { column: 1, ascending: true }]);
+    refreshFormules_(sh);
+    installerOngletRecords_();
+    SpreadsheetApp.flush();
+
+    const venues = dernieresVenues_();
+    const sansSoiree = Object.keys(venues).filter(function (nom) { return !venues[nom]; });
+    const d = iso.split('-');
+    let msg = 'Soirée du ' + Number(d[2]) + '/' + Number(d[1]) + '/' + d[0] + ' retirée : ' +
+      b.joueurs + ' classement(s), ' + b.records + ' record(s), ' + b.matchs + ' match(s) effacés. Le site sera à jour d\'ici 5 minutes.';
+    if (sansSoiree.length) msg += '\n\nCes joueurs n\'ont plus aucune soirée (ils n\'apparaissent plus sur le site, mais restent dans la liste) : ' +
+      sansSoiree.join(', ') + '. Pour les enlever : menu « Supprimer un joueur ».';
+    const etat = lireEtatTournoi_();
+    if (etat && etat.date === iso) msg += '\n\nL\'onglet « Tournoi » de ce soir-là est toujours là : « Valider le tournoi » permet de réenregistrer la soirée.';
+    return msg;
+  } finally {
+    lock.releaseLock();
   }
 }
 
