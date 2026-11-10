@@ -838,10 +838,16 @@ const PHOTOS = [];
   function readMatchs(text){
     const rows = parseCSV(text);
     const h = rows.findIndex(r => r.map(norm).includes("vainqueur"));
-    if(h < 0) throw new Error("En-tête des matchs introuvable");
-    const head = rows[h].map(norm), i = n => head.indexOf(n);
-    const iD = i("date"), iP = i("phase"), iJ1 = i("joueur 1"), iL1 = i("legs 1"), iJ2 = i("joueur 2"), iL2 = i("legs 2"), iV = i("vainqueur");
-    return rows.slice(h + 1).map(r => ({
+    /* Ordre écrit par le script (A:H) : Date, Phase, Joueur 1, Legs 1, Joueur 2, Legs 2, Legs gagnants, Vainqueur.
+       Sert de secours si la ligne d'en-tête manque ou a été modifiée. */
+    let iD = 0, iP = 1, iJ1 = 2, iL1 = 3, iJ2 = 4, iL2 = 5, iV = 7, start = 0;
+    if(h >= 0){
+      const head = rows[h].map(norm), i = n => head.indexOf(n);
+      [iD, iP, iJ1, iL1, iJ2, iL2, iV] = [i("date"), i("phase"), i("joueur 1"), i("legs 1"), i("joueur 2"), i("legs 2"), i("vainqueur")];
+      start = h + 1;
+    } else if(!rows.some(r => parseDate(r[0]))) throw new Error("En-tête des matchs introuvable");
+    else console.warn("Matchs BD : en-tête « Vainqueur » introuvable, colonnes lues dans l'ordre A à H.");
+    return rows.slice(start).map(r => ({
       date:parseDate(r[iD]), phase:r[iP] || "", j1:r[iJ1], l1:num(r[iL1]), j2:r[iJ2], l2:num(r[iL2]), winner:r[iV]
     })).filter(m => m.date && m.j1 && m.j2 && m.winner);
   }
@@ -1290,10 +1296,11 @@ const PHOTOS = [];
 
   /* ---- Matchs (statistiques des fiches joueurs) ---- */
   function showMatchs(text, live){
-    try { matchs = readMatchs(text); } catch(e){ console.warn(e); return false; }
-    if(live) matchsLoaded = true;
+    let ok = true;
+    try { matchs = readMatchs(text); } catch(e){ console.warn(e); ok = false; }
+    if(live) matchsLoaded = true; // chargement terminé même si le contenu est illisible (on garde la version en cache)
     if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); }
-    return true;
+    return ok;
   }
   if(SHEET_CSV.matchs){
     const cM = cacheGet("matchs");
