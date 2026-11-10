@@ -1,0 +1,2417 @@
+/**
+ * Noya'Darts : outils de saisie pour le Google Sheet du club.
+ *
+ * Remplace les anciennes macros Excel :
+ *   - Ajouter_Record / MAJ_Records : fenêtre "Saisir une soirée" + formules automatiques dans l'onglet Records
+ *   - Ajout de joueur : menu "Ajouter un joueur" (ou directement dans la fenêtre de saisie),
+ *     avec alerte si un joueur au nom proche existe déjà (ex. "Alex" / "Alexandre")
+ *   - Suppression de joueur : menu "Supprimer un joueur" (avec confirmation)
+ *   - Changement de nom : menu "Renommer un joueur" (championnat, Records BD et onglet Records)
+ *   - Sort_Poule_A / Sort_Poule_B : menu "Trier les poules"
+ *
+ * Tournoi du jeudi (menu "Lancer un tournoi") : tirage des poules, legs gagnants réglables par poule,
+ * onglet "Tournoi" avec les matchs (menus déroulants des legs), classements calculés à chaque score,
+ * arbre de la phase finale (demi-finales, petite finale, finale), puis "Valider le tournoi"
+ * qui ouvre la saisie de la soirée avec le classement déjà rempli.
+ *
+ * Page web du tournoi (tournoi.html sur le site) : ce script sert aussi d'application Web (doGet / doPost),
+ * protégée par le code du club (menu "Code du club (page web)"). Depuis la page : matchs de poule joués
+ * dans n'importe quel ordre (« À suivre » annoncé à la main ou proposé), joueurs en pause,
+ * affiches de la phase finale modifiables à la main.
+ *
+ * Résultats de tous les matchs archivés dans l'onglet "Matchs BD" à la validation de la soirée
+ * (pour de futures statistiques).
+ *
+ * Photos du site depuis un dossier Google Drive (menu "Mettre à jour les photos"),
+ * listées dans l'onglet "Photos", que le site lit (onglet publié en CSV).
+ *
+ * Installation : Extensions > Apps Script, coller ce fichier, enregistrer,
+ * choisir la fonction "installer" puis cliquer sur Exécuter.
+ */
+
+const CFG = {
+  champ: 'Darters Championship',
+  bd: 'Records BD',
+  rec: 'Records',
+  params: 'Paramètres points championnat',
+  photos: 'Photos',
+  matchs: 'Matchs BD',
+  siteUrl: 'https://noyadarts.github.io/noyadarts-site/',
+  col1: 4, // colonne D : première soirée (Classement, Records, Points)
+  habitues: 6, // semaines : au lancement d'un tournoi, les joueurs pas venus depuis plus longtemps sont repliés
+};
+
+const TYPES = [
+  { nom: 'Moyenne Leg', min: 50, max: 167,
+    tropBas: "On ne prend qu'au dessus de 50 MPR en record de moyenne / leg, en vrai tu n'as rien fait d'exceptionnel...",
+    tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire plus que 150 de moyenne au 301 ou 167 au 501 ?!?!" },
+  { nom: 'Meilleure Volée', min: 100, max: 180,
+    tropBas: "On ne prend qu'au dessus de 100 points en record de volée, en vrai tu n'as rien fait d'exceptionnel...",
+    tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire plus que 180 en une seule volée ?!?!" },
+  { nom: 'Meilleure Sortie', min: 60, max: 170,
+    tropBas: "On ne prend qu'au dessus de 60 points en record de sortie, en vrai tu n'as rien fait d'exceptionnel...",
+    tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire une sortie à plus de 170 ?!?!" },
+];
+
+const RANGS = [
+  { v: 1, l: 'Vainqueur' }, { v: 2, l: 'Finaliste' }, { v: 3, l: '3e' },
+  { v: 4, l: '4e' }, { v: 5, l: 'Participation' },
+];
+
+// Soirée du 1er octobre 2026, reprise du fichier Excel (importée une seule fois par "installer")
+const SOIREE_1ER_OCTOBRE = {
+  date: '2026-10-01',
+  rangs: { 'Guillaume': 1, 'Jerome': 2, 'Bob le fou': 3, 'Bast le Kid': 4, 'Nico': 5, 'Eddy': 5, 'Shido': 5 },
+  records: [
+    { type: 'Moyenne Leg', score: 64.5, nom: 'Bob le fou' },
+    { type: 'Meilleure Volée', score: 140, nom: 'Guillaume' },
+    { type: 'Meilleure Sortie', score: 80, nom: 'Guillaume' },
+  ],
+};
+
+/* =========================== MENU =========================== */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu("🎯 Noya'Darts")
+    .addItem('Saisir une soirée', 'ouvrirSaisie')
+    .addItem('Ajouter un joueur', 'menuAjouterJoueur')
+    .addItem('Renommer un joueur', 'ouvrirRenommage')
+    .addItem('Supprimer un joueur', 'ouvrirSuppression')
+    .addSeparator()
+    .addItem('Lancer un tournoi', 'ouvrirTournoi')
+    .addItem('Mettre à jour le tournoi', 'majTournoi')
+    .addItem('Valider le tournoi', 'validerTournoi')
+    .addItem('Réglages du tournoi', 'reglagesTournoi')
+    .addItem('Code du club (page web)', 'definirCode')
+    .addSeparator()
+    .addItem('Trier les poules (onglet affiché)', 'trierPoules')
+    .addSeparator()
+    .addItem('Mettre à jour les photos', 'majPhotos')
+    .addItem('Changer le dossier photos', 'choisirDossierPhotos')
+    .addItem('Voir le site', 'ouvrirSite')
+    .addSeparator()
+    .addItem('Réparer le fichier', 'installer')
+    .addToUi();
+}
+
+function ouvrirSaisie() {
+  const html = HtmlService.createHtmlOutput(HTML_SAISIE).setWidth(660).setHeight(720);
+  SpreadsheetApp.getUi().showModalDialog(html, "Saisie d'une soirée");
+}
+
+function menuAjouterJoueur() {
+  const ui = SpreadsheetApp.getUi();
+  const rep = ui.prompt('Ajouter un joueur', 'Nom du joueur :', ui.ButtonSet.OK_CANCEL);
+  if (rep.getSelectedButton() !== ui.Button.OK) return;
+  try {
+    let res = ajouterJoueur(rep.getResponseText(), false);
+    if (!res.ajoute) {
+      const ok = ui.alert('Joueur déjà inscrit ?',
+        '« ' + res.nom + ' » ressemble à : ' + res.proches.join(', ') + '.\n\n' +
+        'Est-ce bien un nouveau joueur ?', ui.ButtonSet.YES_NO);
+      if (ok !== ui.Button.YES) return;
+      res = ajouterJoueur(res.nom, true);
+    }
+    ui.alert('« ' + res.nom + ' » est ajouté au championnat.');
+  } catch (e) {
+    ui.alert(e.message);
+  }
+}
+
+function ouvrirRenommage() {
+  const html = HtmlService.createHtmlOutput(HTML_RENOMMAGE).setWidth(460).setHeight(360);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Renommer un joueur');
+}
+
+function ouvrirSuppression() {
+  const html = HtmlService.createHtmlOutput(HTML_SUPPRESSION).setWidth(460).setHeight(340);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Supprimer un joueur');
+}
+
+function ouvrirSite() {
+  const html = HtmlService.createHtmlOutput(
+    '<p style="font-family:Arial">Ouverture du site... Si rien ne se passe : ' +
+    '<a href="' + CFG.siteUrl + '" target="_blank">clique ici</a>.</p>' +
+    '<script>window.open("' + CFG.siteUrl + '","_blank");setTimeout(function(){google.script.host.close();},1500);</script>'
+  ).setWidth(320).setHeight(90);
+  SpreadsheetApp.getUi().showModalDialog(html, "Site Noya'Darts");
+}
+
+/* ======================== INSTALLATION ======================== */
+
+function installer() {
+  const ss = ss_();
+  [CFG.champ, CFG.bd, CFG.rec, CFG.params].forEach(feuille_); // vérifie que les onglets existent
+
+  supprimerAnciensBoutons_();
+  refreshFormules_(feuille_(CFG.champ)); // recalcule tous les points et totaux
+  installerOngletRecords_();            // recalcule l'onglet Records
+
+  let msg = "Le fichier est prêt.\n\n";
+  const dejaRecords = lireRecordsBD_().some(function (l) { return l.cle === SOIREE_1ER_OCTOBRE.date; });
+  if (!colonneSoiree_(feuille_(CFG.champ), SOIREE_1ER_OCTOBRE.date, false) || !dejaRecords) {
+    enregistrerSoiree(SOIREE_1ER_OCTOBRE);
+    msg += "La soirée du 1er octobre (et le joueur Jerome) a été ajoutée.\n\n";
+  }
+  onOpen();
+  msg += "Utilise désormais le menu « 🎯 Noya'Darts » en haut de l'écran.";
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
+  ss.toast("Installation terminée", "Noya'Darts", 5);
+}
+
+function supprimerAnciensBoutons_() {
+  ss_().getSheets().forEach(function (sh) {
+    try {
+      sh.getDrawings().forEach(function (d) {
+        if (/Ajouter_Record|Bouton5_Cliquer|Sort_Poule/i.test(d.getOnAction() || '')) d.remove();
+      });
+    } catch (e) { /* rien à faire */ }
+  });
+}
+
+/**
+ * Onglet Records : recalculé par le script à partir de "Records BD" (valeurs, pas de formules).
+ * Mis à jour à chaque enregistrement de soirée, suppression de joueur et "Réparer le fichier".
+ * Même disposition qu'avant : dernière soirée (A3:C6), 5 dernières soirées (A10 à C33),
+ * et à droite records du club (G4), de la saison (G11) et des 5 dernières soirées (G18).
+ */
+function installerOngletRecords_() {
+  const sh = feuille_(CFG.rec);
+  const tz = ss_().getSpreadsheetTimeZone();
+  const recs = lireRecordsBD_();
+  const dates = recs.map(function (l) { return l.cle; })
+    .filter(function (d, i, a) { return d && a.indexOf(d) === i; })
+    .sort().reverse(); // de la plus récente à la plus ancienne
+
+  // Record d'un type pour une soirée (premier trouvé, comme avant)
+  const duSoir = function (iso, type) {
+    return recs.filter(function (l) { return l.cle === iso && l.type === type; })[0];
+  };
+  // Meilleur record d'un type sur une période ; à égalité, le plus récent l'emporte
+  const meilleur = function (type, depuis) {
+    return recs.filter(function (l) { return l.type === type && (!depuis || l.cle >= depuis); })
+      .sort(function (a, b) { return (Number(b.score) || 0) - (Number(a.score) || 0) || (a.cle < b.cle ? 1 : a.cle > b.cle ? -1 : 0); })[0];
+  };
+  const blocSoiree = function (ligneDate, iso) {
+    sh.getRange(ligneDate, 1).setValue(iso ? serie_(iso) : '').setNumberFormat('d/m/yyyy');
+    sh.getRange(ligneDate + 1, 1, 3, 3).clearDataValidations().setValues(TYPES.map(function (t) {
+      const r = iso ? duSoir(iso, t.nom) : null;
+      return [t.nom, r ? r.score : '', r ? r.nom : ''];
+    }));
+  };
+
+  // Bloc de gauche : dernière soirée, puis les 5 dernières soirées
+  sh.getRange('A1').setValue('Dernière soirée');
+  blocSoiree(3, dates[0]);
+  for (let k = 1; k <= 5; k++) {
+    const r0 = 5 + 5 * k; // 10, 15, 20, 25, 30
+    sh.getRange(r0, 2, 1, 2).setValues([['Combien ', 'Qui']]);
+    blocSoiree(r0, dates[k - 1]);
+  }
+
+  // Bloc de droite : club, saison (1er juillet au 30 juin), 5 dernières soirées
+  const an = Number(Utilities.formatDate(new Date(), tz, 'yyyy'));
+  const mois = Number(Utilities.formatDate(new Date(), tz, 'M'));
+  const debutSaison = mois < 7 ? an - 1 : an;
+  sh.getRange('G8').setValue('Saison ' + debutSaison + '-' + (debutSaison + 1));
+  sh.getRange('G15').setValue('5 dernières soirées');
+  const blocs = [
+    { ligne: 4, depuis: '' },
+    { ligne: 11, depuis: debutSaison + '-07-01' },
+    { ligne: 18, depuis: dates.length ? dates[Math.min(4, dates.length - 1)] : '' },
+  ];
+  blocs.forEach(function (b) {
+    sh.getRange(b.ligne, 7, 3, 4).setValues(TYPES.map(function (t) {
+      const r = meilleur(t.nom, b.depuis);
+      return r ? [t.nom, r.score, r.nom, serie_(r.cle)] : [t.nom, 'Pas de record', '', ''];
+    }));
+    sh.getRange(b.ligne, 10, 3, 1).setNumberFormat('d/m/yyyy');
+  });
+}
+
+/* ================== FONCTIONS APPELÉES PAR LA FENÊTRE ================== */
+
+function donneesSaisie() {
+  return {
+    joueurs: lireJoueurs_(),
+    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max }; }),
+    rangs: RANGS,
+    dateDefaut: dernierJeudi_(),
+  };
+}
+
+/** Renvoie ce qui est déjà enregistré pour une date (pour corriger une soirée). */
+function chargerSoiree(iso) {
+  const sh = feuille_(CFG.champ);
+  const res = { existe: false, rangs: {}, records: [], ecarts: [] };
+  const recsChamp = {};
+  const info = colonneSoiree_(sh, iso, false);
+  if (info) {
+    res.existe = true;
+    const last = derniereLigneJoueur_(sh);
+    if (last >= 3) {
+      const noms = sh.getRange(3, 1, last - 2, 1).getValues();
+      const vals = sh.getRange(3, info.col, last - 2, 2).getValues();
+      noms.forEach(function (n, i) {
+        const nom = String(n[0]).trim();
+        if (vals[i][0] !== '' && vals[i][0] !== null) res.rangs[nom] = Number(vals[i][0]);
+        if (Number(vals[i][1]) > 0) recsChamp[nom] = Number(vals[i][1]);
+      });
+    }
+  }
+  lireRecordsBD_().forEach(function (l) {
+    if (l.cle === iso) res.records.push({ type: l.type, score: l.score, nom: l.nom });
+  });
+  // Signale les incohérences entre la colonne "Records" du championnat et "Records BD"
+  Object.keys(recsChamp).forEach(function (nom) {
+    const nbBD = res.records.filter(function (r) { return r.nom === nom; }).length;
+    if (nbBD !== recsChamp[nom]) {
+      res.ecarts.push(nom + ' a ' + recsChamp[nom] + ' record(s) au championnat mais ' + nbBD + ' dans « Records BD »');
+    }
+  });
+  return res;
+}
+
+/**
+ * Ajoute un joueur.
+ * Si un joueur au nom proche existe (et que forcer est faux), n'ajoute rien et renvoie
+ * { nom, ajoute: false, proches: [...] } pour demander confirmation.
+ * Sinon renvoie { nom, ajoute: true }.
+ */
+function ajouterJoueur(nom, forcer) {
+  nom = String(nom || '').trim().replace(/\s+/g, ' ');
+  if (!nom) throw new Error("T'es bidon mec, il faut taper le nom avant de valider...");
+  const sh = feuille_(CFG.champ);
+  const joueurs = lireJoueurs_();
+  // Même nom aux accents, majuscules, espaces et ponctuation près ("Jérôme" = "jerome")
+  const existe = joueurs.find(function (j) { return cleNom_(j) === cleNom_(nom); });
+  if (existe) throw new Error('Le darter « ' + existe + ' » existe déjà, tu croyais être original ?! Raté.');
+  if (!forcer) {
+    const proches = joueursProches_(nom, joueurs);
+    if (proches.length) return { nom: nom, ajoute: false, proches: proches };
+  }
+  const r = derniereLigneJoueur_(sh) + 1;
+  if (r > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 10);
+  sh.getRange(r, 1).setValue(nom);
+  refreshFormules_(sh);
+  return { nom: nom, ajoute: true };
+}
+
+/** Liste des joueurs (pour la fenêtre de suppression). */
+function listeJoueurs() { return lireJoueurs_(); }
+
+/** Ce qui sera perdu si on supprime ce joueur. */
+function infosJoueur(nom) {
+  const sh = feuille_(CFG.champ);
+  const r = ligneJoueur_(sh, nom);
+  if (!r) throw new Error('Joueur introuvable : « ' + nom + ' ».');
+  const lastCol = sh.getLastColumn();
+  const ligne = sh.getRange(r, 1, 1, lastCol).getValues()[0];
+  let soirees = 0;
+  for (let c = CFG.col1; c <= lastCol; c += 3) {
+    if (ligne[c - 1] !== '' && ligne[c - 1] !== null) soirees++;
+  }
+  const records = lireRecordsBD_().filter(function (l) { return l.nom === nom; }).length;
+  return { nom: nom, soirees: soirees, points: Number(ligne[1]) || 0, records: records };
+}
+
+/**
+ * Renomme un joueur : son nom dans le championnat (ses résultats restent sur sa ligne),
+ * dans "Records BD", puis l'onglet "Records" est recalculé. Les onglets de poules ne sont pas modifiés.
+ * Refusé si le nouveau nom est celui d'un autre joueur (accents, majuscules, espaces et ponctuation près).
+ * Si un autre joueur a un nom proche (et que forcer est faux), ne change rien et renvoie
+ * { nom, renomme: false, proches: [...] } pour demander confirmation.
+ * Sinon renvoie { nom, renomme: true, message }.
+ */
+function renommerJoueur(ancien, nouveau, forcer) {
+  ancien = String(ancien || '').trim();
+  nouveau = String(nouveau || '').trim().replace(/\s+/g, ' ');
+  if (!ancien) throw new Error('Choisis le joueur à renommer.');
+  if (!nouveau) throw new Error("T'es bidon mec, il faut taper le nouveau nom avant de valider...");
+  if (nouveau === ancien) throw new Error("C'est déjà son nom, il n'y a rien à changer.");
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const sh = feuille_(CFG.champ);
+    const r = ligneJoueur_(sh, ancien);
+    if (!r) throw new Error('Joueur introuvable : « ' + ancien + ' ». Il a peut-être déjà été renommé.');
+    // Les autres joueurs (changer seulement un accent ou une majuscule de son propre nom est permis)
+    const autres = lireJoueurs_().filter(function (j) { return j !== ancien; });
+    const existe = autres.find(function (j) { return cleNom_(j) === cleNom_(nouveau); });
+    if (existe) {
+      throw new Error('Le darter « ' + existe + ' » existe déjà. Si c\'est la même personne, ' +
+        'reporte ses résultats sur un seul joueur (menu Saisir une soirée), puis supprime l\'autre.');
+    }
+    if (!forcer) {
+      const proches = joueursProches_(nouveau, autres);
+      if (proches.length) return { nom: nouveau, renomme: false, proches: proches };
+    }
+
+    // Championnat : seul le nom change, les résultats restent sur la même ligne
+    sh.getRange(r, 1).setValue(nouveau);
+
+    // Records BD : colonne Nom (D) uniquement, le reste n'est pas touché
+    const bd = feuille_(CFG.bd);
+    const lastBD = bd.getLastRow();
+    let nbRecords = 0;
+    if (lastBD >= 2) {
+      const rg = bd.getRange(2, 4, lastBD - 1, 1);
+      const noms = rg.getValues();
+      noms.forEach(function (l) {
+        if (String(l[0]).trim() === ancien) { l[0] = nouveau; nbRecords++; }
+      });
+      if (nbRecords) rg.setValues(noms);
+    }
+
+    // Matchs BD : colonnes Joueur 1 (C), Joueur 2 (E) et Vainqueur (H)
+    const mbd = ss_().getSheetByName(CFG.matchs);
+    if (mbd && mbd.getLastRow() >= 2) {
+      const rgM = mbd.getRange(2, 1, mbd.getLastRow() - 1, 8);
+      const vals = rgM.getValues();
+      let change = false;
+      vals.forEach(function (l) {
+        [2, 4, 7].forEach(function (j) { if (String(l[j]).trim() === ancien) { l[j] = nouveau; change = true; } });
+      });
+      if (change) {
+        [2, 4, 7].forEach(function (j) {
+          mbd.getRange(2, j + 1, vals.length, 1).setValues(vals.map(function (l) { return [l[j]]; }));
+        });
+      }
+    }
+
+    installerOngletRecords_();
+    try { renommerDansTournoi_(ancien, nouveau); } catch (e) { /* le tournoi en cours n'empêche pas le changement de nom */ }
+    SpreadsheetApp.flush();
+    return { nom: nouveau, renomme: true,
+      message: '« ' + ancien + ' » s\'appelle désormais « ' + nouveau + ' » (' + nbRecords +
+        ' record(s) mis à jour). Le site sera à jour d\'ici 5 minutes.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Supprime un joueur : sa ligne du championnat et ses records dans "Records BD". */
+function supprimerJoueur(nom) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const sh = feuille_(CFG.champ);
+    const r = ligneJoueur_(sh, nom);
+    if (!r) throw new Error('Joueur introuvable : « ' + nom + ' ». Il a peut-être déjà été supprimé.');
+    const info = infosJoueur(nom);
+    sh.deleteRow(r);
+    if (info.records) {
+      ecrireLignesBD_(lireRecordsBD_()
+        .filter(function (l) { return l.nom !== nom; })
+        .map(function (l) { return [serie_(l.cle), l.type, l.score, l.nom]; }));
+    }
+    refreshFormules_(sh);
+    installerOngletRecords_();
+    SpreadsheetApp.flush();
+    return '« ' + nom + ' » a été supprimé (' + info.soirees + ' soirée(s), ' + info.records +
+      ' record(s) retiré(s)). Le site sera à jour d\'ici 5 minutes.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Enregistre (ou corrige) une soirée.
+ * p = { date: 'aaaa-mm-jj', rangs: { nom: 1..5 }, records: [{ type, score, nom }] }
+ */
+function enregistrerSoiree(p) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) throw new Error('Choisis la date de la soirée.');
+    const rangs = {};
+    Object.keys(p.rangs || {}).forEach(function (n) { if (p.rangs[n]) rangs[n] = Number(p.rangs[n]); });
+    const presents = Object.keys(rangs);
+    if (presents.length < 3) throw new Error("Il faut au moins 3 darters pour faire un tournoi blaireau, sinon ça s'appelle un match...");
+    const nb = function (v) { return presents.filter(function (n) { return rangs[n] === v; }).length; };
+    if (nb(1) !== 1) throw new Error('Il faut un vainqueur, et un seul.');
+    if (nb(2) !== 1) throw new Error('Il faut un finaliste, et un seul.');
+
+    const recs = [];
+    (p.records || []).forEach(function (r) {
+      const brut = String(r.score === undefined || r.score === null ? '' : r.score).trim().replace(',', '.');
+      if (!brut && !r.nom) return; // ligne vide : pas de record ce soir-là
+      const t = TYPES.find(function (x) { return x.nom === r.type; });
+      if (!t) throw new Error('Type de record inconnu : ' + r.type);
+      if (!brut) throw new Error('Faudrait voir à remplir la valeur du record « ' + t.nom + ' », je ne suis pas devin...');
+      if (!r.nom) throw new Error('Qui a fait le record « ' + t.nom + ' » ?');
+      const v = Number(brut);
+      if (isNaN(v)) throw new Error('« ' + r.score + ' » n\'est pas un nombre (' + t.nom + ').');
+      if (v < t.min) throw new Error(t.tropBas);
+      if (v > t.max) throw new Error(t.tropHaut);
+      if (!rangs[r.nom]) throw new Error(r.nom + " n'a pas joué ce soir-là, son record ne peut pas compter.");
+      recs.push({ type: t.nom, score: v, nom: r.nom });
+    });
+
+    const sh = feuille_(CFG.champ);
+    const joueurs = lireJoueurs_();
+    presents.forEach(function (n) { if (joueurs.indexOf(n) < 0) ajouterJoueur(n, true); });
+
+    // Championnat : classement + nombre de records de chaque joueur
+    const col = colonneSoiree_(sh, p.date, true).col;
+    const last = derniereLigneJoueur_(sh);
+    const noms = sh.getRange(3, 1, last - 2, 1).getValues().map(function (r) { return String(r[0]).trim(); });
+    const data = noms.map(function (n) {
+      const rg = rangs[n] || '';
+      const nr = recs.filter(function (r) { return r.nom === n; }).length;
+      return [rg, rg && nr ? nr : ''];
+    });
+    sh.getRange(3, col, noms.length, 2).setValues(data);
+
+    // Records BD
+    ecrireRecordsBD_(p.date, recs);
+
+    // Matchs BD : résultats de tous les matchs du tournoi de cette date (s'il est dans l'onglet « Tournoi »)
+    let nbMatchs = null, erreurMatchs = '';
+    try { nbMatchs = archiverMatchs_(p.date); } catch (e) { erreurMatchs = e.message; }
+
+    // Tri du championnat par points (puis formules remises au propre)
+    refreshFormules_(sh);
+    SpreadsheetApp.flush();
+    sh.getRange(3, 1, noms.length, sh.getLastColumn())
+      .sort([{ column: 2, ascending: false }, { column: 1, ascending: true }]);
+    refreshFormules_(sh);
+    installerOngletRecords_();
+    SpreadsheetApp.flush();
+
+    const d = p.date.split('-');
+    return 'Soirée du ' + Number(d[2]) + '/' + Number(d[1]) + '/' + d[0] + ' enregistrée : ' +
+      presents.length + ' joueurs, ' + recs.length + ' record(s)' +
+      (nbMatchs !== null ? ', ' + nbMatchs + ' match(s) archivé(s) dans « ' + CFG.matchs + ' »' : '') +
+      '. Le site sera à jour d\'ici 5 minutes.' +
+      (erreurMatchs ? ' Attention, matchs non archivés : ' + erreurMatchs : '');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ============================ POULES ============================ */
+
+function trierPoules() {
+  const sh = SpreadsheetApp.getActiveSheet();
+  const n = sh.getName();
+  if (n === '1 Poule') {
+    trierBlocPoule_(sh, 'B4:E9');
+  } else if (n === '2 Poules') {
+    trierBlocPoule_(sh, 'B4:E9');
+    trierBlocPoule_(sh, 'G4:J9');
+  } else {
+    SpreadsheetApp.getUi().alert("Affiche d'abord l'onglet « 1 Poule » ou « 2 Poules » " +
+      "(s'ils sont masqués : clic sur l'icône ☰ en bas à gauche, puis sur le nom de l'onglet).");
+    return;
+  }
+  ss_().toast('Poules triées (victoires, puis legs)', "Noya'Darts", 3);
+}
+
+/** Trie par victoires puis legs, en ne réécrivant que les noms (les formules restent intactes). */
+function trierBlocPoule_(sh, a1) {
+  const rg = sh.getRange(a1);
+  const v = rg.getValues().filter(function (r) { return String(r[0]).trim() !== ''; });
+  v.sort(function (a, b) { return (Number(b[2]) || 0) - (Number(a[2]) || 0) || (Number(b[3]) || 0) - (Number(a[3]) || 0); });
+  const noms = v.map(function (r) { return [r[0]]; });
+  while (noms.length < rg.getNumRows()) noms.push(['']);
+  sh.getRange(rg.getRow(), rg.getColumn(), noms.length, 1).setValues(noms);
+}
+
+/* ============================ TOURNOI ============================ */
+/*
+ * Tournoi du jeudi : poules (chacun contre chacun), puis demi-finales, petite finale et finale.
+ * L'état du tournoi (date et composition des poules) est rangé dans l'onglet « Tournoi » lui-même
+ * (métadonnée invisible) : la mise à jour automatique à chaque score tapé fonctionne sans autorisation
+ * supplémentaire. Le moteur (planTournoi_, calculTournoi_...) ne dépend pas du Google Sheet :
+ * il servira aussi à la future page web du site.
+ */
+
+const TOURNOI = {
+  onglet: 'Tournoi',
+  meta: 'noyadarts-tournoi',
+  legs: 2,          // legs gagnants par défaut (chaque poule et la phase finale ont leur propre réglage)
+  legsMax: 5,
+  seuil2: 7,        // valeurs par défaut, modifiables par le menu « Réglages du tournoi »
+  seuil3: 13,
+  lettres: 'ABC',
+  colD: 9,          // colonne I : début du bloc de droite (classements et phase finale)
+};
+
+const LIBELLES_FINALE = { D1: 'Demi-finale 1', D2: 'Demi-finale 2', PF: 'Petite finale', F: 'Finale' };
+
+/* ---------- Menu ---------- */
+
+function ouvrirTournoi() {
+  const html = HtmlService.createHtmlOutput(HTML_TOURNOI).setWidth(640).setHeight(720);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Lancer un tournoi');
+}
+
+function majTournoi() {
+  try {
+    const r = majTournoi_();
+    ss_().toast(r.statut, "Noya'Darts", 5);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert(e.message);
+  }
+}
+
+/** Ouvre la fenêtre « Saisir une soirée » avec le classement du tournoi déjà rempli. */
+function validerTournoi() {
+  const ui = SpreadsheetApp.getUi();
+  let r;
+  try { r = majTournoi_(); } catch (e) { ui.alert(e.message); return; }
+  if (!r.rangs) {
+    ui.alert("Le tournoi n'est pas terminé : il manque le score de la finale" +
+      (r.avecPetiteFinale ? ' ou de la petite finale' : '') + '.');
+    return;
+  }
+  const pre = JSON.stringify({ date: r.date, rangs: r.rangs, records: (lireEtatTournoi_() || {}).records || [] }).replace(/</g, '\\u003c');
+  const html = HtmlService.createHtmlOutput(
+    HTML_SAISIE.replace('var DEPUIS_TOURNOI = null;', 'var DEPUIS_TOURNOI = ' + pre + ';')
+  ).setWidth(660).setHeight(720);
+  ui.showModalDialog(html, "Saisie d'une soirée");
+}
+
+function reglagesTournoi() {
+  const ui = SpreadsheetApp.getUi();
+  const s = seuilsTournoi_();
+  const r2 = ui.prompt('Réglages du tournoi (1/2)',
+    'À partir de combien de joueurs passe-t-on à 2 poules ? (actuellement ' + s.seuil2 + ')\n' +
+    'Laisse vide pour ne rien changer.', ui.ButtonSet.OK_CANCEL);
+  if (r2.getSelectedButton() !== ui.Button.OK) return;
+  const r3 = ui.prompt('Réglages du tournoi (2/2)',
+    'À partir de combien de joueurs passe-t-on à 3 poules ? (actuellement ' + s.seuil3 + ')\n' +
+    'Laisse vide pour ne rien changer.', ui.ButtonSet.OK_CANCEL);
+  if (r3.getSelectedButton() !== ui.Button.OK) return;
+  const lire = function (t, defaut) { t = String(t || '').trim(); return t ? Number(t) : defaut; };
+  const n2 = lire(r2.getResponseText(), s.seuil2), n3 = lire(r3.getResponseText(), s.seuil3);
+  try { enregistrerSeuils_(n2, n3); } catch (e) { ui.alert(e.message); return; }
+  ui.alert('Réglages enregistrés : 1 poule jusqu\'à ' + (n2 - 1) + ' joueurs, 2 poules de ' + n2 + ' à ' + (n3 - 1) +
+    ', 3 poules à partir de ' + n3 + '. Tu pourras toujours choisir un autre nombre de poules au lancement.');
+}
+
+function enregistrerSeuils_(n2, n3) {
+  n2 = Number(n2); n3 = Number(n3);
+  if (!Number.isInteger(n2) || n2 < 4) throw new Error('Pour 2 poules, il faut un nombre entier, au moins 4 (2 joueurs par poule).');
+  if (!Number.isInteger(n3) || n3 < 6 || n3 <= n2) throw new Error('Pour 3 poules, il faut un nombre entier, au moins 6 et plus grand que le réglage des 2 poules (' + n2 + ').');
+  PropertiesService.getDocumentProperties().setProperties({ seuil2Poules: String(n2), seuil3Poules: String(n3) });
+}
+
+function seuilsTournoi_() {
+  const p = PropertiesService.getDocumentProperties();
+  return {
+    seuil2: Number(p.getProperty('seuil2Poules')) || TOURNOI.seuil2,
+    seuil3: Number(p.getProperty('seuil3Poules')) || TOURNOI.seuil3,
+  };
+}
+
+/** Legs gagnants d'une poule et de la phase finale (2 par défaut pour les tournois lancés avant ce réglage). */
+function legsPoule_(etat, p) { return (etat.legs && Number(etat.legs[p])) || TOURNOI.legs; }
+function legsFinale_(etat) { return Number(etat.legsFinale) || TOURNOI.legs; }
+
+/** Mise à jour automatique : chaque modification dans l'onglet « Tournoi » recalcule tout. */
+function onEdit(e) {
+  try {
+    if (!e || !e.range || e.range.getSheet().getName() !== TOURNOI.onglet) return;
+    majTournoi_();
+  } catch (err) { /* silencieux : le menu « Mettre à jour le tournoi » affiche l'erreur */ }
+}
+
+/* ---------- Fonctions appelées par la fenêtre « Lancer un tournoi » ---------- */
+
+function donneesTournoi() {
+  const s = seuilsTournoi_();
+  const etat = lireEtatTournoi_();
+  return { joueurs: lireJoueurs_(), venues: dernieresVenues_(), habitues: CFG.habitues,
+    date: prochainJeudi_(), seuil2: s.seuil2, seuil3: s.seuil3, enCours: etat ? etat.date : null };
+}
+
+/**
+ * Crée l'onglet « Tournoi » à partir des poules choisies : p = { date, poules: [[noms], ...], remplacer }.
+ * Si un tournoi est déjà dans l'onglet et que remplacer est faux, renvoie { confirmer: message } sans rien changer.
+ */
+function lancerTournoi(p) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) throw new Error('Choisis la date du tournoi.');
+    const poules = (p.poules || []).map(function (l) { return l.map(function (n) { return String(n).trim(); }).filter(String); })
+      .filter(function (l) { return l.length; });
+    verifierPoules_(poules, lireJoueurs_());
+
+    const ancien = lireEtatTournoi_();
+    if (ancien && !p.remplacer) {
+      const enregistre = !!colonneSoiree_(feuille_(CFG.champ), ancien.date, false);
+      return { confirmer: "L'onglet « Tournoi » contient déjà le tournoi du " + dateFr_(ancien.date) +
+        (enregistre ? ' (soirée enregistrée au championnat).' : ", qui n'est pas encore enregistré au championnat.") +
+        ' Le remplacer par le nouveau ?' };
+    }
+    const okLegs = function (v) { v = Number(v); return Number.isInteger(v) && v >= 1 && v <= TOURNOI.legsMax; };
+    const legs = poules.map(function (l, i) { return p.legs && p.legs[i] !== undefined ? Number(p.legs[i]) : TOURNOI.legs; });
+    const legsFinale = p.legsFinale !== undefined ? Number(p.legsFinale) : TOURNOI.legs;
+    if (!legs.every(okLegs) || !okLegs(legsFinale)) throw new Error('Legs gagnants : un nombre de 1 à ' + TOURNOI.legsMax + '.');
+    const etat = { date: p.date, poules: poules, legs: legs, legsFinale: legsFinale };
+    ecrireTournoi_(etat);
+    const n = poules.reduce(function (t, l) { return t + l.length; }, 0);
+    return { message: 'Tournoi lancé : ' + n + ' joueurs, ' + poules.length + ' poule(s), ' +
+      planTournoi_(etat).matchs.length + ' matchs de poule. Bon jeu !' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function verifierPoules_(poules, joueurs) {
+  if (!poules.length || poules.length > 3) throw new Error('Il faut 1, 2 ou 3 poules.');
+  const tous = [].concat.apply([], poules);
+  if (tous.length < 3) throw new Error("Il faut au moins 3 darters pour faire un tournoi blaireau, sinon ça s'appelle un match...");
+  tous.forEach(function (n, i) {
+    if (tous.indexOf(n) !== i) throw new Error('« ' + n + ' » est dans deux poules.');
+    if (joueurs && joueurs.indexOf(n) < 0) throw new Error('« ' + n + " » n'est pas dans le championnat : ajoute-le d'abord.");
+  });
+  if (poules.length > 1 && poules.some(function (l) { return l.length < 2; })) {
+    throw new Error('Avec plusieurs poules, il faut au moins 2 joueurs par poule (les 2 premiers sont qualifiés).');
+  }
+}
+
+/* ---------- Moteur (sans Google Sheet) ---------- */
+
+/** Ordre des matchs d'une poule (méthode du cercle : chacun se repose entre deux matchs autant que possible). */
+function roundRobin_(noms) {
+  const l = noms.slice();
+  if (l.length % 2) l.push(null);
+  const m = l.length, res = [];
+  for (let r = 0; r < m - 1; r++) {
+    for (let i = 0; i < m / 2; i++) {
+      const a = l[i], b = l[m - 1 - i];
+      if (a !== null && b !== null) res.push(r % 2 ? [b, a] : [a, b]);
+    }
+    l.splice(1, 0, l.pop());
+  }
+  return res;
+}
+
+/**
+ * Disposition de l'onglet. À gauche (A:G) : les matchs de poule, à partir de la ligne 5.
+ * À droite (I:Q) : un classement par poule, puis la phase finale et le classement de la soirée.
+ */
+function planTournoi_(etat) {
+  const P = etat.poules;
+  const n = P.reduce(function (t, l) { return t + l.length; }, 0);
+  const matchs = [];
+  let r = 5;
+  P.forEach(function (noms, p) {
+    roundRobin_(noms).forEach(function (m, i) { matchs.push({ poule: p, num: i + 1, j1: m[0], j2: m[1], row: r++ }); });
+  });
+  const blocs = [];
+  let q = 4;
+  P.forEach(function (noms, p) {
+    blocs.push({ poule: p, titre: q, entete: q + 1, debut: q + 2, n: noms.length });
+    q += noms.length + 3;
+  });
+  // Phase finale en arbre : chaque match occupe une ligne de titre puis une ligne par joueur
+  // (nom sur 2 colonnes fusionnées, puis le menu des legs). Demi-finales en I:K, finale en M:O,
+  // reliées par des traits dans la colonne L ; petite finale sous la demi-finale 2.
+  const C = TOURNOI.colD;
+  const m = function (id, ligne, col) { return { id: id, label: ligne, r1: ligne + 1, r2: ligne + 2, col: col }; };
+  let finale;
+  if (P.length === 1 && n === 3) {
+    finale = { titre: q, matchs: [m('F', q + 1, C)], traits: null };
+    q += 5;
+  } else {
+    finale = { titre: q, matchs: [m('D1', q + 1, C), m('D2', q + 7, C), m('PF', q + 11, C), m('F', q + 4, C + 4)], traits: q };
+    q += 15;
+  }
+  const final = { titre: q, debut: q + 1, n: finale.matchs.length === 1 ? 3 : 4 };
+  return { matchs: matchs, blocs: blocs, finale: finale, final: final, n: n,
+    derniereLigne: Math.max(r - 1, final.debut + final.n - 1) };
+}
+
+/** Lit un score de match : { joue: true, a, b } si valable, { joue: false, erreur } sinon. */
+function lireScore_(a, b, L) {
+  const vide = function (v) { return v === '' || v === null || v === undefined; };
+  if (vide(a) && vide(b)) return { joue: false };
+  if (vide(a) || vide(b)) return { joue: false, erreur: 'score incomplet' };
+  const x = Number(a), y = Number(b);
+  L = L || TOURNOI.legs;
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x > L || y > L || (x === L) === (y === L)) {
+    return { joue: false, erreur: 'score impossible (' + L + ' legs gagnants)' };
+  }
+  return { joue: true, a: x, b: y };
+}
+
+/**
+ * Classement d'une poule : victoires, puis différence de legs, puis confrontation directe
+ * (matchs entre les joueurs à égalité), puis legs gagnés, puis colonne « Départage » (1 devant 2).
+ */
+function classerPoule_(noms, matchs, departage, p) {
+  const st = {};
+  noms.forEach(function (n, i) { st[n] = { nom: n, poule: p, ordre: i, J: 0, V: 0, D: 0, lp: 0, lc: 0 }; });
+  matchs.forEach(function (m) {
+    const a = st[m.j1], b = st[m.j2];
+    a.J++; b.J++; a.lp += m.s.a; a.lc += m.s.b; b.lp += m.s.b; b.lc += m.s.a;
+    if (m.s.a > m.s.b) { a.V++; b.D++; } else { b.V++; a.D++; }
+  });
+  const l = noms.map(function (n) { return st[n]; });
+  l.forEach(function (x) {
+    x.diff = x.lp - x.lc;
+    const v = departage[x.nom];
+    x.dep = (v === '' || v === null || v === undefined || isNaN(Number(v))) ? '' : Number(v);
+  });
+  const cle = function (x) { return x.V + '|' + x.diff; };
+  l.forEach(function (x) {
+    const grp = l.filter(function (y) { return cle(y) === cle(x); }).map(function (y) { return y.nom; });
+    x.h2h = 0;
+    if (grp.length < 2) return;
+    matchs.forEach(function (m) {
+      if (grp.indexOf(m.j1) >= 0 && grp.indexOf(m.j2) >= 0 && (m.s.a > m.s.b ? m.j1 : m.j2) === x.nom) x.h2h++;
+    });
+  });
+  const dep = function (x) { return x.dep === '' ? 999 : x.dep; };
+  l.sort(function (a, b) {
+    return b.V - a.V || b.diff - a.diff || b.h2h - a.h2h || b.lp - a.lp || dep(a) - dep(b) || a.ordre - b.ordre;
+  });
+  const pareil = function (a, b) { return a.V === b.V && a.diff === b.diff && a.h2h === b.h2h && a.lp === b.lp && dep(a) === dep(b); };
+  l.forEach(function (x, i) {
+    x.rang = i + 1;
+    x.egalite = (i > 0 && pareil(x, l[i - 1])) || (i < l.length - 1 && pareil(x, l[i + 1]));
+  });
+  return l;
+}
+
+/**
+ * Compare deux joueurs de poules différentes (meilleur 2e, ordre des vainqueurs de poule) :
+ * victoires par match, puis différence de legs et legs gagnés par match, rapportés au nombre
+ * de legs gagnants de leur poule (une poule en 3 legs n'est pas avantagée).
+ */
+function comparerTaux_(a, b) {
+  const t = function (x, v, parLegs) { return x.J ? v / x.J / (parLegs ? (x.legs || TOURNOI.legs) : 1) : 0; };
+  return t(b, b.V) - t(a, a.V) || t(b, b.diff, true) - t(a, a.diff, true) || t(b, b.lp, true) - t(a, a.lp, true) || a.poule - b.poule;
+}
+
+/**
+ * Calcule tout le tournoi.
+ *   scoresPoules : [[legs J1, legs J2], ...] dans l'ordre de plan.matchs
+ *   cellsFinale  : [{ j1, j2, a, b }, ...] ce qui est affiché dans la phase finale, dans l'ordre de plan.finale.matchs
+ *   departage    : { nom: valeur de la colonne « Départage » }
+ */
+function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
+  const P = etat.poules, k = P.length, n = plan.n, L = TOURNOI.lettres;
+  const messages = [];
+  const etatsMatchs = [], parPoule = P.map(function () { return []; });
+  let joues = 0;
+  plan.matchs.forEach(function (m, i) {
+    const sc = scoresPoules[i] || ['', ''];
+    const s = lireScore_(sc[0], sc[1], legsPoule_(etat, m.poule));
+    etatsMatchs.push(s.erreur ? '⚠️ ' + s.erreur : s.joue ? '✔' : '');
+    if (s.joue) { joues++; parPoule[m.poule].push({ j1: m.j1, j2: m.j2, s: s }); }
+  });
+  const finies = joues === plan.matchs.length;
+  const classements = P.map(function (noms, p) {
+    const cl = classerPoule_(noms, parPoule[p], departage || {}, p);
+    cl.forEach(function (x) { x.legs = legsPoule_(etat, p); });
+    return cl;
+  });
+
+  // Égalités parfaites qui comptent pour la qualification ou les croisements
+  const nq = k === 1 ? Math.min(4, n) : 2;
+  classements.forEach(function (cl, p) {
+    const finie = parPoule[p].length === P[p].length * (P[p].length - 1) / 2;
+    if (!finie) { cl.forEach(function (x) { x.egalite = false; }); return; } // une égalité ne compte qu'à la fin de la poule
+    const eg = cl.filter(function (x) { return x.egalite; });
+    if (eg.length && eg.some(function (x) { return x.rang <= nq; })) {
+      messages.push('⚠️ Égalité parfaite en poule ' + L[p] + ' (' + eg.map(function (x) { return x.nom; }).join(', ') +
+        ') : départagez-les au bull, puis indiquez l\'ordre (1, 2...) dans la colonne « Départage » de l\'onglet ou en cliquant sur leur rang dans la page du tournoi.');
+    }
+  });
+
+  // Qualifiés : { nom } si connu, { attente: 'texte' } sinon
+  const qui = function (p, r, txt) { return finies ? { nom: classements[p][r].nom } : { attente: txt }; };
+  const qualifies = [];
+  let D1, D2, Fdirect = null;
+  if (k === 1 && n === 3) {
+    Fdirect = [qui(0, 0, '1er'), qui(0, 1, '2e')];
+    if (finies) qualifies.push(classements[0][0].nom, classements[0][1].nom);
+  } else if (k === 1) {
+    D1 = [qui(0, 0, '1er'), qui(0, 3, '4e')];
+    D2 = [qui(0, 1, '2e'), qui(0, 2, '3e')];
+    if (finies) classements[0].slice(0, 4).forEach(function (x) { qualifies.push(x.nom); });
+  } else if (k === 2) {
+    D1 = [qui(0, 0, '1er poule A'), qui(1, 1, '2e poule B')];
+    D2 = [qui(1, 0, '1er poule B'), qui(0, 1, '2e poule A')];
+    if (finies) [0, 1].forEach(function (p) { qualifies.push(classements[p][0].nom, classements[p][1].nom); });
+  } else {
+    if (finies) {
+      const v = [0, 1, 2].map(function (p) { return classements[p][0]; }).sort(comparerTaux_);
+      const s = [0, 1, 2].map(function (p) { return classements[p][1]; }).sort(comparerTaux_)[0];
+      if (s.poule === v[0].poule) { D1 = [{ nom: v[1].nom }, { nom: s.nom }]; D2 = [{ nom: v[0].nom }, { nom: v[2].nom }]; }
+      else { D1 = [{ nom: v[0].nom }, { nom: s.nom }]; D2 = [{ nom: v[1].nom }, { nom: v[2].nom }]; }
+      v.forEach(function (x) { qualifies.push(x.nom); });
+      qualifies.push(s.nom);
+    } else {
+      D1 = [{ attente: 'Meilleur 1er' }, { attente: 'Meilleur 2e' }];
+      D2 = [{ attente: '2e meilleur 1er' }, { attente: '3e meilleur 1er' }];
+    }
+  }
+
+  // Affiches choisies à la main (page web, « Modifier les affiches ») : prioritaires sur le calcul
+  const fo = etat.forcage || null;
+  const choisis = function (l) { return l.map(function (nom) { return { nom: nom }; }); };
+  let force = false;
+  if (fo && Fdirect && fo.F) { Fdirect = choisis(fo.F); force = true; }
+  if (fo && !Fdirect && fo.D1 && fo.D2) { D1 = choisis(fo.D1); D2 = choisis(fo.D2); force = true; }
+  if (force) {
+    qualifies.length = 0;
+    (Fdirect || D1.concat(D2)).forEach(function (x) { qualifies.push(x.nom); });
+  }
+
+  // Phase finale, dans l'ordre de calcul : demi-finales, puis finale et petite finale
+  const idx = {};
+  plan.finale.matchs.forEach(function (m, i) { idx[m.id] = i; });
+  const finale = plan.finale.matchs.map(function () { return null; });
+  const jouer = function (id, A, B) {
+    const c = cellsFinale[idx[id]] || {};
+    const noms = [A.nom || A.attente, B.nom || B.attente];
+    const prets = !!(A.nom && B.nom);
+    const vide = function (v) { return v === '' || v === null || v === undefined; };
+    const aScore = !(vide(c.a) && vide(c.b));
+    let s = lireScore_(c.a, c.b, legsFinale_(etat)), etatTxt, effacer = false;
+    if (aScore && (!prets || String(c.j1) !== noms[0] || String(c.j2) !== noms[1])) {
+      effacer = true; s = { joue: false };
+      messages.push('Score de la ' + LIBELLES_FINALE[id].toLowerCase() + ' effacé : ' +
+        (prets ? 'les joueurs ont changé (score de poule corrigé ?).' : 'les joueurs ne sont pas encore connus.'));
+    }
+    if (s.erreur) etatTxt = '⚠️ ' + s.erreur;
+    else if (s.joue) etatTxt = '✔';
+    else etatTxt = prets ? 'À jouer' : 'En attente';
+    const res = { id: id, j1: noms[0], j2: noms[1], effacer: effacer, etat: etatTxt, joue: !!s.joue };
+    if (s.joue) {
+      res.gagnant = s.a > s.b ? A.nom : B.nom;
+      res.perdant = s.a > s.b ? B.nom : A.nom;
+    }
+    finale[idx[id]] = res;
+    return res;
+  };
+  let F, PF = null;
+  if (Fdirect) {
+    F = jouer('F', Fdirect[0], Fdirect[1]);
+  } else {
+    const d1 = jouer('D1', D1[0], D1[1]), d2 = jouer('D2', D2[0], D2[1]);
+    const g = function (d, txt) { return d.joue ? { nom: d.gagnant } : { attente: txt }; };
+    const pp = function (d, txt) { return d.joue ? { nom: d.perdant } : { attente: txt }; };
+    F = jouer('F', g(d1, 'Vainqueur demi 1'), g(d2, 'Vainqueur demi 2'));
+    PF = jouer('PF', pp(d1, 'Perdant demi 1'), pp(d2, 'Perdant demi 2'));
+  }
+
+  // Classement de la soirée
+  const podium = ['', '', '', ''];
+  if (F.joue) { podium[0] = F.gagnant; podium[1] = F.perdant; }
+  if (PF && PF.joue) { podium[2] = PF.gagnant; podium[3] = PF.perdant; }
+  if (Fdirect && force) {
+    const reste = P[0].filter(function (nom) { return nom !== F.j1 && nom !== F.j2; });
+    if (reste.length === 1) podium[2] = reste[0];
+  } else if (Fdirect && finies) podium[2] = classements[0][2].nom;
+  const termine = F.joue && (!PF || PF.joue);
+  let rangs = null;
+  if (termine) {
+    rangs = {};
+    P.forEach(function (l) { l.forEach(function (nom) { rangs[nom] = 5; }); });
+    podium.forEach(function (nom, i) { if (nom) rangs[nom] = i + 1; });
+  }
+
+  let statut;
+  if (termine) statut = '🏆 Tournoi terminé : ' + podium[0] + ' remporte la soirée ! Enregistre-la avec le menu 🎯 Noya\'Darts > Valider le tournoi.';
+  else if (finies) statut = 'Poules terminées : place à la phase finale.';
+  else statut = 'Poules en cours : ' + joues + ' match(s) joué(s) sur ' + plan.matchs.length + '.' +
+    (force ? ' Phase finale lancée.' : '');
+
+  return {
+    date: etat.date, etatsMatchs: etatsMatchs, classements: classements, qualifies: qualifies, finies: finies,
+    finale: finale, podium: podium.slice(0, plan.final.n), termine: termine, rangs: rangs,
+    avecPetiteFinale: !!PF, statut: statut, messages: messages, force: force,
+  };
+}
+
+/* ---------- Onglet « Tournoi » ---------- */
+
+/** Réécrit l'état du tournoi (métadonnée de l'onglet), par exemple après un record noté en cours de soirée. */
+function ecrireEtatTournoi_(etat) {
+  const sh = ss_().getSheetByName(TOURNOI.onglet);
+  if (!sh) throw new Error('Onglet « ' + TOURNOI.onglet + ' » introuvable : relance le tournoi.');
+  const m = sh.getDeveloperMetadata().filter(function (x) { return x.getKey() === TOURNOI.meta; })[0];
+  if (m) m.setValue(JSON.stringify(etat)); else sh.addDeveloperMetadata(TOURNOI.meta, JSON.stringify(etat));
+}
+
+function lireEtatTournoi_() {
+  const sh = ss_().getSheetByName(TOURNOI.onglet);
+  if (!sh) return null;
+  const m = sh.getDeveloperMetadata().filter(function (x) { return x.getKey() === TOURNOI.meta; })[0];
+  if (!m) return null;
+  try { return JSON.parse(m.getValue()); } catch (e) { return null; }
+}
+
+function ecrireTournoi_(etat) {
+  const ss = ss_();
+  let sh = ss.getSheetByName(TOURNOI.onglet);
+  if (!sh) sh = ss.insertSheet(TOURNOI.onglet, 0);
+  const plan = planTournoi_(etat);
+  const nbLignes = plan.derniereLigne + 3;
+  if (sh.getMaxRows() < nbLignes) sh.insertRowsAfter(sh.getMaxRows(), nbLignes - sh.getMaxRows());
+  if (sh.getMaxColumns() < 17) sh.insertColumnsAfter(sh.getMaxColumns(), 17 - sh.getMaxColumns());
+  const tout = sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns());
+  tout.breakApart();
+  sh.clear();
+  tout.clearDataValidations();
+  sh.getDeveloperMetadata().forEach(function (m) { if (m.getKey() === TOURNOI.meta) m.remove(); });
+  sh.addDeveloperMetadata(TOURNOI.meta, JSON.stringify(etat));
+
+  const ROUGE = '#d4453b', ARDOISE = '#1b2224', CRAIE = '#eceae2', SAISIE = '#fff6e0';
+  const C = TOURNOI.colD, L = TOURNOI.lettres;
+  const menuLegs = function (n) {
+    const choix = [];
+    for (let i = 0; i <= n; i++) choix.push(String(i));
+    return SpreadsheetApp.newDataValidation().requireValueInList(choix, true).setAllowInvalid(false)
+      .setHelpText('Legs gagnés par ce joueur (' + n + ' legs gagnants)').build();
+  };
+  const entete = function (rg) { rg.setBackground(ARDOISE).setFontColor(CRAIE).setFontWeight('bold'); };
+  const txtLegs = function (n) { return n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : ''); };
+
+  sh.getRange(1, 1).setValue('🎯 Tournoi du jeudi ' + dateFr_(etat.date)).setFontSize(16).setFontWeight('bold').setFontColor(ROUGE);
+  sh.getRange(3, 1).setValue('Choisis dans les menus les legs gagnés par chaque joueur : tout se met à jour seul.').setFontColor('#888');
+  sh.getRange(3, C).setValue('Classements').setFontColor('#888');
+
+  // Matchs de poule (un menu des legs à côté de chaque nom)
+  entete(sh.getRange(4, 1, 1, 7).setValues([['Poule', 'N°', 'Joueur 1', 'Legs', 'Legs', 'Joueur 2', 'État']]));
+  if (plan.matchs.length) {
+    const r0 = plan.matchs[0].row, nm = plan.matchs.length;
+    sh.getRange(r0, 1, nm, 7).setValues(plan.matchs.map(function (m) { return ['Poule ' + L[m.poule], m.num, m.j1, '', '', m.j2, '']; }));
+    sh.getRange(r0, 4, nm, 2).setBackground(SAISIE).setHorizontalAlignment('center').setFontWeight('bold');
+    sh.getRange(r0, 2, nm, 1).setHorizontalAlignment('center');
+    sh.getRange(r0, 3, nm, 1).setHorizontalAlignment('right');
+    etat.poules.forEach(function (noms, p) {
+      const ms = plan.matchs.filter(function (m) { return m.poule === p; });
+      if (!ms.length) return;
+      sh.getRange(ms[0].row, 4, ms.length, 2).setDataValidation(menuLegs(legsPoule_(etat, p)));
+      if (p % 2) sh.getRange(ms[0].row, 1, ms.length, 3).setBackground('#f3f3f3'); // une poule sur deux grisée
+    });
+  }
+
+  // Classements des poules
+  plan.blocs.forEach(function (b) {
+    sh.getRange(b.titre, C).setValue('Poule ' + L[b.poule] + ' (' + txtLegs(legsPoule_(etat, b.poule)) + ')')
+      .setFontWeight('bold').setFontColor(ROUGE).setFontSize(12);
+    entete(sh.getRange(b.entete, C, 1, 9).setValues([['Rang', 'Joueur', 'J', 'V', 'D', 'Legs +', 'Legs -', 'Diff', 'Départage']]));
+    sh.getRange(b.debut, C + 8, b.n, 1).setBackground(SAISIE).setHorizontalAlignment('center')
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireNumberBetween(1, 20).setAllowInvalid(false)
+        .setHelpText('Seulement en cas d\'égalité parfaite : 1 pour le gagnant du bull, 2 pour le suivant...').build());
+    sh.getRange(b.debut, C, b.n, 1).setHorizontalAlignment('center');
+    sh.getRange(b.debut, C + 2, b.n, 6).setHorizontalAlignment('center');
+  });
+
+  // Phase finale en arbre
+  sh.getRange(plan.finale.titre, C).setValue('Phase finale (' + txtLegs(legsFinale_(etat)) + ')')
+    .setFontWeight('bold').setFontColor(ROUGE).setFontSize(12);
+  const menuF = menuLegs(legsFinale_(etat));
+  plan.finale.matchs.forEach(function (m) {
+    sh.getRange(m.label, m.col).setValue(LIBELLES_FINALE[m.id]).setFontWeight('bold').setFontColor(m.id === 'F' ? ROUGE : '#555');
+    [m.r1, m.r2].forEach(function (r) {
+      sh.getRange(r, m.col, 1, 2).merge().setFontWeight('bold').setBackground(CRAIE);
+      sh.getRange(r, m.col + 2).setBackground(SAISIE).setDataValidation(menuF).setHorizontalAlignment('center').setFontWeight('bold');
+    });
+    sh.getRange(m.r1, m.col, 2, 3).setBorder(true, true, true, true, null, true, ARDOISE, SpreadsheetApp.BorderStyle.SOLID);
+  });
+  if (plan.finale.traits !== null) {
+    const q = plan.finale.traits, T = C + 3, st = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
+    sh.getRange(q + 2, T).setBorder(null, null, true, null, null, null, ROUGE, st);  // sortie de la demi-finale 1
+    sh.getRange(q + 8, T).setBorder(null, null, true, null, null, null, ROUGE, st);  // sortie de la demi-finale 2
+    sh.getRange(q + 3, T, 6, 1).setBorder(null, null, null, true, null, null, ROUGE, st); // trait vertical vers la finale
+  }
+
+  // Classement de la soirée
+  sh.getRange(plan.final.titre, C).setValue('Classement de la soirée').setFontWeight('bold').setFontColor(ROUGE).setFontSize(12);
+  sh.getRange(plan.final.debut, C, plan.final.n, 1).setValues(['🥇 1er', '🥈 2e', '🥉 3e', '4e'].slice(0, plan.final.n).map(function (x) { return [x]; }));
+
+  // Largeurs : A à G (matchs de poule), H (marge), I à Q (classements et arbre)
+  [60, 36, 130, 46, 46, 130, 190, 20, 60, 130, 46, 46, 60, 70, 60, 50, 80].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  sh.setFrozenRows(4);
+  try { sh.activate(); } catch (e) { /* lancé depuis la page web : pas d'onglet à afficher */ }
+  SpreadsheetApp.flush();
+  return majTournoi_();
+}
+
+/** Lit l'onglet « Tournoi » et calcule le tournoi, sans rien écrire. */
+function lireTournoi_() {
+  const sh = ss_().getSheetByName(TOURNOI.onglet);
+  const etat = lireEtatTournoi_();
+  if (!sh || !etat) throw new Error("Aucun tournoi en cours : utilise d'abord le menu 🎯 Noya'Darts > Lancer un tournoi.");
+  const plan = planTournoi_(etat);
+  const C = TOURNOI.colD;
+  const g = sh.getRange(1, 1, plan.derniereLigne, 17).getValues();
+  const cel = function (r, c) { return g[r - 1][c - 1]; };
+  const scores = plan.matchs.map(function (m) { return [cel(m.row, 4), cel(m.row, 5)]; });
+  const cells = plan.finale.matchs.map(function (m) {
+    return { j1: cel(m.r1, m.col), a: cel(m.r1, m.col + 2), j2: cel(m.r2, m.col), b: cel(m.r2, m.col + 2) };
+  });
+  const departage = {};
+  plan.blocs.forEach(function (b) {
+    for (let i = 0; i < b.n; i++) {
+      const nom = String(cel(b.debut + i, C + 1)).trim();
+      if (nom) departage[nom] = cel(b.debut + i, C + 8);
+    }
+  });
+  return { sh: sh, etat: etat, plan: plan, scores: scores, cells: cells, departage: departage,
+    res: calculTournoi_(etat, plan, scores, cells, departage) };
+}
+
+/** Relit les scores de l'onglet, recalcule et réécrit classements, arbre de la phase finale et état. */
+function majTournoi_() {
+  const lu = lireTournoi_();
+  const sh = lu.sh, etat = lu.etat, plan = lu.plan, cells = lu.cells, res = lu.res;
+  const C = TOURNOI.colD;
+
+  if (plan.matchs.length) {
+    sh.getRange(plan.matchs[0].row, 7, plan.matchs.length, 1).setValues(res.etatsMatchs.map(function (x) { return [x]; }));
+  }
+  plan.blocs.forEach(function (b) {
+    const cl = res.classements[b.poule];
+    sh.getRange(b.debut, C, b.n, 9).setValues(cl.map(function (x) {
+      return [x.rang + (x.egalite ? ' ⚠️' : ''), x.nom, x.J, x.V, x.D, x.lp, x.lc, x.diff, x.dep];
+    }));
+    sh.getRange(b.debut, C, b.n, 8).setBackgrounds(cl.map(function (x) {
+      const q = res.qualifies.indexOf(x.nom) >= 0;
+      return [0, 1, 2, 3, 4, 5, 6, 7].map(function () { return q ? '#e6f4ec' : null; });
+    }));
+  });
+  plan.finale.matchs.forEach(function (m, i) {
+    const f = res.finale[i], c = cells[i];
+    sh.getRange(m.label, m.col + 1).setValue(f.etat).setFontColor(f.etat.indexOf('⚠️') === 0 ? '#a12a22' : '#888');
+    [[m.r1, f.j1, c.a], [m.r2, f.j2, c.b]].forEach(function (x) {
+      const gagnant = f.joue && x[1] === f.gagnant, perdant = f.joue && x[1] === f.perdant;
+      sh.getRange(x[0], m.col).setValue(x[1])
+        .setFontColor(perdant ? '#999' : (f.j1 && f.j2 && f.etat === 'En attente' ? '#999' : '#1b2224'))
+        .setFontStyle(f.etat === 'En attente' ? 'italic' : 'normal');
+      sh.getRange(x[0], m.col, 1, 2).setBackground(gagnant ? '#e6f4ec' : '#eceae2');
+      if (f.effacer) sh.getRange(x[0], m.col + 2).setValue('');
+    });
+  });
+  sh.getRange(plan.final.debut, C + 1, plan.final.n, 1).setValues(res.podium.map(function (x) { return [x]; }))
+    .setFontWeight('bold');
+  sh.getRange(2, 1).setValue([res.statut].concat(res.messages).join('   ')).setFontWeight('bold')
+    .setFontColor(res.messages.length ? '#a12a22' : (res.termine ? '#1d6b43' : '#1b2224'));
+  return res;
+}
+
+function prochainJeudi_() {
+  const tz = ss_().getSpreadsheetTimeZone();
+  const now = new Date();
+  const jour = Number(Utilities.formatDate(now, tz, 'u')); // 1 = lundi ... 7 = dimanche
+  const avance = (4 - jour + 7) % 7;
+  return Utilities.formatDate(new Date(now.getTime() + avance * 86400000), tz, 'yyyy-MM-dd');
+}
+
+function dateFr_(iso) {
+  const d = String(iso).split('-');
+  return Number(d[2]) + '/' + Number(d[1]) + '/' + d[0];
+}
+
+/* ======================== PAGE WEB DU TOURNOI (API) ======================== */
+/*
+ * La page tournoi.html du site appelle ce script, publié en « application Web »
+ * (Déployer > Nouveau déploiement > Application Web ; exécuter en tant que : moi ;
+ * accès : tout le monde).
+ *   - Lecture (GET) : publique, comme les résultats du site.
+ *   - Actions (POST) : il faut le code du club, défini par le menu « Code du club (page web) »
+ *     et rangé dans les propriétés du document (jamais dans le code du site).
+ * Après chaque modification du script : Déployer > Gérer les déploiements > crayon >
+ * Version : Nouvelle version > Déployer (l'adresse de l'application reste la même).
+ */
+
+const API = { essaisMax: 10, blocageSecondes: 600 };
+
+function definirCode() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const r = ui.prompt('Code du club (page web)',
+    (props.getProperty('codeClub') ? 'Un code est déjà défini. ' : '') +
+    'Choisis le code à taper sur la page du tournoi pour gérer le tournoi (au moins 4 caractères) :',
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  const code = r.getResponseText().trim();
+  if (code.length < 4) { ui.alert('Il faut au moins 4 caractères.'); return; }
+  props.setProperty('codeClub', code);
+  ui.alert('Code enregistré. Donne-le seulement aux personnes qui gèrent les soirées.');
+}
+
+function doGet() {
+  try { return json_(etatPage_()); }
+  catch (e) { return json_({ ok: false, erreur: e.message }); }
+}
+
+function doPost(e) {
+  let req;
+  try { req = JSON.parse(e.postData.contents); }
+  catch (err) { return json_({ ok: false, erreur: 'Requête illisible.' }); }
+  try {
+    verifierCode_(req.code);
+    const resultat = actionPage_(req);
+    const out = etatPage_();
+    out.resultat = resultat === undefined ? null : resultat;
+    return json_(out);
+  } catch (err) {
+    return json_({ ok: false, erreur: err.message, codeFaux: !!err.codeFaux });
+  }
+}
+
+function json_(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Vérifie le code du club, avec blocage de 10 minutes après 10 essais ratés. */
+function verifierCode_(code) {
+  const attendu = PropertiesService.getDocumentProperties().getProperty('codeClub');
+  if (!attendu) throw new Error("Le code du club n'est pas encore défini : menu 🎯 Noya'Darts > Code du club (page web), dans le Google Sheet.");
+  const cache = CacheService.getScriptCache();
+  const essais = Number(cache.get('essaisRates')) || 0;
+  if (essais >= API.essaisMax) throw new Error('Trop d\'essais ratés : réessaie dans 10 minutes.');
+  if (String(code || '') !== attendu) {
+    cache.put('essaisRates', String(essais + 1), API.blocageSecondes);
+    const err = new Error('Code du club incorrect.');
+    err.codeFaux = true;
+    throw err;
+  }
+}
+
+function actionPage_(req) {
+  switch (req.action) {
+    case 'verifier': return null;
+    case 'lancer': return lancerTournoi(req);
+    case 'score': return ecrireScore_(req);
+    case 'departage': return ecrireDepartage_(req.nom, req.valeur);
+    case 'ajouterJoueur': return ajouterJoueur(req.nom, !!req.forcer);
+    case 'renommer': return renommerJoueur(req.ancien, req.nouveau, !!req.forcer);
+    case 'infosJoueur': return infosJoueur(req.nom);
+    case 'supprimer': {
+      const etat = lireEtatTournoi_();
+      if (etat && !colonneSoiree_(feuille_(CFG.champ), etat.date, false) &&
+          [].concat.apply([], etat.poules).indexOf(req.nom) >= 0) {
+        throw new Error('« ' + req.nom + " » joue le tournoi en cours, qui n'est pas encore enregistré : on ne peut pas le supprimer maintenant.");
+      }
+      return supprimerJoueur(req.nom);
+    }
+    case 'reglages': enregistrerSeuils_(req.seuil2, req.seuil3); return 'Réglages enregistrés.';
+    case 'chargerSoiree': return chargerSoiree(req.date);
+    case 'record': return noterRecord_(req.type, req.score, req.nom);
+    case 'annoncer': return annoncerMatch_(req.match, !!req.on);
+    case 'pause': return pauseJoueur_(req.nom, !!req.on);
+    case 'forcer': return forcerAffiches_(req.affiches || null);
+    case 'enregistrer': {
+      const msg = enregistrerSoiree({ date: req.date, rangs: req.rangs, records: req.records });
+      // Les records validés deviennent ceux du tournoi (bandeau de la page)
+      const etat = lireEtatTournoi_();
+      if (etat && etat.date === req.date) {
+        etat.records = (req.records || []).filter(function (r) { return String(r.score || '').trim() && r.nom; })
+          .map(function (r) { return { type: r.type, score: Number(String(r.score).replace(',', '.')), nom: r.nom }; });
+        ecrireEtatTournoi_(etat);
+      }
+      return msg;
+    }
+    default: throw new Error('Action inconnue : ' + req.action);
+  }
+}
+
+/** Tout ce dont la page a besoin, en une seule réponse. */
+function etatPage_() {
+  return {
+    ok: true,
+    joueurs: lireJoueurs_(),
+    venues: dernieresVenues_(),
+    habitues: CFG.habitues,
+    seuils: seuilsTournoi_(),
+    legsMax: TOURNOI.legsMax,
+    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max }; }),
+    tournoi: tournoiPage_(),
+  };
+}
+
+function tournoiPage_() {
+  if (!lireEtatTournoi_()) return null;
+  let lu = lireTournoi_();
+  if (lu.res.finale.some(function (f) { return f.effacer; })) { majTournoi_(); lu = lireTournoi_(); }
+  const etat = lu.etat, plan = lu.plan, res = lu.res;
+  const v = function (x) { return x === '' || x === null || x === undefined ? '' : Number(x); };
+  return {
+    date: etat.date,
+    poules: etat.poules,
+    legs: etat.poules.map(function (l, p) { return legsPoule_(etat, p); }),
+    legsFinale: legsFinale_(etat),
+    matchs: plan.matchs.map(function (m, i) {
+      return { i: i, poule: m.poule, num: m.num, j1: m.j1, j2: m.j2, a: v(lu.scores[i][0]), b: v(lu.scores[i][1]), etat: res.etatsMatchs[i] };
+    }),
+    classements: res.classements.map(function (cl) {
+      return cl.map(function (x) {
+        return { nom: x.nom, rang: x.rang, J: x.J, V: x.V, D: x.D, lp: x.lp, lc: x.lc, diff: x.diff, dep: x.dep, egalite: x.egalite };
+      });
+    }),
+    qualifies: res.qualifies,
+    finies: res.finies,
+    finale: res.finale.map(function (f, i) {
+      return { id: f.id, libelle: LIBELLES_FINALE[f.id], j1: f.j1, j2: f.j2, a: v(lu.cells[i].a), b: v(lu.cells[i].b),
+        etat: f.etat, pret: f.etat !== 'En attente', joue: f.joue, gagnant: f.gagnant || '', perdant: f.perdant || '' };
+    }),
+    podium: res.podium,
+    termine: res.termine,
+    rangs: res.rangs,
+    statut: res.statut,
+    messages: res.messages,
+    enregistre: !!colonneSoiree_(feuille_(CFG.champ), etat.date, false),
+    records: etat.records || [],
+    annonces: (etat.annonces || []).filter(function (i) { return plan.matchs[i] && res.etatsMatchs[i] !== '✔'; }),
+    pauses: etat.pauses || [],
+    forcage: res.force ? etat.forcage : null,
+  };
+}
+
+/** Score d'un match : req = { match: n° du match de poule } ou { finale: 'D1'|'D2'|'PF'|'F' }, avec a et b (vides pour effacer). */
+function ecrireScore_(req) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lu = lireTournoi_();
+    const vide = function (x) { return x === '' || x === null || x === undefined; };
+    const effacer = vide(req.a) && vide(req.b);
+    let r1, c1, r2, c2, L;
+    if (req.finale) {
+      const i = lu.plan.finale.matchs.findIndex(function (m) { return m.id === req.finale; });
+      if (i < 0) throw new Error('Match introuvable.');
+      if (!effacer && lu.res.finale[i].etat === 'En attente') throw new Error('Les joueurs de ce match ne sont pas encore connus.');
+      const m = lu.plan.finale.matchs[i];
+      r1 = m.r1; r2 = m.r2; c1 = c2 = m.col + 2; L = legsFinale_(lu.etat);
+    } else {
+      const m = lu.plan.matchs[Number(req.match)];
+      if (!m) throw new Error('Match introuvable.');
+      r1 = r2 = m.row; c1 = 4; c2 = 5; L = legsPoule_(lu.etat, m.poule);
+    }
+    if (!effacer) {
+      const s = lireScore_(req.a, req.b, L);
+      if (!s.joue) throw new Error('Score refusé : ' + (s.erreur || 'score incomplet') + '.');
+    }
+    lu.sh.getRange(r1, c1).setValue(effacer ? '' : Number(req.a));
+    lu.sh.getRange(r2, c2).setValue(effacer ? '' : Number(req.b));
+    if (!req.finale && !effacer && (lu.etat.annonces || []).indexOf(Number(req.match)) >= 0) {
+      lu.etat.annonces = lu.etat.annonces.filter(function (i) { return i !== Number(req.match); });
+      ecrireEtatTournoi_(lu.etat); // un match joué sort de « À suivre »
+    }
+    SpreadsheetApp.flush();
+    return majTournoi_().statut;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Colonne « Départage » d'un joueur (égalité parfaite en poule). */
+function ecrireDepartage_(nom, valeur) {
+  const lu = lireTournoi_();
+  const C = TOURNOI.colD;
+  let ligne = null;
+  lu.plan.blocs.forEach(function (b) {
+    const noms = lu.sh.getRange(b.debut, C + 1, b.n, 1).getValues();
+    noms.forEach(function (x, i) { if (String(x[0]).trim() === nom) ligne = b.debut + i; });
+  });
+  if (!ligne) throw new Error('Joueur introuvable dans les poules : « ' + nom + ' ».');
+  const v = valeur === '' || valeur === null || valeur === undefined ? '' : Number(valeur);
+  if (v !== '' && (!Number.isInteger(v) || v < 1 || v > 20)) throw new Error('Départage : un nombre de 1 à 20.');
+  lu.sh.getRange(ligne, C + 8).setValue(v);
+  SpreadsheetApp.flush();
+  return majTournoi_().statut;
+}
+
+/** Après un changement de nom : le tournoi en cours suit (poules et noms affichés dans l'onglet). */
+function renommerDansTournoi_(ancien, nouveau) {
+  const etat = lireEtatTournoi_();
+  if (!etat || [].concat.apply([], etat.poules).indexOf(ancien) < 0) return;
+  const r = function (n) { return n === ancien ? nouveau : n; };
+  etat.poules = etat.poules.map(function (l) { return l.map(r); });
+  if (etat.forcage) Object.keys(etat.forcage).forEach(function (k) { etat.forcage[k] = etat.forcage[k].map(r); });
+  if (etat.pauses) etat.pauses = etat.pauses.map(r);
+  if (etat.records) etat.records.forEach(function (x) { x.nom = r(x.nom); });
+  const sh = ss_().getSheetByName(TOURNOI.onglet);
+  sh.getDeveloperMetadata().forEach(function (m) { if (m.getKey() === TOURNOI.meta) m.setValue(JSON.stringify(etat)); });
+  const rg = sh.getRange(1, 1, planTournoi_(etat).derniereLigne, 17);
+  const vals = rg.getValues();
+  let change = false;
+  vals.forEach(function (l) { l.forEach(function (x, j) { if (x === ancien) { l[j] = nouveau; change = true; } }); });
+  if (change) {
+    // N'écrit que les cellules de noms, pour ne pas toucher aux menus et mises en forme
+    vals.forEach(function (l, i) {
+      l.forEach(function (x, j) { if (x === nouveau) sh.getRange(i + 1, j + 1).setValue(nouveau); });
+    });
+  }
+  majTournoi_();
+}
+
+/**
+ * Record noté en cours de soirée (bandeau de la page) : un par type, gardé avec le tournoi.
+ * Il ne compte au championnat qu'à la validation de la soirée. Score vide = effacer.
+ * Mêmes contrôles que la saisie d'une soirée (minimums, maximums, joueur présent).
+ */
+function noterRecord_(type, score, nom) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const etat = lireEtatTournoi_();
+    if (!etat) throw new Error('Aucun tournoi en cours.');
+    const t = TYPES.find(function (x) { return x.nom === type; });
+    if (!t) throw new Error('Type de record inconnu : ' + type);
+    const recs = (etat.records || []).filter(function (r) { return r.type !== t.nom; });
+    const brut = String(score === undefined || score === null ? '' : score).trim().replace(',', '.');
+    let msg;
+    if (!brut) {
+      msg = 'Record « ' + t.nom + ' » effacé.';
+    } else {
+      const v = Number(brut);
+      if (isNaN(v)) throw new Error('« ' + score + ' » n\'est pas un nombre.');
+      if (v < t.min) throw new Error(t.tropBas);
+      if (v > t.max) throw new Error(t.tropHaut);
+      if (!nom) throw new Error('Qui a fait le record « ' + t.nom + ' » ?');
+      if ([].concat.apply([], etat.poules).indexOf(nom) < 0) throw new Error(nom + " ne joue pas ce soir, son record ne peut pas compter.");
+      recs.push({ type: t.nom, score: v, nom: nom });
+      msg = 'Record « ' + t.nom + ' » : ' + String(v).replace('.', ',') + ' par ' + nom + '.';
+    }
+    recs.sort(function (a, b) {
+      return TYPES.findIndex(function (x) { return x.nom === a.type; }) - TYPES.findIndex(function (x) { return x.nom === b.type; });
+    });
+    etat.records = recs;
+    ecrireEtatTournoi_(etat);
+    return msg;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Annonce un match de poule dans « À suivre » (on = true) ou l'en retire. Ses joueurs ne sont plus en pause. */
+function annoncerMatch_(i, on) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const etat = lireEtatTournoi_();
+    if (!etat) throw new Error('Aucun tournoi en cours.');
+    i = Number(i);
+    const m = planTournoi_(etat).matchs[i];
+    if (!m) throw new Error('Match introuvable.');
+    etat.annonces = (etat.annonces || []).filter(function (x) { return x !== i; });
+    if (on) {
+      etat.annonces.push(i);
+      etat.pauses = (etat.pauses || []).filter(function (n) { return n !== m.j1 && n !== m.j2; });
+    }
+    ecrireEtatTournoi_(etat);
+    return on ? m.j1 + ' contre ' + m.j2 + ' : annoncé dans « À suivre ».' : 'Match retiré de « À suivre ».';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Met un joueur en pause (ses matchs ne sont plus proposés dans « À suivre ») ou l'en sort. */
+function pauseJoueur_(nom, on) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const etat = lireEtatTournoi_();
+    if (!etat) throw new Error('Aucun tournoi en cours.');
+    nom = String(nom || '').trim();
+    if ([].concat.apply([], etat.poules).indexOf(nom) < 0) throw new Error('« ' + nom + ' » ne joue pas ce tournoi.');
+    etat.pauses = (etat.pauses || []).filter(function (n) { return n !== nom; });
+    if (on) etat.pauses.push(nom);
+    ecrireEtatTournoi_(etat);
+    return on ? nom + ' est en pause : ses matchs ne sont plus proposés.' : nom + ' est de retour.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Affiches de la phase finale choisies à la main : affiches = { D1: [a, b], D2: [c, d] }
+ * (ou { F: [a, b] } pour une finale directe à 3 joueurs), parmi tous les joueurs du tournoi,
+ * même avant la fin des poules. null = retour au calcul automatique.
+ * Refusé si cela change les joueurs d'un match déjà joué (il faut d'abord effacer son score).
+ */
+function forcerAffiches_(affiches) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lu = lireTournoi_();
+    const ids = lu.plan.finale.matchs.length === 1 ? ['F'] : ['D1', 'D2'];
+    const tous = [].concat.apply([], lu.etat.poules);
+    let choix = null;
+    if (affiches) {
+      choix = {};
+      const vus = [];
+      ids.forEach(function (id) {
+        const l = (affiches[id] || []).map(function (n) { return String(n || '').trim(); });
+        if (l.length !== 2 || !l[0] || !l[1]) throw new Error('Choisis les deux joueurs de la ' + LIBELLES_FINALE[id].toLowerCase() + '.');
+        l.forEach(function (n) {
+          if (tous.indexOf(n) < 0) throw new Error('« ' + n + ' » ne joue pas ce tournoi.');
+          if (vus.indexOf(n) >= 0) throw new Error('« ' + n + ' » est choisi deux fois.');
+          vus.push(n);
+        });
+        choix[id] = l;
+      });
+    }
+    const etat = JSON.parse(JSON.stringify(lu.etat));
+    if (choix) etat.forcage = choix; else delete etat.forcage;
+    const res = calculTournoi_(etat, lu.plan, lu.scores, lu.cells, lu.departage);
+    const touche = res.finale.filter(function (f, i) { return f.effacer && lu.res.finale[i].joue; });
+    if (touche.length) {
+      throw new Error('La ' + LIBELLES_FINALE[touche[0].id].toLowerCase() +
+        ' est déjà jouée : efface d\'abord son score pour changer ses joueurs.');
+    }
+    ecrireEtatTournoi_(etat);
+    SpreadsheetApp.flush();
+    majTournoi_();
+    return choix ? 'Affiches de la phase finale modifiées.' : 'Phase finale : retour au calcul automatique.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ============================ MATCHS BD ============================ */
+/*
+ * Onglet « Matchs BD » : une ligne par match joué (poules et phase finale), écrite à la validation
+ * de la soirée. Revalider une soirée remplace ses lignes. Ne pas renommer les en-têtes.
+ */
+
+const ENTETES_MATCHS = ['Date', 'Phase', 'Joueur 1', 'Legs 1', 'Joueur 2', 'Legs 2', 'Legs gagnants', 'Vainqueur'];
+
+/** Lignes de « Matchs BD » pour le tournoi de cette date, sans rien écrire (null si pas de tournoi à cette date). */
+function lignesMatchs_(iso) {
+  const etat = lireEtatTournoi_();
+  if (!etat || etat.date !== iso) return null;
+  const lu = lireTournoi_();
+  const d = serie_(iso), lignes = [];
+  lu.plan.matchs.forEach(function (m, i) {
+    const L = legsPoule_(lu.etat, m.poule);
+    const s = lireScore_(lu.scores[i][0], lu.scores[i][1], L);
+    if (s.joue) lignes.push([d, 'Poule ' + TOURNOI.lettres[m.poule], m.j1, s.a, m.j2, s.b, L, s.a > s.b ? m.j1 : m.j2]);
+  });
+  lu.res.finale.forEach(function (f, i) {
+    if (!f.joue) return;
+    const c = lu.cells[i];
+    lignes.push([d, LIBELLES_FINALE[f.id], f.j1, Number(c.a), f.j2, Number(c.b), legsFinale_(lu.etat), f.gagnant]);
+  });
+  return lignes;
+}
+
+/** Archive les matchs du tournoi de cette date. Renvoie leur nombre (null si pas de tournoi à cette date). */
+function archiverMatchs_(iso) {
+  const lignes = lignesMatchs_(iso);
+  if (lignes === null) return null;
+  ecrireMatchsBD_(iso, lignes);
+  return lignes.length;
+}
+
+function feuilleMatchs_() {
+  let sh = ss_().getSheetByName(CFG.matchs);
+  if (!sh) {
+    sh = ss_().insertSheet(CFG.matchs);
+    sh.getRange(1, 1, 1, ENTETES_MATCHS.length).setValues([ENTETES_MATCHS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/** Remplace les matchs de la date par ces lignes, puis trie du plus récent au plus ancien (ordre des matchs gardé). */
+function ecrireMatchsBD_(iso, nouvelles) {
+  const sh = feuilleMatchs_();
+  const n = ENTETES_MATCHS.length, last = sh.getLastRow();
+  let lignes = [];
+  if (last >= 2) {
+    lignes = sh.getRange(2, 1, last - 1, n).getValues()
+      .filter(function (l) { return l[0] instanceof Date && cleDate_(l[0]) !== iso; })
+      .map(function (l) { l[0] = serie_(cleDate_(l[0])); return l; });
+    sh.getRange(2, 1, last - 1, n).clearContent();
+  }
+  lignes = lignes.concat(nouvelles);
+  lignes.sort(function (a, b) { return b[0] - a[0]; }); // tri stable : l'ordre des matchs d'une soirée est gardé
+  if (lignes.length) {
+    sh.getRange(2, 1, lignes.length, n).setValues(lignes);
+    sh.getRange(2, 1, lignes.length, 1).setNumberFormat('d/m/yyyy');
+  }
+}
+
+/* ============================ PHOTOS ============================ */
+
+/** Demande le lien du dossier Google Drive des photos et le mémorise. Renvoie l'ID ou null. */
+function choisirDossierPhotos() {
+  const ui = SpreadsheetApp.getUi();
+  const rep = ui.prompt('Dossier des photos',
+    'Colle le lien du dossier Google Drive qui contient les photos du site\n' +
+    '(dans Drive : clic droit sur le dossier > Partager > Copier le lien) :', ui.ButtonSet.OK_CANCEL);
+  if (rep.getSelectedButton() !== ui.Button.OK) return null;
+  const txt = rep.getResponseText().trim();
+  const m = txt.match(/folders\/([A-Za-z0-9_-]+)/) || txt.match(/[?&]id=([A-Za-z0-9_-]+)/) || txt.match(/^([A-Za-z0-9_-]{15,})$/);
+  if (!m) { ui.alert("Ce lien ne ressemble pas à un lien de dossier Google Drive."); return null; }
+  let dossier;
+  try { dossier = DriveApp.getFolderById(m[1]); }
+  catch (e) { ui.alert("Dossier introuvable, ou tu n'y as pas accès avec ce compte Google."); return null; }
+  PropertiesService.getDocumentProperties().setProperty('dossierPhotos', m[1]);
+  ss_().toast('Dossier « ' + dossier.getName() + ' » enregistré', "Noya'Darts", 4);
+  return m[1];
+}
+
+/**
+ * Liste les images du dossier dans l'onglet "Photos" (de la plus récente à la plus ancienne)
+ * et les rend visibles par "tous les utilisateurs disposant du lien", condition pour
+ * qu'elles s'affichent sur le site.
+ */
+function majPhotos() {
+  const ui = SpreadsheetApp.getUi();
+  let id = PropertiesService.getDocumentProperties().getProperty('dossierPhotos');
+  if (!id) id = choisirDossierPhotos();
+  if (!id) return;
+
+  let dossier;
+  try { dossier = DriveApp.getFolderById(id); }
+  catch (e) { ui.alert("Le dossier photos est introuvable. Choisis-le à nouveau (menu « Changer le dossier photos »)."); return; }
+
+  const photos = [], refus = [];
+  const it = dossier.getFiles();
+  while (it.hasNext()) {
+    const f = it.next();
+    if (f.isTrashed() || !/^image\//.test(f.getMimeType())) continue;
+    try {
+      if (f.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK && f.getSharingAccess() !== DriveApp.Access.ANYONE) {
+        f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      }
+      photos.push([f.getId(), f.getName(), f.getDateCreated()]);
+    } catch (e) {
+      refus.push(f.getName());
+    }
+  }
+  photos.sort(function (a, b) { return b[2] - a[2]; });
+
+  let sh = ss_().getSheetByName(CFG.photos);
+  if (!sh) sh = ss_().insertSheet(CFG.photos);
+  sh.clearContents();
+  sh.getRange(1, 1, 1, 3).setValues([['id', 'Nom du fichier', 'Ajoutée le']]).setFontWeight('bold');
+  if (photos.length) {
+    sh.getRange(2, 1, photos.length, 3).setValues(photos);
+    sh.getRange(2, 3, photos.length, 1).setNumberFormat('d/m/yyyy');
+  }
+
+  const props = PropertiesService.getDocumentProperties();
+  let msg = photos.length + ' photo(s) dans le dossier « ' + dossier.getName() + ' ». Le site sera à jour d\'ici 5 minutes.';
+  if (refus.length) msg += '\n\nCes photos n\'ont pas pu être partagées et ne s\'afficheront pas : ' + refus.join(', ');
+  if (!props.getProperty('photosPubliees')) {
+    msg += '\n\nPremière fois : publie l\'onglet « Photos » en CSV (Fichier > Partager > Publier sur le Web, ' +
+      'choisis l\'onglet « Photos » et le format CSV), puis envoie le lien obtenu pour qu\'il soit ajouté au site.';
+    props.setProperty('photosPubliees', 'rappel-fait');
+  }
+  ui.alert('Photos', msg, ui.ButtonSet.OK);
+}
+
+/* ============================ OUTILS ============================ */
+
+function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+
+function feuille_(nom) {
+  const sh = ss_().getSheetByName(nom);
+  if (!sh) throw new Error('Onglet introuvable : « ' + nom + ' ». Il ne faut pas le renommer.');
+  return sh;
+}
+
+function norm_(s) { return String(s || '').trim().toLowerCase(); }
+
+/** Nom simplifié pour comparer : sans accents, majuscules, espaces ni ponctuation. */
+function cleNom_(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** Distance d'édition entre deux textes (nombre de lettres à changer, ajouter ou retirer). */
+function distance_(a, b) {
+  let prec = [];
+  for (let j = 0; j <= b.length; j++) prec.push(j);
+  for (let i = 1; i <= a.length; i++) {
+    const cour = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cour.push(Math.min(prec[j] + 1, cour[j - 1] + 1, prec[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)));
+    }
+    prec = cour;
+  }
+  return prec[b.length];
+}
+
+/**
+ * Joueurs dont le nom ressemble à celui proposé :
+ *   - l'un contient l'autre ("Alex" / "Alexandre", "Bob" / "Bob le fou")
+ *   - ou une faute de frappe d'écart ("Bast Ze Kid" / "Bast le Kid", "Nicco" / "Nico")
+ */
+function joueursProches_(nom, joueurs) {
+  const a = cleNom_(nom);
+  return joueurs.filter(function (j) {
+    const b = cleNom_(j);
+    if (!a || !b) return false;
+    const court = a.length <= b.length ? a : b;
+    const long = a.length <= b.length ? b : a;
+    if (court.length >= 3 && long.indexOf(court) >= 0) return true;
+    return distance_(a, b) <= (court.length <= 5 ? 1 : 2);
+  });
+}
+
+/** Ligne d'un joueur dans le championnat (null s'il n'existe pas). */
+function ligneJoueur_(sh, nom) {
+  const i = lireJoueurs_().indexOf(String(nom || '').trim());
+  return i < 0 ? null : 3 + i;
+}
+
+function cleDate_(v) {
+  if (!(v instanceof Date)) return '';
+  return Utilities.formatDate(v, ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+}
+
+/** Numéro de série Google Sheets d'une date 'aaaa-mm-jj' (évite tout souci de fuseau horaire). */
+function serie_(iso) {
+  const d = iso.split('-').map(Number);
+  return (Date.UTC(d[0], d[1] - 1, d[2]) - Date.UTC(1899, 11, 30)) / 86400000;
+}
+
+function dernierJeudi_() {
+  const tz = ss_().getSpreadsheetTimeZone();
+  const now = new Date();
+  const jour = Number(Utilities.formatDate(now, tz, 'u')); // 1 = lundi ... 7 = dimanche
+  const recul = (jour - 4 + 7) % 7;
+  return Utilities.formatDate(new Date(now.getTime() - recul * 86400000), tz, 'yyyy-MM-dd');
+}
+
+function lettre_(c) {
+  let s = '';
+  while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); }
+  return s;
+}
+
+/** Dernière ligne contenant un nom de joueur (2 s'il n'y en a aucun). */
+function derniereLigneJoueur_(sh) {
+  const max = sh.getMaxRows();
+  if (max < 3) return 2;
+  const vals = sh.getRange(3, 1, max - 2, 1).getValues();
+  let n = 0;
+  while (n < vals.length && String(vals[n][0]).trim() !== '') n++;
+  return 2 + n;
+}
+
+/**
+ * Date de la dernière soirée jouée par chaque joueur, d'après le championnat :
+ * { nom: 'aaaa-mm-jj' }, ou '' s'il n'a encore jamais joué.
+ */
+function dernieresVenues_() {
+  const sh = feuille_(CFG.champ);
+  const last = derniereLigneJoueur_(sh);
+  const out = {};
+  if (last < 3) return out;
+  const lastCol = Math.max(sh.getLastColumn(), CFG.col1 + 2);
+  const ligne1 = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const entetes = sh.getRange(2, 1, 1, lastCol).getValues()[0];
+  const data = sh.getRange(3, 1, last - 2, lastCol).getValues();
+  const soirees = [];
+  for (let c = CFG.col1; c <= lastCol; c += 3) {
+    const iso = cleDate_(ligne1[c - 1]);
+    if (!iso) continue;
+    let k = c; // colonne « Classement » de la soirée (la première en principe)
+    for (let j = c; j < c + 3 && j <= lastCol; j++) if (norm_(entetes[j - 1]) === 'classement') { k = j; break; }
+    soirees.push({ iso: iso, col: k });
+  }
+  data.forEach(function (l) {
+    const nom = String(l[0]).trim();
+    let v = '';
+    soirees.forEach(function (s) {
+      const x = l[s.col - 1];
+      if (x !== '' && x !== null && s.iso > v) v = s.iso;
+    });
+    out[nom] = v;
+  });
+  return out;
+}
+
+function lireJoueurs_() {
+  const sh = feuille_(CFG.champ);
+  const last = derniereLigneJoueur_(sh);
+  if (last < 3) return [];
+  return sh.getRange(3, 1, last - 2, 1).getValues().map(function (r) { return String(r[0]).trim(); });
+}
+
+/**
+ * Calcule les points de chaque soirée et le total (colonne B) de chaque joueur,
+ * et les écrit directement en nombres (sans formule : Google refusait les formules
+ * écrites par le script dans ce fichier, "Erreur d'analyse de formule").
+ * Points d'une soirée = barème du classement + nombre de records x points par record,
+ * lus dans l'onglet "Paramètres points championnat" (colonnes A:B et cellule E1).
+ */
+function refreshFormules_(sh) {
+  const last = derniereLigneJoueur_(sh);
+  if (last < 3) return;
+  const n = last - 2;
+  const lastCol = Math.max(sh.getLastColumn(), CFG.col1 + 2);
+
+  const p = feuille_(CFG.params);
+  const bareme = {};
+  p.getRange(1, 1, Math.max(p.getLastRow(), 1), 2).getValues().forEach(function (r) {
+    if (r[0] !== '' && r[0] !== null && !isNaN(Number(r[0]))) bareme[Number(r[0])] = Number(r[1]) || 0;
+  });
+  const parRecord = Number(p.getRange('E1').getValue()) || 0;
+
+  const entetes = sh.getRange(2, 1, 1, lastCol).getValues()[0];
+  const data = sh.getRange(3, 1, n, lastCol).getValues();
+
+  // Points de chaque soirée
+  for (let c = CFG.col1; c + 2 <= lastCol; c += 3) {
+    const col = data.map(function (ligne) {
+      const rang = ligne[c - 1];
+      if (rang === '' || rang === null || bareme[Number(rang)] === undefined) return [''];
+      return [bareme[Number(rang)] + (Number(ligne[c]) || 0) * parRecord];
+    });
+    col.forEach(function (v, i) { data[i][c + 1] = v[0]; });
+    sh.getRange(3, c + 2, n, 1).setValues(col);
+  }
+
+  // Total : somme des colonnes dont l'en-tête (ligne 2) est le même que celui de la colonne B ("Points")
+  const cle = norm_(entetes[1]) || 'points';
+  sh.getRange(3, 2, n, 1).setValues(data.map(function (ligne) {
+    let t = 0;
+    for (let c = 3; c <= lastCol; c++) {
+      if (norm_(entetes[c - 1]) === cle && typeof ligne[c - 1] === 'number') t += ligne[c - 1];
+    }
+    return [t];
+  }));
+}
+
+/** Trouve la colonne d'une soirée ; la crée si demandé. */
+function colonneSoiree_(sh, iso, creer) {
+  const lastCol = Math.max(sh.getLastColumn(), CFG.col1 + 2);
+  const ligne1 = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  let libre = null;
+  for (let c = CFG.col1; c <= lastCol; c += 3) {
+    const k = cleDate_(ligne1[c - 1]);
+    if (k === iso) return { col: c, nouvelle: false };
+    if (!k && libre === null) libre = c;
+  }
+  if (!creer) return null;
+  let c = libre;
+  if (c === null) c = CFG.col1 + 3 * Math.ceil((lastCol - CFG.col1 + 1) / 3);
+  if (sh.getMaxColumns() < c + 2) sh.insertColumnsAfter(sh.getMaxColumns(), c + 2 - sh.getMaxColumns());
+  const lastRow = Math.max(derniereLigneJoueur_(sh), 3);
+  if (c > CFG.col1) {
+    sh.getRange(1, c - 3, lastRow, 3).copyTo(sh.getRange(1, c, lastRow, 3), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  }
+  try { sh.getRange(1, c, 1, 3).merge(); } catch (e) { /* déjà fusionné */ }
+  sh.getRange(1, c).setValue(serie_(iso)).setNumberFormat('d/m/yyyy');
+  sh.getRange(2, c, 1, 3).setValues([['Classement', 'Records', 'Points']]);
+  return { col: c, nouvelle: true };
+}
+
+function typeCanonique_(t) {
+  const x = TYPES.find(function (y) { return norm_(y.nom) === norm_(t); });
+  return x ? x.nom : t;
+}
+
+function lireRecordsBD_() {
+  const sh = feuille_(CFG.bd);
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, 4).getValues()
+    .filter(function (l) { return l[0] instanceof Date; })
+    .map(function (l) { return { cle: cleDate_(l[0]), type: typeCanonique_(l[1]), score: l[2], nom: String(l[3]).trim() }; });
+}
+
+/** Réécrit "Records BD" : remplace les records de la date, puis trie du plus récent au plus ancien. */
+function ecrireRecordsBD_(iso, recs) {
+  const lignes = lireRecordsBD_()
+    .filter(function (l) { return l.cle !== iso; })
+    .map(function (l) { return [serie_(l.cle), l.type, l.score, l.nom]; });
+  recs.forEach(function (r) { lignes.push([serie_(iso), r.type, r.score, r.nom]); });
+  ecrireLignesBD_(lignes);
+}
+
+/** Remplace tout le contenu de "Records BD" par ces lignes, triées du plus récent au plus ancien. */
+function ecrireLignesBD_(lignes) {
+  const sh = feuille_(CFG.bd);
+  const lastAvant = sh.getLastRow();
+  const ordre = function (t) { const i = TYPES.findIndex(function (x) { return x.nom === t; }); return i < 0 ? 9 : i; };
+  lignes.sort(function (a, b) { return b[0] - a[0] || ordre(a[1]) - ordre(b[1]); });
+  if (lastAvant >= 2) sh.getRange(2, 1, lastAvant - 1, 4).clearContent();
+  if (lignes.length) {
+    sh.getRange(2, 1, lignes.length, 4).setValues(lignes);
+    sh.getRange(2, 1, lignes.length, 1).setNumberFormat('d/m/yyyy');
+  }
+}
+
+/* ======================= FENÊTRE DE SAISIE ======================= */
+
+const HTML_SAISIE = `<!DOCTYPE html>
+<html><head><base target="_top">
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1b2224;margin:0;padding:12px 16px}
+  .haut{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .haut label{font-weight:bold}
+  #etat{color:#555;font-size:12px}
+  fieldset{border:1px solid #ddd;border-radius:8px;margin:0 0 12px;padding:8px 12px}
+  legend{font-weight:bold;padding:0 6px;color:#d4453b}
+  .aide{color:#888;font-size:11px;margin:0 0 6px}
+  .joueurs{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px}
+  .j{display:flex;align-items:center;gap:6px;padding:2px 6px;border-radius:5px}
+  .j.present{background:#e6f4ec}
+  .j span{flex:1;cursor:pointer;user-select:none}
+  select,input{font-size:13px;padding:3px 4px}
+  .rec{display:grid;grid-template-columns:140px 90px 1fr;gap:8px;align-items:center;margin:5px 0}
+  .ajout{display:flex;gap:6px;margin-top:8px}
+  .ajout input{flex:1}
+  .btn{background:#d4453b;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-size:14px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:wait}
+  .btn2{background:#eee;color:#333;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}
+  .bas{display:flex;justify-content:space-between;align-items:center}
+  #msg{margin-top:10px;padding:8px 10px;border-radius:6px;display:none}
+  .ok{background:#e6f4ec;color:#1d6b43}.err{background:#fbeaea;color:#a12a22}.warn{background:#fff6e0;color:#7a5600}
+  #ecarts{display:none;margin-bottom:10px;padding:6px 10px;border-radius:6px}
+</style></head>
+<body>
+  <div class="haut">
+    <label for="date">Date de la soirée</label>
+    <input type="date" id="date" onchange="charger()">
+    <span id="etat">Chargement...</span>
+  </div>
+  <div id="ecarts" class="warn"></div>
+
+  <fieldset>
+    <legend>Joueurs et classement</legend>
+    <p class="aide">Clique sur un nom pour le marquer présent (participation) ou absent, puis choisis le classement des 4 premiers.</p>
+    <div id="joueurs" class="joueurs"></div>
+    <div class="ajout">
+      <input id="nouveau" placeholder="Nouveau joueur (nom)">
+      <button class="btn2" onclick="ajouter()">Ajouter</button>
+    </div>
+    <p class="aide" id="compteur"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Records de la soirée</legend>
+    <p class="aide">Laisse vide s'il n'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.</p>
+    <div id="records"></div>
+  </fieldset>
+
+  <div class="bas">
+    <button class="btn2" onclick="google.script.host.close()">Fermer</button>
+    <button class="btn" id="go" onclick="enregistrer()">Enregistrer la soirée</button>
+  </div>
+  <div id="msg"></div>
+
+<script>
+var JOUEURS = [], TYPES = [], RANGS = [];
+var DEPUIS_TOURNOI = null;
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function message(txt, cls){ var m = $('msg'); m.textContent = txt; m.className = cls; m.style.display = txt ? 'block' : 'none'; }
+
+google.script.run.withSuccessHandler(init).withFailureHandler(erreur).donneesSaisie();
+
+function init(d){
+  JOUEURS = d.joueurs; TYPES = d.types; RANGS = d.rangs;
+  $('date').value = DEPUIS_TOURNOI ? DEPUIS_TOURNOI.date : d.dateDefaut;
+  charger();
+}
+function erreur(e){ $('go').disabled = false; message(e && e.message ? e.message : String(e), 'err'); }
+
+function charger(){
+  var date = $('date').value;
+  if (!date) return;
+  $('etat').textContent = 'Chargement...';
+  message('', '');
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(s){
+    var rangs = s.rangs, note = '';
+    if (DEPUIS_TOURNOI && DEPUIS_TOURNOI.date === date){ rangs = DEPUIS_TOURNOI.rangs; note = ' Classement et records repris du tournoi : vérifie puis enregistre.'; }
+    Object.keys(rangs).forEach(function(n){ if (JOUEURS.indexOf(n) < 0) JOUEURS.push(n); });
+    dessinerJoueurs(rangs);
+    dessinerRecords(DEPUIS_TOURNOI && DEPUIS_TOURNOI.date === date && DEPUIS_TOURNOI.records && DEPUIS_TOURNOI.records.length ? DEPUIS_TOURNOI.records : s.records);
+    $('etat').textContent = (s.existe ? '✏️ Soirée déjà enregistrée : tu peux la corriger.' : '🆕 Nouvelle soirée') + note;
+    var e = $('ecarts');
+    if (s.ecarts && s.ecarts.length){ e.textContent = '⚠️ ' + s.ecarts.join(' ; ') + '. Complète les records avant d\\'enregistrer, sinon les points seront recalculés.'; e.style.display = 'block'; }
+    else { e.style.display = 'none'; }
+  }).chargerSoiree(date);
+}
+
+function rangsActuels(){
+  var r = {};
+  document.querySelectorAll('#joueurs select').forEach(function(s){ if (s.value) r[s.dataset.nom] = s.value; });
+  return r;
+}
+function presents(){ return Object.keys(rangsActuels()); }
+
+function dessinerJoueurs(rangs){
+  var box = $('joueurs'); box.innerHTML = '';
+  JOUEURS.forEach(function(n){
+    var div = document.createElement('div'); div.className = 'j';
+    var sp = document.createElement('span'); sp.textContent = n; sp.title = 'Clic : présent / absent';
+    var sel = document.createElement('select'); sel.dataset.nom = n;
+    sel.innerHTML = '<option value="">absent</option>' + RANGS.map(function(r){ return '<option value="' + r.v + '">' + r.l + '</option>'; }).join('');
+    sel.value = rangs[n] ? String(rangs[n]) : '';
+    sp.onclick = function(){ sel.value = sel.value ? '' : '5'; maj(); };
+    sel.onchange = maj;
+    div.appendChild(sp); div.appendChild(sel); box.appendChild(div);
+  });
+  maj();
+}
+
+function dessinerRecords(recs){
+  var box = $('records'); box.innerHTML = '';
+  TYPES.forEach(function(t){
+    var r = recs.filter(function(x){ return x.type === t.nom; })[0] || {};
+    var div = document.createElement('div'); div.className = 'rec';
+    div.innerHTML = '<label>' + esc(t.nom) + '</label>' +
+      '<input class="recscore" data-type="' + esc(t.nom) + '" placeholder="' + t.min + ' à ' + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace('.', ',')) : '') + '">' +
+      '<select class="recnom" data-init="' + esc(r.nom || '') + '"></select>';
+    box.appendChild(div);
+  });
+  maj();
+  document.querySelectorAll('.recnom').forEach(function(s){ if (s.dataset.init) s.value = s.dataset.init; });
+}
+
+function maj(){
+  document.querySelectorAll('#joueurs select').forEach(function(s){ s.parentNode.className = 'j' + (s.value ? ' present' : ''); });
+  var p = presents();
+  $('compteur').textContent = p.length + ' joueur(s) présent(s)';
+  document.querySelectorAll('.recnom').forEach(function(s){
+    var v = s.value || s.dataset.init;
+    s.innerHTML = '<option value="">qui ?</option>' + p.map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+    if (p.indexOf(v) >= 0) s.value = v;
+    s.dataset.init = '';
+  });
+}
+
+function ajouter(forcer){
+  var nom = $('nouveau').value.trim();
+  if (!nom){ message("T'es bidon mec, il faut taper le nom avant de valider...", 'err'); return; }
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(res){
+    if (!res.ajoute){
+      var m = $('msg'); m.className = 'warn'; m.style.display = 'block';
+      m.innerHTML = '⚠️ « ' + esc(res.nom) + ' » ressemble à : <b>' + res.proches.map(esc).join(', ') + '</b>. ' +
+        'Est-ce bien un nouveau joueur ?<div style="margin-top:6px;display:flex;gap:6px">' +
+        '<button class="btn2" id="ouiAjout">Oui, ajouter « ' + esc(res.nom) + ' »</button>' +
+        '<button class="btn2" id="nonAjout">Non, annuler</button></div>';
+      $('ouiAjout').onclick = function(){ ajouter(true); };
+      $('nonAjout').onclick = function(){
+        $('nouveau').value = '';
+        message('Ajout annulé. Clique plutôt sur le nom existant dans la liste pour le marquer présent.', 'ok');
+      };
+      return;
+    }
+    var n = res.nom;
+    var r = rangsActuels(); r[n] = '5';
+    JOUEURS.push(n); $('nouveau').value = '';
+    dessinerJoueurs(r);
+    message('« ' + n + ' » est ajouté et marqué présent.', 'ok');
+  }).ajouterJoueur(nom, !!forcer);
+}
+
+function enregistrer(){
+  var recs = [];
+  document.querySelectorAll('.rec').forEach(function(div){
+    recs.push({ type: div.querySelector('.recscore').dataset.type, score: div.querySelector('.recscore').value, nom: div.querySelector('.recnom').value });
+  });
+  $('go').disabled = true;
+  message('Enregistrement en cours...', 'warn');
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(txt){
+    $('go').disabled = false;
+    message('✅ ' + txt, 'ok');
+    $('etat').textContent = '✏️ Soirée déjà enregistrée : tu peux la corriger.';
+    $('ecarts').style.display = 'none';
+  }).enregistrerSoiree({ date: $('date').value, rangs: rangsActuels(), records: recs });
+}
+</script>
+</body></html>`;
+
+/* ===================== FENÊTRE DE SUPPRESSION ===================== */
+
+const HTML_SUPPRESSION = `<!DOCTYPE html>
+<html><head><base target="_top">
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1b2224;margin:0;padding:12px 16px}
+  label{font-weight:bold;display:block;margin-bottom:6px}
+  select{font-size:13px;padding:4px;width:100%}
+  .aide{color:#888;font-size:11px;margin:6px 0 0}
+  .zone{margin-top:12px;padding:8px 10px;border-radius:6px;display:none;line-height:1.4}
+  .ok{background:#e6f4ec;color:#1d6b43}.err{background:#fbeaea;color:#a12a22}.warn{background:#fff6e0;color:#7a5600}
+  .btn{background:#d4453b;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-size:14px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn2{background:#eee;color:#333;border:0;border-radius:6px;padding:8px 12px;cursor:pointer}
+  .bas{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+</style></head>
+<body>
+  <label for="joueur">Joueur à supprimer</label>
+  <select id="joueur" onchange="choisir()"><option value="">Chargement...</option></select>
+  <p class="aide">Pour un doublon : si le doublon a déjà des résultats qui appartiennent en fait à l'autre joueur,
+  corrige d'abord la soirée concernée (menu Saisir une soirée, même date), puis supprime le doublon.</p>
+  <div id="detail" class="zone"></div>
+  <div id="msg" class="zone"></div>
+  <div class="bas">
+    <button class="btn2" onclick="google.script.host.close()">Fermer</button>
+    <button class="btn" id="go" onclick="demander()" disabled>Supprimer</button>
+  </div>
+
+<script>
+var INFO = null;
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function zone(id, html, cls){ var z = $(id); z.innerHTML = html; z.className = 'zone ' + (cls || ''); z.style.display = html ? 'block' : 'none'; }
+function erreur(e){ $('go').disabled = !INFO; zone('msg', esc(e && e.message ? e.message : String(e)), 'err'); }
+
+function chargerListe(){
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(l){
+    $('joueur').innerHTML = '<option value="">Choisis un joueur</option>' +
+      l.map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+  }).listeJoueurs();
+}
+chargerListe();
+
+function choisir(){
+  var nom = $('joueur').value;
+  INFO = null; $('go').disabled = true; zone('msg', ''); zone('detail', '');
+  if (!nom) return;
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(i){
+    INFO = i; $('go').disabled = false;
+    if (!i.soirees && !i.records){
+      zone('detail', '<b>' + esc(i.nom) + '</b> : aucun résultat enregistré, la suppression est sans risque.', 'ok');
+    } else {
+      zone('detail', '<b>' + esc(i.nom) + '</b> : ' + i.soirees + ' soirée(s) jouée(s), ' + i.points +
+        ' point(s) au championnat, ' + i.records + ' record(s).', 'warn');
+    }
+  }).infosJoueur(nom);
+}
+
+function demander(){
+  if (!INFO) return;
+  var perte = (INFO.soirees || INFO.records)
+    ? 'Ses résultats (' + INFO.soirees + ' soirée(s), ' + INFO.points + ' point(s)) et ses ' + INFO.records +
+      ' record(s) seront <b>définitivement perdus</b>.'
+    : 'Il n\\'a aucun résultat enregistré.';
+  zone('msg', '⚠️ Supprimer <b>' + esc(INFO.nom) + '</b> ? ' + perte +
+    '<div style="margin-top:8px;display:flex;gap:6px">' +
+    '<button class="btn" id="oui">Oui, supprimer</button><button class="btn2" id="non">Annuler</button></div>', 'err');
+  $('go').disabled = true;
+  $('non').onclick = function(){ zone('msg', ''); $('go').disabled = false; };
+  $('oui').onclick = function(){
+    $('oui').disabled = true; $('non').disabled = true;
+    google.script.run.withFailureHandler(erreur).withSuccessHandler(function(txt){
+      INFO = null; zone('detail', '');
+      zone('msg', '✅ ' + esc(txt), 'ok');
+      chargerListe();
+    }).supprimerJoueur(INFO.nom);
+  };
+}
+</script>
+</body></html>`;
+
+/* ===================== FENÊTRE DE CHANGEMENT DE NOM ===================== */
+
+const HTML_RENOMMAGE = `<!DOCTYPE html>
+<html><head><base target="_top">
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1b2224;margin:0;padding:12px 16px}
+  label{font-weight:bold;display:block;margin:0 0 6px}
+  label.second{margin-top:12px}
+  select,input{font-size:13px;padding:4px;width:100%;box-sizing:border-box}
+  .aide{color:#888;font-size:11px;margin:6px 0 0}
+  .zone{margin-top:12px;padding:8px 10px;border-radius:6px;display:none;line-height:1.4}
+  .ok{background:#e6f4ec;color:#1d6b43}.err{background:#fbeaea;color:#a12a22}.warn{background:#fff6e0;color:#7a5600}
+  .btn{background:#d4453b;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-size:14px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn2{background:#eee;color:#333;border:0;border-radius:6px;padding:8px 12px;cursor:pointer}
+  .bas{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+</style></head>
+<body>
+  <label for="joueur">Joueur à renommer</label>
+  <select id="joueur" onchange="choisir()"><option value="">Chargement...</option></select>
+  <label for="nouveau" class="second">Nouveau nom</label>
+  <input id="nouveau" placeholder="Nouveau nom du joueur" disabled>
+  <p class="aide">Ses résultats, points et records sont conservés : seul le nom change
+  (championnat, Records BD et onglet Records). Les onglets de poules ne sont pas modifiés.</p>
+  <div id="msg" class="zone"></div>
+  <div class="bas">
+    <button class="btn2" onclick="google.script.host.close()">Fermer</button>
+    <button class="btn" id="go" onclick="renommer(false)" disabled>Renommer</button>
+  </div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function zone(html, cls){ var z = $('msg'); z.innerHTML = html; z.className = 'zone ' + (cls || ''); z.style.display = html ? 'block' : 'none'; }
+function actif(on){ $('go').disabled = !on; $('nouveau').disabled = !on; }
+function erreur(e){ actif(!!$('joueur').value); zone(esc(e && e.message ? e.message : String(e)), 'err'); }
+
+function chargerListe(choix){
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(l){
+    $('joueur').innerHTML = '<option value="">Choisis un joueur</option>' +
+      l.map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+    if (choix) $('joueur').value = choix;
+    $('nouveau').value = $('joueur').value;
+    actif(!!$('joueur').value);
+  }).listeJoueurs();
+}
+chargerListe();
+
+function choisir(){
+  var nom = $('joueur').value;
+  zone('');
+  $('nouveau').value = nom;
+  actif(!!nom);
+  if (nom){ $('nouveau').focus(); $('nouveau').select(); }
+}
+
+$('nouveau').addEventListener('keydown', function(e){ if (e.key === 'Enter') renommer(false); });
+
+function renommer(forcer){
+  var ancien = $('joueur').value, nouveau = $('nouveau').value.trim();
+  if (!ancien) return;
+  if (!nouveau){ zone("T'es bidon mec, il faut taper le nouveau nom avant de valider...", 'err'); return; }
+  actif(false);
+  zone('Changement de nom en cours...', 'warn');
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(res){
+    if (!res.renomme){
+      zone('⚠️ « ' + esc(res.nom) + ' » ressemble à : <b>' + res.proches.map(esc).join(', ') + '</b>. ' +
+        'Est-ce bien le nom voulu ?<div style="margin-top:8px;display:flex;gap:6px">' +
+        '<button class="btn2" id="oui">Oui, renommer en « ' + esc(res.nom) + ' »</button>' +
+        '<button class="btn2" id="non">Non, annuler</button></div>', 'warn');
+      $('oui').onclick = function(){ renommer(true); };
+      $('non').onclick = function(){ zone(''); actif(true); };
+      return;
+    }
+    zone('✅ ' + esc(res.message), 'ok');
+    chargerListe(res.nom);
+  }).renommerJoueur(ancien, nouveau, !!forcer);
+}
+</script>
+</body></html>`;
+
+/* ===================== FENÊTRE « LANCER UN TOURNOI » ===================== */
+
+const HTML_TOURNOI = `<!DOCTYPE html>
+<html><head><base target="_top">
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#1b2224;margin:0;padding:12px 16px}
+  .haut{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .haut label{font-weight:bold}
+  fieldset{border:1px solid #ddd;border-radius:8px;margin:0 0 12px;padding:8px 12px}
+  legend{font-weight:bold;padding:0 6px;color:#d4453b}
+  .aide{color:#888;font-size:11px;margin:0 0 6px}
+  .joueurs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px 10px}
+  .j{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:5px;cursor:pointer;user-select:none}
+  .j.present{background:#e6f4ec}
+  select,input{font-size:13px;padding:3px 4px}
+  .ajout{display:flex;gap:6px;margin-top:8px}
+  .ajout input{flex:1}
+  .poules{display:grid;gap:10px}
+  .replies{grid-column:1/-1;margin:6px 0 2px;color:#888;font-size:11px}
+  .lienrep{background:none;border:0;color:#a12a22;cursor:pointer;padding:0;text-decoration:underline;font-size:12px}
+  .poule{border-radius:6px;padding:6px 8px;background:#f6f4ee}
+  .poule h4{margin:0 0 4px;color:#d4453b}
+  .legs{display:flex;align-items:center;gap:6px;font-size:12px;color:#555;margin-bottom:6px}
+  .ligne{display:flex;justify-content:space-between;align-items:center;padding:2px 0}
+  .btn{background:#d4453b;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-size:14px;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn2{background:#eee;color:#333;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}
+  .bas{display:flex;justify-content:space-between;align-items:center}
+  #msg{margin-top:10px;padding:8px 10px;border-radius:6px;display:none;line-height:1.4}
+  .ok{background:#e6f4ec;color:#1d6b43}.err{background:#fbeaea;color:#a12a22}.warn{background:#fff6e0;color:#7a5600}
+</style></head>
+<body>
+  <div class="haut">
+    <label for="date">Date</label>
+    <input type="date" id="date">
+    <span id="encours" class="aide"></span>
+  </div>
+
+  <fieldset>
+    <legend>1. Joueurs présents</legend>
+    <p class="aide">Clique sur les noms des joueurs présents ce soir.</p>
+    <div id="joueurs" class="joueurs">Chargement...</div>
+    <div class="ajout">
+      <input id="nouveau" placeholder="Nouveau joueur (nom)">
+      <button class="btn2" onclick="ajouter()">Ajouter</button>
+    </div>
+    <p class="aide" id="compteur" style="margin-top:6px"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Poules</legend>
+    <div class="haut" style="margin-bottom:6px">
+      <label for="nb">Nombre de poules</label>
+      <select id="nb" onchange="NB_CHOISI = true; LEGS_CHOISIS = {}; tirage()"><option>1</option><option>2</option><option>3</option></select>
+      <button class="btn2" onclick="tirage()">🎲 Refaire le tirage</button>
+    </div>
+    <p class="aide" id="reglage"></p>
+    <p class="aide">Tirage au sort automatique. Pour déplacer un joueur, change sa poule dans la liste.
+    Par défaut, la plus petite poule joue en 3 legs gagnants (si les poules n'ont pas la même taille).</p>
+    <div id="poules" class="poules"></div>
+    <div class="haut" style="margin:10px 0 0">
+      <label for="legsF">Phase finale</label>
+      <select id="legsF"></select>
+    </div>
+  </fieldset>
+
+  <div class="bas">
+    <button class="btn2" onclick="google.script.host.close()">Fermer</button>
+    <button class="btn" id="go" onclick="lancer(false)">Lancer le tournoi</button>
+  </div>
+  <div id="msg"></div>
+
+<script>
+var JOUEURS = [], PRESENTS = {}, AFFECT = {}, S2 = 7, S3 = 13, NB_CHOISI = false, LEGS_CHOISIS = {};
+var VENUES = {}, HABITUES = 6, TOUS = false;
+var LETTRES = "ABC";
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function message(html, cls){ var m = $('msg'); m.innerHTML = html; m.className = cls; m.style.display = html ? 'block' : 'none'; }
+function erreur(e){ $('go').disabled = false; message(esc(e && e.message ? e.message : String(e)), 'err'); }
+
+google.script.run.withSuccessHandler(init).withFailureHandler(erreur).donneesTournoi();
+
+function init(d){
+  JOUEURS = d.joueurs; S2 = d.seuil2; S3 = d.seuil3;
+  VENUES = d.venues || {}; HABITUES = d.habitues || 6;
+  $('date').value = d.date;
+  $('date').onchange = dessinerJoueurs;
+  if (d.enCours) $('encours').textContent = "(l'onglet Tournoi contient le tournoi du " + d.enCours.split('-').reverse().join('/') + ")";
+  $('legsF').innerHTML = optionsLegs(2);
+  $('reglage').textContent = 'Réglage : 2 poules dès ' + S2 + ' joueurs, 3 poules dès ' + S3 + ' (menu Réglages du tournoi).';
+  dessinerJoueurs();
+}
+
+function presents(){ return JOUEURS.filter(function(n){ return PRESENTS[n]; }); }
+
+/* Joueur affiché d'office : présent, jamais venu, ou venu dans les HABITUES dernières semaines avant la date du tournoi */
+function habitue(n){
+  if (PRESENTS[n] || !VENUES[n]) return true;
+  var p = ($('date').value || '').split('-').map(Number);
+  var d = p.length === 3 && p[0] ? new Date(p[0], p[1] - 1, p[2]) : new Date();
+  d.setDate(d.getDate() - 7 * HABITUES);
+  var lim = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  return VENUES[n] >= lim;
+}
+
+function dessinerJoueurs(){
+  var box = $('joueurs'); box.innerHTML = '';
+  var autres = JOUEURS.filter(function(n){ return !habitue(n); });
+  var liste = JOUEURS.filter(habitue);
+  if (TOUS) liste = liste.concat(autres);
+  liste.forEach(function(n, i){
+    if (TOUS && autres.length && i === liste.length - autres.length){
+      var t = document.createElement('p'); t.className = 'replies';
+      t.textContent = 'Pas venus depuis plus de ' + HABITUES + ' semaines :'; box.appendChild(t);
+    }
+    var div = document.createElement('div');
+    div.className = 'j' + (PRESENTS[n] ? ' present' : '');
+    div.innerHTML = '<b class="case">' + (PRESENTS[n] ? '☑' : '☐') + '</b> <span>' + esc(n) + '</span>';
+    div.onclick = function(){
+      PRESENTS[n] = !PRESENTS[n];
+      div.className = 'j' + (PRESENTS[n] ? ' present' : '');
+      div.querySelector('.case').textContent = PRESENTS[n] ? '☑' : '☐';
+      changement();
+    };
+    box.appendChild(div);
+  });
+  if (autres.length){
+    var b = document.createElement('p'); b.className = 'replies';
+    b.innerHTML = '<button type="button" class="lienrep">' + (TOUS ? 'Replier les anciens joueurs'
+      : (autres.length > 1 ? 'Voir les ' + autres.length + ' autres joueurs (pas venus' : "Voir l'autre joueur (pas venu") + ' depuis plus de ' + HABITUES + ' semaines)') + '</button>';
+    b.querySelector('button').onclick = function(){ TOUS = !TOUS; dessinerJoueurs(); };
+    box.appendChild(b);
+  }
+  changement();
+}
+
+function optionsLegs(choisi){
+  var o = '';
+  for (var i = 1; i <= 5; i++) o += '<option value="' + i + '"' + (i === choisi ? ' selected' : '') + '>' + i + ' leg' + (i > 1 ? 's' : '') + ' gagnant' + (i > 1 ? 's' : '') + '</option>';
+  return o;
+}
+
+function taillesPoules(){
+  var k = Number($('nb').value), t = [];
+  for (var p = 0; p < k; p++) t.push(presents().filter(function(n){ return AFFECT[n] === p; }).length);
+  return t;
+}
+
+// 3 legs gagnants pour la ou les plus petites poules si les tailles diffèrent, sinon 2
+function legsAuto(p){
+  var t = taillesPoules(), min = Math.min.apply(null, t), max = Math.max.apply(null, t);
+  return (t.length > 1 && min < max && t[p] === min) ? 3 : 2;
+}
+function legsPoule(p){ return LEGS_CHOISIS[p] || legsAuto(p); }
+
+function nbAuto(n){ return n >= S3 ? 3 : n >= S2 ? 2 : 1; }
+
+function changement(){
+  var n = presents().length;
+  $('compteur').textContent = n + ' joueur(s) présent(s)';
+  if (!NB_CHOISI && $('nb').value !== String(nbAuto(n))){ $('nb').value = String(nbAuto(n)); LEGS_CHOISIS = {}; }
+  tirage();
+}
+
+function melanger(t){ for (var i = t.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var x = t[i]; t[i] = t[j]; t[j] = x; } return t; }
+
+function tirage(){
+  var k = Number($('nb').value);
+  AFFECT = {};
+  melanger(presents().slice()).forEach(function(n, i){ AFFECT[n] = i % k; });
+  dessinerPoules();
+}
+
+function dessinerPoules(){
+  var k = Number($('nb').value), box = $('poules');
+  box.style.gridTemplateColumns = 'repeat(' + k + ', 1fr)';
+  box.innerHTML = '';
+  if (!presents().length){ box.innerHTML = '<p class="aide">Coche les joueurs présents.</p>'; return; }
+  for (var p = 0; p < k; p++){
+    var noms = presents().filter(function(n){ return AFFECT[n] === p; });
+    var div = document.createElement('div'); div.className = 'poule';
+    div.innerHTML = '<h4>Poule ' + LETTRES[p] + ' (' + noms.length + ')</h4>' +
+      '<div class="legs"><select class="sel-legs" data-p="' + p + '">' + optionsLegs(legsPoule(p)) + '</select></div>' + noms.map(function(n){
+      var opts = ''; for (var q = 0; q < k; q++) opts += '<option value="' + q + '"' + (q === p ? ' selected' : '') + '>' + LETTRES[q] + '</option>';
+      return '<div class="ligne"><span>' + esc(n) + '</span><select data-nom="' + esc(n) + '">' + opts + '</select></div>';
+    }).join('');
+    box.appendChild(div);
+  }
+  box.querySelectorAll('select[data-nom]').forEach(function(s){ s.onchange = function(){ AFFECT[s.dataset.nom] = Number(s.value); dessinerPoules(); }; });
+  box.querySelectorAll('select.sel-legs').forEach(function(s){ s.onchange = function(){ LEGS_CHOISIS[Number(s.dataset.p)] = Number(s.value); }; });
+}
+
+function ajouter(forcer){
+  var nom = $('nouveau').value.trim();
+  if (!nom){ message("T'es bidon mec, il faut taper le nom avant de valider...", 'err'); return; }
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(res){
+    if (!res.ajoute){
+      message('⚠️ « ' + esc(res.nom) + ' » ressemble à : <b>' + res.proches.map(esc).join(', ') + '</b>. Est-ce bien un nouveau joueur ?' +
+        '<div style="margin-top:6px;display:flex;gap:6px"><button class="btn2" id="oui">Oui, ajouter</button><button class="btn2" id="non">Non, annuler</button></div>', 'warn');
+      $('oui').onclick = function(){ ajouter(true); };
+      $('non').onclick = function(){ $('nouveau').value = ''; message('Ajout annulé : coche plutôt le nom existant.', 'ok'); };
+      return;
+    }
+    JOUEURS.push(res.nom); PRESENTS[res.nom] = true; $('nouveau').value = '';
+    dessinerJoueurs();
+    message('« ' + esc(res.nom) + ' » est ajouté au championnat et marqué présent.', 'ok');
+  }).ajouterJoueur(nom, !!forcer);
+}
+
+function lancer(remplacer){
+  var k = Number($('nb').value), poules = [], legs = [];
+  for (var p = 0; p < k; p++){ poules.push(presents().filter(function(n){ return AFFECT[n] === p; })); legs.push(legsPoule(p)); }
+  $('go').disabled = true;
+  message('Création du tournoi...', 'warn');
+  google.script.run.withFailureHandler(erreur).withSuccessHandler(function(r){
+    if (r.confirmer){
+      message('⚠️ ' + esc(r.confirmer) + '<div style="margin-top:6px;display:flex;gap:6px"><button class="btn" id="oui">Oui, remplacer</button><button class="btn2" id="non">Annuler</button></div>', 'warn');
+      $('oui').onclick = function(){ lancer(true); };
+      $('non').onclick = function(){ message('', ''); $('go').disabled = false; };
+      return;
+    }
+    message('✅ ' + esc(r.message) + ' Tu peux fermer cette fenêtre.', 'ok');
+  }).lancerTournoi({ date: $('date').value, poules: poules, legs: legs, legsFinale: Number($('legsF').value), remplacer: !!remplacer });
+}
+</script>
+</body></html>`;
