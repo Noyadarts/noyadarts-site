@@ -691,11 +691,14 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
   <div class="wrap">
     <span class="foot-id"><img src="logo-noyadarts.webp" alt="" width="640" height="576" loading="lazy">Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
     <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
-    <span><a href="regles.html">Règles du tournoi</a> · <a href="guide-organisateur.html">Guide de l'organisateur</a></span>
+    <span><a href="regles.html">Règles du tournoi</a><span class="orga" hidden> · <a href="guide-organisateur.html">Guide de l'organisateur</a></span></span>
   </div>
 </footer>
 
 <script>
+/* Lien vers le guide de l'organisateur : seulement sur les appareils où le code du club est retenu */
+try { if(localStorage.getItem("noyadarts-code")) document.querySelectorAll(".orga").forEach(e => e.hidden = false); } catch(e){}
+
 /* ====== Réglages du club ====== */
 const CLUB_EMAIL = "noyadarts@gmail.com"; // à remplacer par la vraie adresse
 
@@ -878,6 +881,7 @@ const PHOTOS = [];
   /* Phases regroupées pour les statistiques ("Poule A", "Quart de finale 1", "Demi-finale 1"...) */
   const PHASES = [
     { titre:"Poules", test:t => t.startsWith("poule") },
+    { titre:"Barrages", test:t => t.startsWith("barrage") },
     { titre:"Quarts de finale", test:t => t.startsWith("quart") },
     { titre:"Demi-finales", test:t => t.startsWith("demi") },
     { titre:"Petite finale", test:t => t.startsWith("petite") },

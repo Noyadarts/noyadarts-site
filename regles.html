@@ -91,7 +91,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
       <a href="./">Le club</a>
       <a href="tournoi.html">Tournoi en direct</a>
       <a href="regles.html" aria-current="page">Règles</a>
-      <a href="guide-organisateur.html">Guide de l'organisateur</a>
+      <a href="guide-organisateur.html" class="orga" hidden>Guide de l'organisateur</a>
     </nav>
   </div>
 </header>
@@ -102,6 +102,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
   <ul class="sommaire">
     <li><a href="#match">Le match</a></li>
     <li><a href="#poules">Les poules</a></li>
+    <li><a href="#barrage">Les barrages</a></li>
     <li><a href="#finale">La phase finale</a></li>
     <li><a href="#grosse">Grosse soirée</a></li>
     <li><a href="#championnat">Le championnat</a></li>
@@ -137,8 +138,19 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
       <li>puis la <strong>différence de legs</strong> (legs gagnés moins legs perdus) ;</li>
       <li>puis la <strong>confrontation directe</strong> entre les joueurs à égalité ;</li>
       <li>puis le nombre de <strong>legs gagnés</strong> ;</li>
-      <li>et en cas d'égalité parfaite, on <strong>joue un bull</strong> : le plus près du centre passe devant.</li>
+      <li>et en cas d'égalité parfaite, on joue un <a href="#barrage"><strong>match de barrage en 1 leg</strong></a> : le gagnant passe devant.</li>
     </ol>
+  </section>
+
+  <section id="barrage">
+    <h2>Les barrages</h2>
+    <p>Quand des joueurs d'une même poule sont à égalité parfaite (après tous les critères ci-dessus) et que cela compte pour la qualification ou pour les affiches de la phase finale, on les départage par des <strong>matchs de barrage en 1 leg</strong>, une fois la poule terminée et avant la phase finale.</p>
+    <ul>
+      <li><strong>Deux joueurs à égalité</strong> : un barrage, le gagnant passe devant.</li>
+      <li><strong>Trois joueurs à égalité pour deux places qualificatives</strong> : on <strong>repêche le joueur classé juste derrière</strong>. Les quatre jouent deux barrages, tirés au sort. Les deux vainqueurs sont qualifiés et rejoignent ceux qui le sont déjà ; entre eux, l'ordre du classement de poule est gardé (et si les deux étaient à égalité, le vainqueur du premier barrage passe devant).</li>
+      <li><strong>Autres cas</strong> (plus rares) : les organisateurs décident de la façon de départager.</li>
+    </ul>
+    <p>Les barrages comptent dans les statistiques des fiches joueurs, mais pas dans le classement de la poule.</p>
   </section>
 
   <section id="finale">
@@ -211,6 +223,9 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
 </footer>
 
 <script>
+/* Lien vers le guide : seulement pour les organisateurs (code du club retenu sur cet appareil) */
+try { if(localStorage.getItem("noyadarts-code")) document.querySelectorAll(".orga").forEach(e => e.hidden = false); } catch(e){}
+
 /* Seuils de poules réglés par le club (lus sur l'application du tournoi), valeurs par défaut sinon */
 const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1FegismopNkmSIbM2rdMkyiMtWo58iwRw4TJHLZ8NXVMXIH/exec";
 fetch(API_URL, { cache:"no-store" }).then(r => r.json()).then(d => {

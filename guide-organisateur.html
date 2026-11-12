@@ -73,6 +73,13 @@ kbd,.ui{ font-family:var(--body); font-weight:600; background:var(--slate-3); bo
 footer{ margin-top:3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
 footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; justify-content:space-between; }
 .haut{ display:inline-block; margin:1rem 0 .4rem; font-size:.95rem; }
+.garde{ max-width:28rem; margin:3rem auto; background:var(--slate-2); border-radius:14px; padding:1.4rem 1.5rem; }
+.garde h1{ font-size:clamp(2rem,6vw,2.8rem); margin:0 0 .6rem; }
+.garde form{ display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; }
+.garde input{ flex:1; min-width:10rem; font:inherit; padding:.5rem .7rem; border-radius:8px; border:1px solid var(--slate-4); background:var(--slate); color:var(--chalk); }
+.garde button{ font:inherit; font-weight:600; padding:.5rem 1.1rem; border-radius:8px; border:0; background:var(--red); color:var(--chalk); cursor:pointer; }
+.garde button:disabled{ opacity:.6; cursor:wait; }
+.garde .msg{ margin:.8rem 0 0; color:#f2b8b2; min-height:1.4em; }
 @media print{ body{ background:#fff; color:#000; } strong{ color:inherit; } .top nav,.sommaire,.haut{ display:none; } a{ color:#000; } .encart{ background:#f3f3f3; } th{ color:#000; } h3{ color:#000; } }
 </style>
 </head>
@@ -90,7 +97,18 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
   </div>
 </header>
 
-<main class="wrap">
+<div class="wrap garde" id="garde">
+  <h1>Réservé aux organisateurs</h1>
+  <p>Ce guide sert aux organisateurs du tournoi. Tape le code du club pour l'afficher (c'est le même que pour gérer la <a href="tournoi.html">page du tournoi</a>, et il sera retenu sur cet appareil).</p>
+  <form id="formGarde">
+    <input id="codeGarde" type="password" autocomplete="current-password" aria-label="Code du club" placeholder="Code du club">
+    <button type="submit" id="btnGarde">Afficher le guide</button>
+  </form>
+  <p class="msg" id="msgGarde" role="status"></p>
+  <p style="margin-bottom:0"><a href="regles.html">Voir plutôt les règles du tournoi</a></p>
+</div>
+
+<main class="wrap" id="guide" hidden>
   <h1>Guide de l'organisateur</h1>
   <p class="chapo">Tout ce qu'il faut pour mener un jeudi soir depuis la page du tournoi : annonces, lancement, scores, phase finale, enregistrement de la soirée et imprévus. Les règles de jeu elles-mêmes sont sur la page <a href="regles.html">Règles</a>.</p>
   <ul class="sommaire">
@@ -143,15 +161,21 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
     <p>Les matchs de poule se jouent dans l'ordre qu'on veut. « À suivre » propose pour chaque poule un match entre joueurs libres qui ont le moins joué, puis les matchs de phase finale prêts. Pour imposer un match, ouvre-le et choisis <span class="ui">Annoncer ce match dans À suivre</span> ; il disparaît du bandeau une fois son score noté.</p>
     <h3>Pause</h3>
     <p>Un joueur s'absente un moment ? Clique sur son nom dans le classement de sa poule : il passe « en pause » et ses matchs ne sont plus proposés. Reclique à son retour (annoncer un de ses matchs le sort aussi de pause).</p>
-    <h3>Égalité parfaite</h3>
-    <p>Quand deux joueurs sont à égalité sur tout, leur rang est marqué « = » et un message le signale. Fais-leur jouer un bull, puis clique sur le rang de chacun pour taper l'ordre (1 pour le gagnant, 2 pour le suivant).</p>
+    <h3>Égalité parfaite : les barrages</h3>
+    <p>Quand des joueurs sont à égalité sur tout et que cela compte pour la qualification ou les croisements, leur rang est marqué « = » et un message le signale, une fois la poule finie. On les départage par des <strong>matchs de barrage en 1 leg</strong> (voir les <a href="regles.html#barrage">règles</a>). La phase finale attend que les barrages soient joués.</p>
+    <ul>
+      <li><strong>À deux</strong> : le barrage apparaît en tête de « À suivre » et sous la poule (rubrique « Barrages »). Clique dessus, puis sur le nom du gagnant.</li>
+      <li><strong>À trois pour deux places</strong> : le joueur classé juste derrière est repêché. Clique sur <span class="ui">Tirer au sort les barrages</span> (sous la poule ou dans « À suivre ») : la page propose deux affiches au hasard, que tu peux changer ou retirer (<span class="ui">Nouveau tirage</span>), puis <span class="ui">Enregistrer les barrages</span>. Note ensuite le gagnant de chacun : les deux vainqueurs se qualifient.</li>
+      <li><strong>Cas plus rares</strong> (trois à égalité pour une seule place, quatre ou plus) : pas de barrage automatique. Décidez entre vous, puis clique sur le rang de chacun pour taper l'ordre (1 pour le premier, 2 pour le suivant), ou choisis les affiches à la main.</li>
+    </ul>
+    <p>Un résultat de barrage se corrige en recliquant dessus (<span class="ui">Effacer le résultat</span>). Les barrages sont archivés avec les autres matchs et comptent dans les statistiques des fiches joueurs.</p>
     <h3>Records du soir</h3>
     <p>Dans « Records du soir » (bandeau du haut), clique sur un record pour le noter, le corriger ou l'effacer : score et joueur. Un seul par catégorie, le meilleur de la soirée. Les minimums sont vérifiés (50 de moyenne, 100 pour une volée, 60 pour une sortie). Ils ne comptent au championnat qu'à la validation de la soirée.</p>
   </section>
 
   <section id="finale">
     <h2>Phase finale</h2>
-    <p>Dès que les poules sont finies, les qualifiés apparaissent en couleur et l'arbre se remplit tout seul. Les scores se notent directement dans l'arbre, avec les menus à côté des noms, ou en cliquant sur le match dans « À suivre ».</p>
+    <p>Dès que les poules sont finies (barrages compris), les qualifiés apparaissent en couleur et l'arbre se remplit tout seul. Les scores se notent directement dans l'arbre, avec les menus à côté des noms, ou en cliquant sur le match dans « À suivre ».</p>
     <p>Si un score de poule est corrigé après coup et que cela change les qualifiés, les scores de phase finale concernés sont effacés (un message le signale).</p>
     <h3>Modifier les affiches</h3>
     <p>Sous le titre « Phase finale », <span class="ui">Modifier les affiches</span> permet de choisir les joueurs à la main, même avant la fin des poules : joueur qui doit partir, soirée qui s'éternise. Le choix reste en place jusqu'à <span class="ui">Revenir au calcul automatique</span>. Un match déjà joué ne peut pas changer de joueurs : efface d'abord son score.</p>
@@ -185,7 +209,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
         <tr><td>Joueur qui part avant la fin des poules</td><td>Ses matchs restants bloquent la fin de la poule. Deux possibilités, à décider avec les joueurs : noter ses matchs restants comme perdus, ou lancer la phase finale à la main avec <span class="ui">Modifier les affiches</span>.</td></tr>
         <tr><td>Retardataire, erreur de poule ou de date</td><td>Relancer un tournoi (Nouveau tournoi, puis confirmer le remplacement). Les scores déjà notés sont perdus : à faire le plus tôt possible.</td></tr>
         <tr><td>Tournoi de test à arrêter</td><td>Lancer un nouveau tournoi par-dessus. Rien n'est compté tant que la soirée n'est pas validée.</td></tr>
-        <tr><td>Wifi ou page en panne</td><td>Le même tournoi se gère dans l'onglet « Tournoi » du Google Sheet (menus des legs à côté des noms), puis menu « 🎯 Noya'Darts » &gt; « Valider le tournoi ». À défaut, papier, puis « Saisir une soirée ».</td></tr>
+        <tr><td>Wifi ou page en panne</td><td>Le même tournoi se gère dans l'onglet « Tournoi » du Google Sheet (menus des legs à côté des noms), puis menu « 🎯 Noya'Darts » &gt; « Valider le tournoi ». À défaut, papier, puis « Saisir une soirée ». Un barrage à deux se note alors dans la colonne « Départage » (1 pour le gagnant, 2 pour l'autre), mais il n'est pas archivé dans les statistiques.</td></tr>
         <tr><td>Soirée validée par erreur, ou classement à corriger</td><td>Dans le Google Sheet : « Retirer une soirée », ou « Saisir une soirée » pour corriger (voir plus bas).</td></tr>
       </tbody>
     </table></div>
@@ -213,5 +237,40 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
     <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
   </div>
 </footer>
+
+<script>
+/*
+ * Accès réservé : le guide ne s'affiche qu'avec le code du club, vérifié par l'application Web du Google Sheet
+ * (le même code que la page du tournoi, retenu dans ce navigateur sous la clé « noyadarts-code »).
+ * Limite : le texte reste présent dans le fichier (dépôt GitHub public). Ce n'est pas un coffre-fort.
+ */
+const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1FegismopNkmSIbM2rdMkyiMtWo58iwRw4TJHLZ8NXVMXIH/exec";
+const $ = id => document.getElementById(id);
+function ouvrir(){ $("garde").hidden = true; $("guide").hidden = false; if(location.hash){ const c = document.querySelector(location.hash); if(c) c.scrollIntoView(); } }
+async function verifier(code){
+  const r = await fetch(API_URL, { method:"POST", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify({ action:"verifier", code }) });
+  const d = await r.json();
+  if(!d.ok){ const e = new Error(d.erreur || "Vérification impossible."); e.codeFaux = !!d.codeFaux; throw e; }
+}
+$("formGarde").onsubmit = async e => {
+  e.preventDefault();
+  const code = $("codeGarde").value.trim(); if(!code) return;
+  $("btnGarde").disabled = true; $("msgGarde").textContent = "";
+  try { await verifier(code); try { localStorage.setItem("noyadarts-code", code); } catch(x){} ouvrir(); }
+  catch(err){ $("msgGarde").textContent = err.codeFaux ? "Code incorrect." : "Vérification impossible pour l'instant (" + err.message + ")."; }
+  finally { $("btnGarde").disabled = false; }
+};
+(async () => {
+  let code = ""; try { code = localStorage.getItem("noyadarts-code") || ""; } catch(x){}
+  if(!code){ $("codeGarde").focus(); return; }
+  $("msgGarde").style.color = "var(--chalk-dim)"; $("msgGarde").textContent = "Vérification du code retenu sur cet appareil...";
+  try { await verifier(code); ouvrir(); }
+  catch(err){
+    $("msgGarde").style.color = "";
+    if(err.codeFaux){ try { localStorage.removeItem("noyadarts-code"); } catch(x){} $("msgGarde").textContent = "Le code retenu n'est plus valable : tape le nouveau code."; }
+    else $("msgGarde").textContent = "Vérification impossible pour l'instant (" + err.message + "). Réessaie dans un moment.";
+  }
+})();
+</script>
 </body>
 </html>

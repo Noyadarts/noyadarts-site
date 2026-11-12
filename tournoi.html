@@ -140,6 +140,11 @@ table.classement{ border-collapse:collapse; }
 .chip.pause{ opacity:.55; }
 .chip.err{ border-color:var(--red); border-style:dashed; }
 .chip.clic{ cursor:pointer; }
+.chip.barrage{ border-color:var(--red); }
+.chip.barrage .n{ color:var(--red); }
+.barrage-note{ color:var(--sisal); margin:.2rem 0 .6rem; }
+.bloc-barrages{ margin-bottom:.9rem; }
+.bloc-barrages .chips + .chips{ margin-top:.4rem; }
 .chip.clic:hover{ border-color:var(--sisal); }
 .chips.joues .chip{ background:transparent; box-shadow:inset 0 0 0 1px var(--slate-4); padding:.15rem .55rem .2rem; }
 .chips.joues .chip b{ font-size:1.1rem; color:var(--chalk-dim); font-weight:700; }
@@ -365,6 +370,35 @@ a.btn{ text-decoration:none; display:inline-block; }
   </form>
 </div>
 
+<!-- Fenêtre : résultat d'un barrage (1 leg) -->
+<div class="fond" id="fondBarrage" hidden>
+  <div class="modal" role="dialog" aria-labelledby="barTitre">
+    <h2 id="barTitre">Barrage</h2>
+    <p class="aide">Match de barrage en 1 leg, pour départager une égalité parfaite. Qui l'a gagné ?</p>
+    <div class="boutons" id="barChoix"></div>
+    <div id="barMsg"></div>
+    <div class="boutons">
+      <button class="btn ghost" id="barEffacer" type="button">Effacer le résultat</button>
+      <button class="btn ghost" id="barAnnuler" type="button">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : affiches des barrages (égalité parfaite à trois, avec un repêché) -->
+<div class="fond" id="fondTirage" hidden>
+  <div class="modal" role="dialog" aria-labelledby="tirTitre">
+    <h2 id="tirTitre">Barrages</h2>
+    <p class="aide" id="tirAide"></p>
+    <div id="tirListe"></div>
+    <div id="tirMsg"></div>
+    <div class="boutons">
+      <button class="btn" id="tirOk" type="button">Enregistrer les barrages</button>
+      <button class="btn ghost" id="tirNouveau" type="button">Nouveau tirage</button>
+      <button class="btn ghost" id="tirAnnuler" type="button">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -407,7 +441,7 @@ async function agir(action, donnees){
   } finally { OCCUPE--; }
 }
 async function rafraichir(){
-  if(!API_URL || OCCUPE || !$("fondScore").hidden || !$("fondRecord").hidden || !$("fondAffiches").hidden || document.hidden) return;
+  if(!API_URL || OCCUPE || !$("fondScore").hidden || !$("fondRecord").hidden || !$("fondAffiches").hidden || !$("fondBarrage").hidden || !$("fondTirage").hidden || document.hidden) return;
   try { DATA = await lire(); afficher(); }
   catch(e){ $("statut").textContent = "Connexion au Google Sheet impossible pour l'instant, nouvel essai dans quelques secondes."; }
 }
@@ -448,6 +482,9 @@ function afficher(){
 const tousJoueurs = T => [].concat(...T.poules);
 const pauses = T => T.pauses || [];
 const annonces = T => T.annonces || [];
+const barrages = T => T.barrages || [];
+const repechages = T => T.repechages || [];
+const libBarrage = p => "Barrage poule " + LETTRES[p] + ", 1 leg";
 
 /*
  * À suivre : les matchs annoncés à la main, puis pour chaque poule sans match annoncé un match proposé
@@ -457,6 +494,9 @@ const annonces = T => T.annonces || [];
 function prochainsMatchs(T){
   const items = [], occupes = new Set();
   const prendre = it => { items.push(it); occupes.add(it.j1); occupes.add(it.j2); };
+  const enTete = [];   // barrages : ils bloquent la phase finale
+  barrages(T).forEach((b,k) => { if(!b.joue){ enTete.push({ lib: libBarrage(b.p), j1: b.j1, j2: b.j2, barrage: k }); occupes.add(b.j1); occupes.add(b.j2); } });
+  repechages(T).forEach(r => { if(!r.paires) enTete.push({ lib: "Barrages poule " + LETTRES[r.p], texte: "Tirage au sort à faire (" + r.repeche + " repêché)", tirage: r.p }); });
   annonces(T).forEach(i => { const m = T.matchs[i]; if(m) prendre({ lib: "Poule " + LETTRES[m.poule] + ", match " + m.num, j1: m.j1, j2: m.j2, match: m.i, poule: m.poule }); });
   const libre = n => !occupes.has(n) && pauses(T).indexOf(n) < 0;
   const finales = ["Q1","Q2","D1","D2","PF","F"].map(id => T.finale.find(x => x.id === id))
@@ -471,14 +511,15 @@ function prochainsMatchs(T){
   });
   items.sort((a,b) => a.poule - b.poule);
   finales.forEach(f => items.push({ lib: f.libelle, j1: f.j1, j2: f.j2, finale: f.id }));
-  return items;
+  return enTete.concat(items);
 }
 
 function blocSuivre(T){
   const items = T.termine ? [] : prochainsMatchs(T);
   const html = T.termine ? "" : items.length ? items.map(it =>
-    '<div class="m' + (estAdmin() ? " clic" : "") + '" ' + (it.finale ? 'data-finale="' + it.finale + '"' : 'data-match="' + it.match + '"') + '>' +
-    "<small>" + esc(it.lib) + "</small><b>" + esc(it.j1) + "<i>contre</i>" + esc(it.j2) + "</b></div>").join("")
+    '<div class="m' + (estAdmin() ? " clic" : "") + '" ' + (it.finale ? 'data-finale="' + it.finale + '"' : it.barrage !== undefined ? 'data-barrage="' + it.barrage + '"' :
+      it.tirage !== undefined ? 'data-tirage="' + it.tirage + '"' : 'data-match="' + it.match + '"') + '>' +
+    "<small>" + esc(it.lib) + "</small><b>" + (it.texte ? esc(it.texte) : esc(it.j1) + "<i>contre</i>" + esc(it.j2)) + "</b></div>").join("")
     : '<span class="vide">En attente des résultats...</span>';
   return '<div class="suivre">' + (T.termine ? "" : "<h2>À suivre</h2>" + html) + blocRecords(T) + "</div>";
 }
@@ -507,7 +548,7 @@ function blocPoule(T,p){
     const q = T.qualifies.indexOf(s.nom) >= 0, pz = enPause(s.nom);
     h += '<tr class="' + (q ? "qualif" : "") + (pz ? " pause" : "") + '">' +
       '<td class="rang' + (s.egalite ? " eg" : "") + (admin && (s.egalite || s.dep !== "") ? " clic" : "") + '" data-dep="' + esc(s.nom) + '"' +
-      (s.egalite ? ' title="Égalité parfaite : à départager au bull"' : "") + ">" + s.rang + (s.egalite ? "=" : "") + "</td>" +
+      (s.egalite ? ' title="Égalité parfaite : à départager par un barrage en 1 leg"' : "") + ">" + s.rang + (s.egalite ? "=" : "") + "</td>" +
       '<td class="g nom' + (admin ? " clic" : "") + '" data-pause="' + esc(s.nom) + '"' +
       (admin ? ' title="' + (pz ? "Clique quand il revient" : "Clique pour le mettre en pause") + '"' : "") + ">" +
       esc(s.nom) + (pz ? "<em>en pause</em>" : "") + "</td>" +
@@ -515,6 +556,22 @@ function blocPoule(T,p){
   });
   h += "</tbody></table></div><div class=\"listes\">";
   const suivis = new Set(prochainsMatchs(T).filter(it => it.match !== undefined).map(it => it.match));
+  const bars = barrages(T).map((b,k) => Object.assign({ k }, b)).filter(b => b.p === p), reps = repechages(T).filter(r => r.p === p);
+  if(bars.length || reps.length){
+    h += '<div class="bloc-barrages"><h3>Barrages<small>1 leg</small></h3>';
+    reps.forEach(r => {
+      h += '<p class="barrage-note">Égalité parfaite entre ' + r.egaux.map(esc).join(", ") + " : " + esc(r.repeche) + " est repêché." +
+        (admin && !bars.some(b => b.type === "repechage" && b.joue) ? ' <button class="lien" type="button" data-tirage="' + p + '">' +
+          (r.paires ? "Changer les affiches" : "Tirer au sort les barrages") + "</button>" : "") + "</p>";
+    });
+    const aj = bars.filter(b => !b.joue), jb = bars.filter(b => b.joue);
+    if(aj.length) h += '<div class="chips">' + aj.map(b => '<div class="chip barrage' + (admin ? " clic" : "") + '" data-barrage="' + b.k + '"' +
+      (admin ? ' title="Noter le vainqueur"' : "") + '><span class="n">⚔</span><b>' + esc(b.j1) + "</b><i>contre</i><b>" + esc(b.j2) + "</b></div>").join("") + "</div>";
+    if(jb.length) h += '<div class="chips joues">' + jb.map(b => '<div class="chip' + (admin ? " clic" : "") + '" data-barrage="' + b.k + '"' +
+      (admin ? ' title="Corriger le résultat"' : "") + "><b" + (b.a ? ' class="g"' : "") + ">" + esc(b.j1) + '</b><span class="sc">' + b.a + "-" + b.b +
+      "</span><b" + (b.b ? ' class="g"' : "") + ">" + esc(b.j2) + "</b></div>").join("") + "</div>";
+    h += "</div>";
+  }
   h += "<h3>À jouer<small>" + aJouer.length + " sur " + ms.length + "</small></h3>";
   if(aJouer.length){
     h += '<div class="chips">' + aJouer.map(m => {
@@ -606,9 +663,16 @@ function brancher(){
     catch(e){ toast(e.message, true); }
     finally { $("main").classList.remove("charge"); }
   });
+  document.querySelectorAll("[data-barrage]").forEach(e => e.onclick = () => ouvrirBarrage(Number(e.dataset.barrage)));
+  document.querySelectorAll("[data-tirage]").forEach(e => e.onclick = () => ouvrirTirage(Number(e.dataset.tirage)));
   document.querySelectorAll("td.clic[data-dep]").forEach(td => td.onclick = async () => {
-    const nom = td.dataset.dep;
-    const v = prompt("Départage de " + nom + " après le bull : 1 pour le premier, 2 pour le suivant... (vide pour effacer)", "");
+    const nom = td.dataset.dep, T = DATA.tournoi;
+    /* Égalité qui a son barrage : on ouvre le barrage plutôt que l'ordre à la main */
+    const k = barrages(T).findIndex(b => !b.joue && (b.j1 === nom || b.j2 === nom));
+    if(k >= 0) return ouvrirBarrage(k);
+    const r = repechages(T).find(x => !x.paires && x.joueurs.indexOf(nom) >= 0);
+    if(r) return ouvrirTirage(r.p);
+    const v = prompt("Ordre de " + nom + " (égalité parfaite sans barrage automatique, décidée par les organisateurs) : 1 pour le premier, 2 pour le suivant... (vide pour effacer)", "");
     if(v === null) return;
     $("main").classList.add("charge");
     try { await agir("departage", { nom, valeur: v.trim() }); toast("Départage enregistré."); }
@@ -682,7 +746,7 @@ $("scoreOk").onclick = () => {
   fermerScore(); envoyerScore(r);
 };
 document.addEventListener("keydown", e => {
-  if(e.key === "Escape"){ if(!$("fondAffiches").hidden) fermerAffiches(); else if(!$("fondRecord").hidden) fermerRecord(); else if(!$("fondScore").hidden) fermerScore(); else if(!$("fondCode").hidden) $("fondCode").hidden = true; else fermerPanneau(); }
+  if(e.key === "Escape"){ if(!$("fondBarrage").hidden) fermerBarrage(); else if(!$("fondTirage").hidden) fermerTirage(); else if(!$("fondAffiches").hidden) fermerAffiches(); else if(!$("fondRecord").hidden) fermerRecord(); else if(!$("fondScore").hidden) fermerScore(); else if(!$("fondCode").hidden) $("fondCode").hidden = true; else fermerPanneau(); }
   if(e.key === "Enter" && !$("fondScore").hidden) $("scoreOk").click();
 });
 
@@ -749,6 +813,69 @@ $("affOk").onclick = () => {
 $("affAuto").onclick = () => envoyerAffiches(null);
 $("affAnnuler").onclick = fermerAffiches;
 $("fondAffiches").addEventListener("click", e => { if(e.target === $("fondAffiches")) fermerAffiches(); });
+
+/* ---------------- Fenêtre d'un barrage (1 leg) ---------------- */
+let BARRAGE = null;
+function ouvrirBarrage(k){
+  const b = barrages(DATA.tournoi)[k]; if(!b) return;
+  BARRAGE = b;
+  $("barTitre").textContent = libBarrage(b.p);
+  $("barChoix").innerHTML = [b.j1, b.j2].map((n,i) => '<button class="btn' + (b.joue && b.gagnant !== n ? " ghost" : "") + '" type="button" data-v="' + i + '">' +
+    esc(n) + " gagne</button>").join("");
+  document.querySelectorAll("#barChoix [data-v]").forEach(x => x.onclick = () => envoyerBarrage(x.dataset.v === "0" ? b.j1 : b.j2));
+  $("barEffacer").hidden = !b.joue;
+  note($("barMsg"), b.joue ? "Résultat actuel : " + esc(b.gagnant) + " a gagné." : "", "ok");
+  $("fondBarrage").hidden = false;
+}
+function fermerBarrage(){ $("fondBarrage").hidden = true; BARRAGE = null; }
+async function envoyerBarrage(vainqueur){
+  const b = BARRAGE; if(!b) return;
+  try { const msg = await agir("barrage", { poule: b.p, j1: b.j1, j2: b.j2, vainqueur }); fermerBarrage(); toast(msg); }
+  catch(e){ note($("barMsg"), esc(e.message), "err"); }
+}
+$("barEffacer").onclick = () => envoyerBarrage("");
+$("barAnnuler").onclick = fermerBarrage;
+$("fondBarrage").addEventListener("click", e => { if(e.target === $("fondBarrage")) fermerBarrage(); });
+
+/* ---------------- Fenêtre des affiches des barrages (repêchage) ---------------- */
+let TIRAGE = null;
+function ouvrirTirage(p){
+  const r = repechages(DATA.tournoi).find(x => x.p === p); if(!r) return;
+  TIRAGE = r;
+  $("tirTitre").textContent = "Barrages poule " + LETTRES[p];
+  $("tirAide").textContent = "Égalité parfaite entre " + r.egaux.join(", ") + " : " + r.repeche + " est repêché. Les 4 jouent 2 barrages en 1 leg, " +
+    "les 2 vainqueurs se qualifient. Affiches tirées au sort, modifiables.";
+  dessinerTirage(r.paires || tirageBarrages(r.joueurs));
+  note($("tirMsg"), "");
+  $("fondTirage").hidden = false;
+}
+function tirageBarrages(noms){
+  const t = noms.slice();
+  for(let i = t.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [t[i], t[j]] = [t[j], t[i]]; }
+  return [[t[0], t[1]], [t[2], t[3]]];
+}
+function dessinerTirage(paires){
+  const noms = TIRAGE.joueurs;
+  const sel = (k, c, nom) => '<select data-tir="' + k + '" data-cote="' + c + '" aria-label="Barrage ' + (k + 1) + ", joueur " + (c + 1) + '">' +
+    noms.map(n => "<option" + (n === nom ? " selected" : "") + ">" + esc(n) + "</option>").join("") + "</select>";
+  $("tirListe").innerHTML = paires.map((x,k) => '<div class="affiche"><h4>Barrage ' + (k + 1) + '</h4><div class="paire">' +
+    sel(k, 0, x[0]) + "<i>contre</i>" + sel(k, 1, x[1]) + "</div></div>").join("");
+}
+function fermerTirage(){ $("fondTirage").hidden = true; TIRAGE = null; }
+$("tirNouveau").onclick = () => { if(TIRAGE){ dessinerTirage(tirageBarrages(TIRAGE.joueurs)); note($("tirMsg"), ""); } };
+$("tirAnnuler").onclick = fermerTirage;
+$("fondTirage").addEventListener("click", e => { if(e.target === $("fondTirage")) fermerTirage(); });
+$("tirOk").onclick = async () => {
+  const paires = [[], []], vus = [];
+  for(const s of document.querySelectorAll("select[data-tir]")){
+    if(vus.indexOf(s.value) >= 0){ note($("tirMsg"), "« " + esc(s.value) + " » est choisi deux fois.", "err"); return; }
+    vus.push(s.value); paires[Number(s.dataset.tir)][Number(s.dataset.cote)] = s.value;
+  }
+  $("tirOk").disabled = true;
+  try { const msg = await agir("tirerBarrages", { poule: TIRAGE.p, paires }); fermerTirage(); toast(msg); }
+  catch(e){ note($("tirMsg"), esc(e.message), "err"); }
+  finally { $("tirOk").disabled = false; }
+};
 
 /* ---------------- Code du club ---------------- */
 function estAdmin(){ return !!CODE; }
