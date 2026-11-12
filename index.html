@@ -872,9 +872,10 @@ const PHOTOS = [];
     })).filter(m => m.date && m.j1 && m.j2 && m.winner);
   }
 
-  /* Phases regroupées pour les statistiques ("Poule A", "Demi-finale 1"...) */
+  /* Phases regroupées pour les statistiques ("Poule A", "Quart de finale 1", "Demi-finale 1"...) */
   const PHASES = [
     { titre:"Poules", test:t => t.startsWith("poule") },
+    { titre:"Quarts de finale", test:t => t.startsWith("quart") },
     { titre:"Demi-finales", test:t => t.startsWith("demi") },
     { titre:"Petite finale", test:t => t.startsWith("petite") },
     { titre:"Finale", test:t => t === "finale" }
