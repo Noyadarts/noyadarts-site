@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Règles du tournoi | Noya'Darts</title>
+<meta name="description" content="Les règles du tournoi du jeudi de Noya'Darts : poules, phase finale, legs gagnants, championnat annuel et records.">
+<link rel="canonical" href="https://noyadarts.github.io/noyadarts-site/regles.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Règles du tournoi | Noya'Darts">
+<meta property="og:description" content="Poules, phase finale, championnat annuel et records : les règles du tournoi du jeudi.">
+<meta property="og:image" content="https://noyadarts.github.io/noyadarts-site/partage.jpg">
+<meta property="og:url" content="https://noyadarts.github.io/noyadarts-site/regles.html">
+<meta property="og:locale" content="fr_FR">
+<meta name="theme-color" content="#1b2224">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --slate:#1b2224; --slate-2:#242e31; --slate-3:#2f3b3f; --slate-4:#3b4a4f;
+  --chalk:#eceae2; --chalk-dim:#a7afab;
+  --red:#d4453b; --green:#34a56b; --sisal:#e3d4ae;
+  --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
+:root[data-theme="dark"]{ color-scheme:dark; }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ scroll-behavior:smooth; scroll-padding-top:calc(env(safe-area-inset-top,0px) + 1rem); }
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 700px at 80% -15%, rgba(52,165,107,.10), transparent 60%),
+    radial-gradient(900px 600px at -10% 115%, rgba(212,69,59,.09), transparent 60%),
+    var(--slate);
+  color:var(--chalk); font-family:var(--body); font-size:1.0625rem; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{ color:var(--sisal); text-underline-offset:3px; }
+:focus-visible{ outline:3px solid var(--sisal); outline-offset:3px; border-radius:4px; }
+.wrap{ width:min(52rem, 100% - 2.5rem); margin-inline:auto; }
+.top{ border-bottom:1px solid var(--slate-3); }
+.top .wrap{ display:flex; align-items:center; gap:1rem; padding:.9rem 0; flex-wrap:wrap; }
+.top img{ width:56px; height:auto; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+.top nav{ margin-left:auto; display:flex; gap:1.1rem; flex-wrap:wrap; font-weight:600; }
+.top nav a{ color:var(--chalk-dim); text-decoration:none; }
+.top nav a:hover,.top nav a[aria-current]{ color:var(--sisal); }
+h1{ font-family:var(--display); font-weight:900; font-size:clamp(2.6rem,7vw,4.4rem); line-height:.95; margin:2.2rem 0 .6rem; }
+.chapo{ color:var(--chalk-dim); font-size:1.15rem; margin:0 0 1.4rem; max-width:44rem; }
+.sommaire{ display:flex; flex-wrap:wrap; gap:.5rem; margin:0 0 2rem; padding:0; list-style:none; }
+.sommaire a{ display:inline-block; padding:.3rem .8rem; border-radius:999px; background:var(--slate-2); text-decoration:none; font-weight:600; font-size:.95rem; }
+.sommaire a:hover{ background:var(--slate-3); }
+section{ padding:1.4rem 0 .6rem; border-top:1px solid var(--slate-3); }
+h2{ font-family:var(--display); font-weight:900; font-size:clamp(1.8rem,4.4vw,2.5rem); line-height:1; margin:.4rem 0 .8rem; }
+h3{ font-family:var(--display); font-weight:800; font-size:1.4rem; margin:1.4rem 0 .4rem; color:var(--sisal); }
+p,li{ max-width:46rem; }
+ul,ol{ padding-left:1.3rem; }
+li{ margin:.25rem 0; }
+strong{ color:var(--chalk); }
+.encart{ background:var(--slate-2); border-radius:12px; padding:.9rem 1.1rem; margin:1rem 0; border-left:4px solid var(--green); }
+.encart.rouge{ border-left-color:var(--red); }
+.encart p{ margin:.3rem 0; }
+.table-scroll{ overflow-x:auto; margin:.8rem 0; }
+table{ border-collapse:collapse; min-width:100%; }
+th,td{ text-align:left; padding:.45rem .7rem; border-bottom:1px solid var(--slate-3); vertical-align:top; }
+th{ font-family:var(--display); font-weight:800; font-size:1.1rem; color:var(--sisal); white-space:nowrap; }
+td.num{ text-align:center; font-family:var(--display); font-weight:800; font-size:1.2rem; }
+.etapes{ counter-reset:e; list-style:none; padding:0; }
+.etapes > li{ counter-increment:e; position:relative; padding-left:2.6rem; margin:.8rem 0; }
+.etapes > li::before{ content:counter(e); position:absolute; left:0; top:.05rem; width:1.9rem; height:1.9rem; border-radius:50%; background:var(--red); color:var(--chalk); font-family:var(--display); font-weight:900; display:grid; place-items:center; }
+kbd,.ui{ font-family:var(--body); font-weight:600; background:var(--slate-3); border-radius:5px; padding:.05rem .4rem; font-size:.95em; white-space:nowrap; }
+footer{ margin-top:3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
+footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; justify-content:space-between; }
+.haut{ display:inline-block; margin:1rem 0 .4rem; font-size:.95rem; }
+@media print{ body{ background:#fff; color:#000; } strong{ color:inherit; } .top nav,.sommaire,.haut{ display:none; } a{ color:#000; } .encart{ background:#f3f3f3; } th{ color:#000; } h3{ color:#000; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a href="./" title="Retour au site"><img src="logo-noyadarts.webp" alt="Noya'Darts" width="640" height="576"></a>
+    <nav aria-label="Pages du club">
+      <a href="./">Le club</a>
+      <a href="tournoi.html">Tournoi en direct</a>
+      <a href="regles.html" aria-current="page">Règles</a>
+      <a href="guide-organisateur.html">Guide de l'organisateur</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Les règles du tournoi</h1>
+  <p class="chapo">Chaque jeudi, un tournoi en simple réunit les joueurs présents. Voici comment il se déroule, comment se gagnent les points du championnat et ce qui compte comme record.</p>
+  <ul class="sommaire">
+    <li><a href="#match">Le match</a></li>
+    <li><a href="#poules">Les poules</a></li>
+    <li><a href="#finale">La phase finale</a></li>
+    <li><a href="#grosse">Grosse soirée</a></li>
+    <li><a href="#championnat">Le championnat</a></li>
+    <li><a href="#records">Les records</a></li>
+  </ul>
+
+  <section id="match">
+    <h2>Le match</h2>
+    <ul>
+      <li>Matchs <strong>en un contre un</strong>. Chaque partie, un <strong>leg</strong>, se joue en <strong>301</strong>.</li>
+      <li><strong>Sortie double</strong> : il faut finir exactement à zéro sur un double. Pour les débutants, la sortie simple est possible sur demande.</li>
+      <li>Le premier à remporter le nombre de <strong>legs gagnants</strong> prévu gagne le match : <strong>2 legs gagnants</strong> en général.</li>
+      <li>Quand les poules n'ont pas la même taille, la plus petite joue en <strong>3 legs gagnants</strong> (elle a moins de matchs). Les organisateurs peuvent choisir d'autres valeurs au lancement du tournoi, pour chaque poule et pour la phase finale.</li>
+    </ul>
+  </section>
+
+  <section id="poules">
+    <h2>Les poules</h2>
+    <p>Les joueurs présents sont répartis au hasard dans une, deux ou trois poules, selon leur nombre :</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Joueurs présents</th><th>Poules</th></tr></thead>
+      <tbody>
+        <tr><td>de 3 à <span class="s2m">6</span></td><td>1 poule</td></tr>
+        <tr><td>de <span class="s2">7</span> à <span class="s3m">12</span></td><td>2 poules</td></tr>
+        <tr><td><span class="s3">13</span> et plus</td><td>3 poules</td></tr>
+      </tbody>
+    </table></div>
+    <p id="seuilsNote" style="color:var(--chalk-dim);font-size:.95rem">Réglage par défaut : les organisateurs peuvent le changer, et choisir un autre nombre de poules au lancement.</p>
+    <p>Dans chaque poule, <strong>chacun joue contre chacun</strong>, dans l'ordre que l'on veut : le bandeau « À suivre » de la page du tournoi propose les prochains matchs (joueurs libres, qui ont le moins joué).</p>
+    <h3>Classement d'une poule</h3>
+    <ol>
+      <li>le nombre de <strong>victoires</strong> ;</li>
+      <li>puis la <strong>différence de legs</strong> (legs gagnés moins legs perdus) ;</li>
+      <li>puis la <strong>confrontation directe</strong> entre les joueurs à égalité ;</li>
+      <li>puis le nombre de <strong>legs gagnés</strong> ;</li>
+      <li>et en cas d'égalité parfaite, on <strong>joue un bull</strong> : le plus près du centre passe devant.</li>
+    </ol>
+  </section>
+
+  <section id="finale">
+    <h2>La phase finale</h2>
+    <p>Les qualifiés jouent des <strong>demi-finales</strong>, puis la <strong>finale</strong> et la <strong>petite finale</strong> (pour la 3e place), en 2 legs gagnants sauf autre choix des organisateurs.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Poules</th><th>Qualifiés</th><th>Demi-finales</th></tr></thead>
+      <tbody>
+        <tr><td>1 poule</td><td>les 4 premiers</td><td>1er contre 4e, 2e contre 3e</td></tr>
+        <tr><td>1 poule de 3</td><td>les 2 premiers</td><td>pas de demi-finale : finale directe, le 3e de la poule est 3e de la soirée</td></tr>
+        <tr><td>2 poules</td><td>les 2 premiers de chaque poule</td><td>1er A contre 2e B, 1er B contre 2e A</td></tr>
+        <tr><td>3 poules</td><td>les trois 1ers et le meilleur 2e</td><td>le meilleur 1er contre le meilleur 2e (s'ils viennent de la même poule, le meilleur 2e affronte plutôt le 2e meilleur 1er), les deux autres 1ers ensemble</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Comparer des joueurs de poules différentes</h3>
+    <p>Pour désigner le meilleur 2e ou classer les 1ers entre eux, on compare dans l'ordre : les victoires par match joué, puis la différence de legs par match, puis les legs gagnés par match. Les legs sont ramenés au nombre de legs gagnants de la poule, pour qu'une poule en 3 legs ne soit pas avantagée.</p>
+    <div class="encart"><p>Exceptionnellement (joueur qui doit partir, soirée qui s'éternise), les organisateurs peuvent choisir les affiches de la phase finale à la main.</p></div>
+  </section>
+
+  <section id="grosse">
+    <h2>Grosse soirée</h2>
+    <p>Avec 3 poules, les organisateurs peuvent choisir l'option <strong>Grosse soirée</strong> au lancement : la phase finale passe à <strong>6 qualifiés</strong>, les 2 premiers de chaque poule. Les 1ers sont classés entre eux, de même que les 2es.</p>
+    <ul>
+      <li>Les deux <strong>meilleurs 1ers</strong> vont directement en demi-finale.</li>
+      <li><strong>Quart de finale 1</strong> : le meilleur 2e contre le 2e meilleur 2e (sauf exception ci-dessous). Le vainqueur affronte le meilleur 1er en demi-finale 1.</li>
+      <li><strong>Quart de finale 2</strong> : le 3e meilleur 1er contre le 3e meilleur 2e (s'ils viennent de la même poule, on échange : le 3e meilleur 1er affronte le 2e meilleur 2e, et le meilleur 2e affronte le 3e meilleur 2e). Le vainqueur affronte le 2e meilleur 1er en demi-finale 2.</li>
+      <li>Ensuite, tout se joue comme d'habitude : demi-finales, petite finale et finale. Les perdants des quarts marquent les points de participation.</li>
+    </ul>
+  </section>
+
+  <section id="championnat">
+    <h2>Le championnat</h2>
+    <p>Chaque jeudi rapporte des points au <strong>championnat annuel</strong>, qui va du 1er juillet au 30 juin.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Place du soir</th><th>Points</th></tr></thead>
+      <tbody>
+        <tr><td>Vainqueur (finale gagnée)</td><td class="num">10</td></tr>
+        <tr><td>Finaliste</td><td class="num">7</td></tr>
+        <tr><td>3e (petite finale gagnée)</td><td class="num">5</td></tr>
+        <tr><td>4e</td><td class="num">3</td></tr>
+        <tr><td>Participation</td><td class="num">1</td></tr>
+        <tr><td>Bonus par record de la soirée</td><td class="num">+1</td></tr>
+      </tbody>
+    </table></div>
+    <p>Le classement du site est mis à jour quelques minutes après l'enregistrement de la soirée. Les joueurs à égalité de points partagent la même place. Les flèches à côté des noms montrent les places gagnées ou perdues au dernier jeudi.</p>
+  </section>
+
+  <section id="records">
+    <h2>Les records</h2>
+    <p>Trois records sont notés chaque soir, un par catégorie : la meilleure performance de la soirée. Chacun rapporte <strong>1 point bonus</strong> à son auteur.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Record</th><th>Retenu à partir de</th></tr></thead>
+      <tbody>
+        <tr><td>Meilleure moyenne sur un leg</td><td class="num">50</td></tr>
+        <tr><td>Meilleure volée</td><td class="num">100</td></tr>
+        <tr><td>Meilleure sortie</td><td class="num">60</td></tr>
+      </tbody>
+    </table></div>
+    <p>Signale ta performance aux organisateurs pendant la soirée. Le site affiche les records de la dernière soirée, des 5 derniers jeudis et de la saison ; en cas d'égalité, le plus récent l'emporte.</p>
+    <p>La fiche de chaque joueur (un clic sur son nom dans le <a href="./#classement">classement</a>) rassemble ses résultats, ses records et les statistiques de ses matchs.</p>
+    <a class="haut" href="#">Haut de la page</a>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
+    <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
+  </div>
+</footer>
+
+<script>
+/* Seuils de poules réglés par le club (lus sur l'application du tournoi), valeurs par défaut sinon */
+const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1FegismopNkmSIbM2rdMkyiMtWo58iwRw4TJHLZ8NXVMXIH/exec";
+fetch(API_URL, { cache:"no-store" }).then(r => r.json()).then(d => {
+  const s = d && d.seuils; if(!s || !s.seuil2 || !s.seuil3) return;
+  const mettre = (cls, v) => document.querySelectorAll(cls).forEach(e => e.textContent = v);
+  mettre(".s2", s.seuil2); mettre(".s2m", s.seuil2 - 1); mettre(".s3", s.seuil3); mettre(".s3m", s.seuil3 - 1);
+  document.getElementById("seuilsNote").textContent = "Réglage actuel du club. Les organisateurs peuvent choisir un autre nombre de poules au lancement.";
+}).catch(() => {});
+</script>
+</body>
+</html>

@@ -230,6 +230,14 @@ table.classement{ border-collapse:collapse; }
 .ligne{ display:flex; justify-content:space-between; align-items:center; gap:.5rem; padding:.18rem 0; }
 .ligne + .ligne{ border-top:1px solid var(--slate-3); }
 .boutons{ display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+.annonce{ padding:.55rem 0; border-top:1px solid var(--slate-3); }
+.annonce .tete{ display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap; }
+.annonce .tete b{ font-family:var(--display); font-weight:800; font-size:1.2rem; }
+.annonce .badge{ font-size:.8rem; font-weight:600; padding:.05rem .5rem; border-radius:999px; background:var(--slate-3); color:var(--sisal); }
+.annonce .badge.annule{ background:rgba(212,69,59,.25); color:#f2b8b2; }
+.annonce p{ margin:.15rem 0 .3rem; color:var(--chalk-dim); }
+.annonce .actions{ display:flex; gap:1rem; }
+a.btn{ text-decoration:none; display:inline-block; }
 .note{ padding:.6rem .8rem; border-radius:8px; margin:.8rem 0; line-height:1.4; }
 .note.ok{ background:rgba(52,165,107,.18); color:#bfe9d1; }
 .note.err{ background:rgba(212,69,59,.18); color:#f2b8b2; }
@@ -273,6 +281,7 @@ table.classement{ border-collapse:collapse; }
     <p class="statut" id="statut">Chargement...</p>
   </div>
   <div class="actions">
+    <a class="btn ghost small" href="regles.html" title="Les règles du tournoi et du championnat">Règles</a>
     <button class="btn ghost small" id="btnPlein" type="button" title="Plein écran (pour le projecteur)">Plein écran</button>
     <button class="btn small" id="btnGerer" type="button">Gérer</button>
   </div>
@@ -284,6 +293,7 @@ table.classement{ border-collapse:collapse; }
 <aside class="panneau" id="panneau" aria-label="Gestion du tournoi">
   <header>
     <h2>Gérer</h2>
+    <a class="lien" href="guide-organisateur.html" target="_blank" rel="noopener">Guide</a>
     <button class="lien" id="btnDeconnexion" type="button">Oublier le code</button>
     <button class="btn ghost small" id="btnFermer" type="button">Fermer</button>
   </header>
@@ -291,6 +301,7 @@ table.classement{ border-collapse:collapse; }
     <button role="tab" data-onglet="nouveau" aria-selected="true">Nouveau tournoi</button>
     <button role="tab" data-onglet="valider" aria-selected="false">Valider la soirée</button>
     <button role="tab" data-onglet="joueurs" aria-selected="false">Joueurs</button>
+    <button role="tab" data-onglet="annonces" aria-selected="false">Annonces</button>
     <button role="tab" data-onglet="reglages" aria-selected="false">Réglages</button>
   </div>
   <div class="contenu" id="contenu"></div>
@@ -777,7 +788,7 @@ function afficherOnglet(){
   document.querySelectorAll(".onglets button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.onglet === ONGLET)));
   const c = $("contenu");
   if(c.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return; // ne pas effacer une saisie en cours
-  ({ nouveau: ongletNouveau, valider: ongletValider, joueurs: ongletJoueurs, reglages: ongletReglages })[ONGLET](c);
+  ({ nouveau: ongletNouveau, valider: ongletValider, joueurs: ongletJoueurs, annonces: ongletAnnonces, reglages: ongletReglages })[ONGLET](c);
 }
 
 /* --- Nouveau tournoi --- */
@@ -990,6 +1001,54 @@ function ongletJoueurs(c){
 }
 
 /* --- Réglages --- */
+/* --- Annonces du bandeau « Prochain rendez-vous » du site (onglet « Annonces » du Google Sheet) --- */
+let AN = null;   // annonce en cours de saisie : { date, annule, message, ancienne }
+function ongletAnnonces(c){
+  if(!DATA.annonces){ c.innerHTML = '<p class="aide">Mets à jour le script du Google Sheet pour gérer les annonces d\'ici.</p>'; return; }
+  if(!AN) AN = { date: prochainJeudi(), annule: false, message: "", ancienne: null };
+  const auj = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); })();
+  const futures = DATA.annonces.filter(a => a.date >= auj), passees = DATA.annonces.filter(a => a.date < auj);
+  let h = '<p class="aide">Elles s\'affichent dans le bandeau « Prochain rendez-vous » du site, d\'ici 5 minutes. Un jeudi annulé est sauté et le bandeau annonce le suivant ; un message s\'affiche sous la date.</p>' +
+    "<h3>" + (AN.ancienne ? "Modifier l'annonce" : "Nouvelle annonce") + "</h3>" +
+    '<div class="champ"><label for="anDate">Jeudi</label><input type="date" id="anDate" value="' + AN.date + '"></div>' +
+    '<button type="button" class="case' + (AN.annule ? " on" : "") + '" id="anAnnule" aria-pressed="' + AN.annule + '">Soirée annulée</button>' +
+    '<div class="champ"><label for="anMsg">Message</label><input id="anMsg" maxlength="200" style="flex:1" placeholder="vacances de Noël, soirée spéciale..." value="' + esc(AN.message) + '"></div>' +
+    '<div id="anNote"></div><div class="boutons"><button class="btn" id="anOk" type="button">Enregistrer l\'annonce</button>' +
+    (AN.ancienne ? '<button class="btn ghost" id="anStop" type="button">Annuler la modification</button>' : "") + "</div>";
+  h += "<h3>Annonces à venir (" + futures.length + ")</h3>";
+  h += futures.length ? futures.map(a => '<div class="annonce"><div class="tete"><b>' + esc(dateFr(a.date)) + "</b>" +
+      '<span class="badge' + (a.annule ? " annule" : "") + '">' + (a.annule ? "Soirée annulée" : "Info") + "</span></div>" +
+      (a.message ? "<p>" + esc(a.message) + "</p>" : "") +
+      '<div class="actions"><button class="lien" type="button" data-an-mod="' + a.date + '">Modifier</button><button class="lien" type="button" data-an-sup="' + a.date + '">Supprimer</button></div></div>').join("")
+    : '<p class="aide">Aucune annonce à venir.</p>';
+  if(passees.length) h += '<p class="aide" style="margin-top:1rem">' + passees.length + " annonce" + (passees.length > 1 ? "s passées restent" : " passée reste") +
+    " dans l'onglet « Annonces » du Google Sheet, sans effet sur le site.</p>";
+  c.innerHTML = h;
+  const garder = () => { if(!AN) return; AN.date = $("anDate").value; AN.message = $("anMsg").value; };
+  $("anDate").onchange = garder; $("anMsg").oninput = garder;   // la page se rafraîchit toutes les 15 secondes
+  $("anAnnule").onclick = () => { garder(); AN.annule = !AN.annule; ongletAnnonces(c); };
+  if($("anStop")) $("anStop").onclick = () => { AN = null; ongletAnnonces(c); };
+  $("anOk").onclick = async () => {
+    garder();
+    if(!AN.date){ note($("anNote"), "Choisis la date du jeudi.", "err"); return; }
+    if(new Date(AN.date + "T12:00:00Z").getUTCDay() !== 4){ note($("anNote"), "Choisis un jeudi : le bandeau du site ne regarde que les jeudis.", "err"); return; }
+    if(!AN.annule && !AN.message.trim()){ note($("anNote"), "Indique que la soirée est annulée ou écris un message.", "err"); return; }
+    $("anOk").disabled = true;
+    try { const msg = await agir("annonce", { date: AN.date, annule: AN.annule, message: AN.message, ancienne: AN.ancienne }); AN = null; if(ONGLET === "annonces") ongletAnnonces(c); toast(msg); }
+    catch(e){ note($("anNote"), esc(e.message), "err"); $("anOk").disabled = false; }
+  };
+  c.querySelectorAll("[data-an-mod]").forEach(b => b.onclick = () => {
+    const a = DATA.annonces.find(x => x.date === b.dataset.anMod);
+    AN = { date: a.date, annule: a.annule, message: a.message, ancienne: a.date }; ongletAnnonces(c); $("anMsg").focus();
+  });
+  c.querySelectorAll("[data-an-sup]").forEach(b => b.onclick = async () => {
+    const iso = b.dataset.anSup;
+    if(!confirm("Supprimer l'annonce du " + dateFr(iso) + " ?")) return;
+    try { const msg = await agir("supprimerAnnonce", { date: iso }); if(AN && AN.ancienne === iso){ AN = null; if(ONGLET === "annonces") ongletAnnonces(c); } toast(msg); }
+    catch(e){ toast(e.message, true); }
+  });
+}
+
 function ongletReglages(c){
   c.innerHTML = '<h3>Nombre de poules</h3><p class="aide">Proposé automatiquement au lancement d\'un tournoi, selon le nombre de joueurs présents.</p>' +
     '<div class="champ"><label for="rS2">2 poules dès</label><input id="rS2" type="number" min="4" value="' + DATA.seuils.seuil2 + '" style="width:5rem"> joueurs</div>' +

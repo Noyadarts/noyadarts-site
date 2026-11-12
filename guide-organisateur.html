@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guide de l'organisateur | Noya'Darts</title>
+<meta name="description" content="Mode d'emploi de la page du tournoi pour les organisateurs du jeudi de Noya'Darts.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b2224">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --slate:#1b2224; --slate-2:#242e31; --slate-3:#2f3b3f; --slate-4:#3b4a4f;
+  --chalk:#eceae2; --chalk-dim:#a7afab;
+  --red:#d4453b; --green:#34a56b; --sisal:#e3d4ae;
+  --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
+:root[data-theme="dark"]{ color-scheme:dark; }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ scroll-behavior:smooth; scroll-padding-top:calc(env(safe-area-inset-top,0px) + 1rem); }
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 700px at 80% -15%, rgba(52,165,107,.10), transparent 60%),
+    radial-gradient(900px 600px at -10% 115%, rgba(212,69,59,.09), transparent 60%),
+    var(--slate);
+  color:var(--chalk); font-family:var(--body); font-size:1.0625rem; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{ color:var(--sisal); text-underline-offset:3px; }
+:focus-visible{ outline:3px solid var(--sisal); outline-offset:3px; border-radius:4px; }
+.wrap{ width:min(52rem, 100% - 2.5rem); margin-inline:auto; }
+.top{ border-bottom:1px solid var(--slate-3); }
+.top .wrap{ display:flex; align-items:center; gap:1rem; padding:.9rem 0; flex-wrap:wrap; }
+.top img{ width:56px; height:auto; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+.top nav{ margin-left:auto; display:flex; gap:1.1rem; flex-wrap:wrap; font-weight:600; }
+.top nav a{ color:var(--chalk-dim); text-decoration:none; }
+.top nav a:hover,.top nav a[aria-current]{ color:var(--sisal); }
+h1{ font-family:var(--display); font-weight:900; font-size:clamp(2.6rem,7vw,4.4rem); line-height:.95; margin:2.2rem 0 .6rem; }
+.chapo{ color:var(--chalk-dim); font-size:1.15rem; margin:0 0 1.4rem; max-width:44rem; }
+.sommaire{ display:flex; flex-wrap:wrap; gap:.5rem; margin:0 0 2rem; padding:0; list-style:none; }
+.sommaire a{ display:inline-block; padding:.3rem .8rem; border-radius:999px; background:var(--slate-2); text-decoration:none; font-weight:600; font-size:.95rem; }
+.sommaire a:hover{ background:var(--slate-3); }
+section{ padding:1.4rem 0 .6rem; border-top:1px solid var(--slate-3); }
+h2{ font-family:var(--display); font-weight:900; font-size:clamp(1.8rem,4.4vw,2.5rem); line-height:1; margin:.4rem 0 .8rem; }
+h3{ font-family:var(--display); font-weight:800; font-size:1.4rem; margin:1.4rem 0 .4rem; color:var(--sisal); }
+p,li{ max-width:46rem; }
+ul,ol{ padding-left:1.3rem; }
+li{ margin:.25rem 0; }
+strong{ color:var(--chalk); }
+.encart{ background:var(--slate-2); border-radius:12px; padding:.9rem 1.1rem; margin:1rem 0; border-left:4px solid var(--green); }
+.encart.rouge{ border-left-color:var(--red); }
+.encart p{ margin:.3rem 0; }
+.table-scroll{ overflow-x:auto; margin:.8rem 0; }
+table{ border-collapse:collapse; min-width:100%; }
+th,td{ text-align:left; padding:.45rem .7rem; border-bottom:1px solid var(--slate-3); vertical-align:top; }
+th{ font-family:var(--display); font-weight:800; font-size:1.1rem; color:var(--sisal); white-space:nowrap; }
+td.num{ text-align:center; font-family:var(--display); font-weight:800; font-size:1.2rem; }
+.etapes{ counter-reset:e; list-style:none; padding:0; }
+.etapes > li{ counter-increment:e; position:relative; padding-left:2.6rem; margin:.8rem 0; }
+.etapes > li::before{ content:counter(e); position:absolute; left:0; top:.05rem; width:1.9rem; height:1.9rem; border-radius:50%; background:var(--red); color:var(--chalk); font-family:var(--display); font-weight:900; display:grid; place-items:center; }
+kbd,.ui{ font-family:var(--body); font-weight:600; background:var(--slate-3); border-radius:5px; padding:.05rem .4rem; font-size:.95em; white-space:nowrap; }
+footer{ margin-top:3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
+footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; justify-content:space-between; }
+.haut{ display:inline-block; margin:1rem 0 .4rem; font-size:.95rem; }
+@media print{ body{ background:#fff; color:#000; } strong{ color:inherit; } .top nav,.sommaire,.haut{ display:none; } a{ color:#000; } .encart{ background:#f3f3f3; } th{ color:#000; } h3{ color:#000; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a href="./" title="Retour au site"><img src="logo-noyadarts.webp" alt="Noya'Darts" width="640" height="576"></a>
+    <nav aria-label="Pages du club">
+      <a href="./">Le club</a>
+      <a href="tournoi.html">Tournoi en direct</a>
+      <a href="regles.html">Règles</a>
+      <a href="guide-organisateur.html" aria-current="page">Guide de l'organisateur</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>Guide de l'organisateur</h1>
+  <p class="chapo">Tout ce qu'il faut pour mener un jeudi soir depuis la page du tournoi : annonces, lancement, scores, phase finale, enregistrement de la soirée et imprévus. Les règles de jeu elles-mêmes sont sur la page <a href="regles.html">Règles</a>.</p>
+  <ul class="sommaire">
+    <li><a href="#acces">Accès</a></li>
+    <li><a href="#annonces">Annonces</a></li>
+    <li><a href="#lancer">Lancer le tournoi</a></li>
+    <li><a href="#pendant">Pendant la soirée</a></li>
+    <li><a href="#finale">Phase finale</a></li>
+    <li><a href="#valider">Valider la soirée</a></li>
+    <li><a href="#joueurs">Joueurs et réglages</a></li>
+    <li><a href="#imprevus">Imprévus</a></li>
+    <li><a href="#sheet">Le Google Sheet</a></li>
+  </ul>
+
+  <section id="acces">
+    <h2>Accès</h2>
+    <p>Tout se passe sur la <a href="tournoi.html">page du tournoi</a>. Tout le monde peut la consulter ; pour la gérer, clique sur <span class="ui">Gérer</span> et tape le <strong>code du club</strong> (demande-le à un autre organisateur). Le code est retenu sur l'appareil : sur un ordinateur partagé, clique sur <span class="ui">Oublier le code</span> en fin de soirée. Après 10 codes faux, la gestion est bloquée 10 minutes.</p>
+    <p>Pour le projecteur, le bouton <span class="ui">Plein écran</span> agrandit la page. Elle se met à jour toute seule toutes les 15 secondes : plusieurs organisateurs peuvent noter des scores en même temps, depuis un ordinateur ou un téléphone.</p>
+  </section>
+
+  <section id="annonces">
+    <h2>Annonces du bandeau</h2>
+    <p>Le bandeau « Prochain rendez-vous » du site annonce le jeudi suivant. Depuis <span class="ui">Gérer</span> &gt; <span class="ui">Annonces</span> :</p>
+    <ul>
+      <li><strong>Annuler un jeudi</strong> : choisis la date, active <span class="ui">Soirée annulée</span>, ajoute éventuellement la raison (« vacances de Noël »). Le site indique qu'il n'y a pas de soirée et annonce le jeudi suivant, et le bouton « Suivre le tournoi en direct » ne s'affiche pas ce soir-là.</li>
+      <li><strong>Donner une info</strong> : sans cocher l'annulation, écris un message ; il s'affiche sous la date (« Soirée spéciale », « On commence à 20 h »...).</li>
+      <li><span class="ui">Modifier</span> et <span class="ui">Supprimer</span> sous chaque annonce à venir.</li>
+    </ul>
+    <div class="encart"><p>Seuls les jeudis comptent. Le site met jusqu'à <strong>5 minutes</strong> à afficher un changement.</p></div>
+  </section>
+
+  <section id="lancer">
+    <h2>Lancer le tournoi</h2>
+    <p><span class="ui">Gérer</span> &gt; <span class="ui">Nouveau tournoi</span> :</p>
+    <ol class="etapes">
+      <li><strong>Date</strong> : le prochain jeudi est proposé.</li>
+      <li><strong>Joueurs présents</strong> : clique sur les noms. Seuls les habitués (venus dans les 6 dernières semaines) sont affichés ; les autres sont sous <span class="ui">Voir les autres joueurs</span>. Un nouveau venu s'ajoute avec <span class="ui">Ajouter</span> : si son nom ressemble à un joueur existant (« Alex » et « Alexandre »), la page demande confirmation, pour éviter les doublons.</li>
+      <li><strong>Poules</strong> : le nombre est proposé selon le nombre de présents (réglage du club), et le tirage est fait au hasard. <span class="ui">Refaire le tirage</span> si besoin ; pour déplacer un joueur, change sa poule dans la liste.</li>
+      <li><strong>Legs gagnants</strong> : 2 par défaut, 3 pour la plus petite poule si les tailles diffèrent. Modifiables pour chaque poule et pour la phase finale. Ils sont fixés au lancement.</li>
+      <li><strong>Grosse soirée</strong> (avec 3 poules seulement) : 6 qualifiés et des quarts de finale, voir les <a href="regles.html#grosse">règles</a>. Pratique quand on est nombreux et qu'on a le temps.</li>
+      <li><span class="ui">Lancer le tournoi</span>. S'il y a déjà un tournoi, la page demande confirmation avant de le remplacer.</li>
+    </ol>
+  </section>
+
+  <section id="pendant">
+    <h2>Pendant la soirée</h2>
+    <h3>Noter un score</h3>
+    <p>Clique sur un match (dans sa poule ou dans « À suivre »), choisis les legs de chaque joueur, puis <span class="ui">Enregistrer le score</span>. Un score impossible est refusé (par exemple 2-2 en 2 legs gagnants). Pour corriger, clique sur le match dans « Joués » ; <span class="ui">Effacer le score</span> le remet à jouer.</p>
+    <h3>Ordre des matchs</h3>
+    <p>Les matchs de poule se jouent dans l'ordre qu'on veut. « À suivre » propose pour chaque poule un match entre joueurs libres qui ont le moins joué, puis les matchs de phase finale prêts. Pour imposer un match, ouvre-le et choisis <span class="ui">Annoncer ce match dans À suivre</span> ; il disparaît du bandeau une fois son score noté.</p>
+    <h3>Pause</h3>
+    <p>Un joueur s'absente un moment ? Clique sur son nom dans le classement de sa poule : il passe « en pause » et ses matchs ne sont plus proposés. Reclique à son retour (annoncer un de ses matchs le sort aussi de pause).</p>
+    <h3>Égalité parfaite</h3>
+    <p>Quand deux joueurs sont à égalité sur tout, leur rang est marqué « = » et un message le signale. Fais-leur jouer un bull, puis clique sur le rang de chacun pour taper l'ordre (1 pour le gagnant, 2 pour le suivant).</p>
+    <h3>Records du soir</h3>
+    <p>Dans « Records du soir » (bandeau du haut), clique sur un record pour le noter, le corriger ou l'effacer : score et joueur. Un seul par catégorie, le meilleur de la soirée. Les minimums sont vérifiés (50 de moyenne, 100 pour une volée, 60 pour une sortie). Ils ne comptent au championnat qu'à la validation de la soirée.</p>
+  </section>
+
+  <section id="finale">
+    <h2>Phase finale</h2>
+    <p>Dès que les poules sont finies, les qualifiés apparaissent en couleur et l'arbre se remplit tout seul. Les scores se notent directement dans l'arbre, avec les menus à côté des noms, ou en cliquant sur le match dans « À suivre ».</p>
+    <p>Si un score de poule est corrigé après coup et que cela change les qualifiés, les scores de phase finale concernés sont effacés (un message le signale).</p>
+    <h3>Modifier les affiches</h3>
+    <p>Sous le titre « Phase finale », <span class="ui">Modifier les affiches</span> permet de choisir les joueurs à la main, même avant la fin des poules : joueur qui doit partir, soirée qui s'éternise. Le choix reste en place jusqu'à <span class="ui">Revenir au calcul automatique</span>. Un match déjà joué ne peut pas changer de joueurs : efface d'abord son score.</p>
+  </section>
+
+  <section id="valider">
+    <h2>Valider la soirée</h2>
+    <p>Une fois la finale et la petite finale jouées : <span class="ui">Gérer</span> &gt; <span class="ui">Valider la soirée</span>. Le classement du soir est repris du tournoi (1er à 4e, participation pour les autres) et les records du bandeau sont préremplis. Vérifie-les puis <span class="ui">Enregistrer la soirée</span> :</p>
+    <ul>
+      <li>les points sont ajoutés au championnat ;</li>
+      <li>les records sont enregistrés ;</li>
+      <li>tous les matchs sont archivés pour les fiches joueurs.</li>
+    </ul>
+    <p>Le site est à jour quelques minutes plus tard. Pour corriger un record oublié, il suffit de revenir dans <span class="ui">Valider la soirée</span> et d'enregistrer à nouveau (rien n'est compté deux fois).</p>
+  </section>
+
+  <section id="joueurs">
+    <h2>Joueurs et réglages</h2>
+    <ul>
+      <li><span class="ui">Joueurs</span> : ajouter un joueur, le <strong>renommer</strong> (le nouveau nom suit partout : championnat, records, matchs, tournoi en cours) ou le <strong>supprimer</strong> (double confirmation : ses résultats au championnat et ses records sont perdus, ses matchs restent dans l'historique de ses adversaires). Un joueur du tournoi en cours ne peut pas être supprimé avant l'enregistrement de la soirée.</li>
+      <li><span class="ui">Réglages</span> : à partir de combien de joueurs on passe à 2 puis 3 poules (7 et 13 par défaut).</li>
+    </ul>
+  </section>
+
+  <section id="imprevus">
+    <h2>Imprévus</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Situation</th><th>Que faire</th></tr></thead>
+      <tbody>
+        <tr><td>Mauvais score</td><td>Clique sur le match, corrige ou efface. Les qualifiés et l'arbre se recalculent.</td></tr>
+        <tr><td>Joueur qui part avant la fin des poules</td><td>Ses matchs restants bloquent la fin de la poule. Deux possibilités, à décider avec les joueurs : noter ses matchs restants comme perdus, ou lancer la phase finale à la main avec <span class="ui">Modifier les affiches</span>.</td></tr>
+        <tr><td>Retardataire, erreur de poule ou de date</td><td>Relancer un tournoi (Nouveau tournoi, puis confirmer le remplacement). Les scores déjà notés sont perdus : à faire le plus tôt possible.</td></tr>
+        <tr><td>Tournoi de test à arrêter</td><td>Lancer un nouveau tournoi par-dessus. Rien n'est compté tant que la soirée n'est pas validée.</td></tr>
+        <tr><td>Wifi ou page en panne</td><td>Le même tournoi se gère dans l'onglet « Tournoi » du Google Sheet (menus des legs à côté des noms), puis menu « 🎯 Noya'Darts » &gt; « Valider le tournoi ». À défaut, papier, puis « Saisir une soirée ».</td></tr>
+        <tr><td>Soirée validée par erreur, ou classement à corriger</td><td>Dans le Google Sheet : « Retirer une soirée », ou « Saisir une soirée » pour corriger (voir plus bas).</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="sheet">
+    <h2>Ce qui se fait dans le Google Sheet</h2>
+    <p>Le Google Sheet du club est la base de données du site. Il reste nécessaire pour quelques opérations, toutes dans le menu « 🎯 Noya'Darts » :</p>
+    <ul>
+      <li><strong>Saisir une soirée</strong> : enregistrer une soirée jouée sans la page (papier), ou corriger le classement d'une soirée passée.</li>
+      <li><strong>Retirer une soirée</strong> enregistrée par erreur (points, records et matchs effacés d'un coup).</li>
+      <li><strong>Vérifier le fichier</strong> et <strong>Réparer le fichier</strong> : à lancer après toute modification faite à la main.</li>
+      <li><strong>Mettre à jour les photos</strong>, après avoir déposé des photos dans le dossier Drive du club.</li>
+      <li><strong>Code du club (page web)</strong> : changer le code.</li>
+      <li>Le <strong>barème des points</strong>, dans l'onglet « Paramètres points championnat ».</li>
+    </ul>
+    <div class="encart rouge"><p>Pour éviter l'erreur « PERMISSION_DENIED », ouvre le Google Sheet dans une fenêtre de navigation privée, connectée au seul compte du club.</p></div>
+    <a class="haut" href="#">Haut de la page</a>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
+    <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
+  </div>
+</footer>
+</body>
+</html>
