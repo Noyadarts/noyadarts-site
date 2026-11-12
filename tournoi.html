@@ -171,6 +171,8 @@ table.classement{ border-collapse:collapse; }
   background:var(--slate-3); border:0; border-radius:6px; padding:.05rem .3rem; min-width:3.1rem; cursor:pointer;
 }
 .petite{ grid-column:1; }
+.quarts{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; margin-bottom:1.4rem; }
+@media (max-width:560px){ .quarts{ grid-template-columns:minmax(0,1fr); } }
 .podium{ grid-column:3; align-self:start; }
 .podium ol{ list-style:none; margin:0; padding:0; }
 .podium li{ display:flex; gap:.6rem; align-items:baseline; padding:.2rem 0; }
@@ -362,7 +364,7 @@ const LETTRES = "ABC";
 const RAFRAICHIR_MS = 15000;
 let DATA = null, CODE = "", OCCUPE = 0, ONGLET = "nouveau";
 let VAL = { date: null, records: null };   // records affichés dans « Valider la soirée »
-let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false };   // brouillon « Nouveau tournoi »
+let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false, grosse: false };   // brouillon « Nouveau tournoi »
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
@@ -446,7 +448,7 @@ function prochainsMatchs(T){
   const prendre = it => { items.push(it); occupes.add(it.j1); occupes.add(it.j2); };
   annonces(T).forEach(i => { const m = T.matchs[i]; if(m) prendre({ lib: "Poule " + LETTRES[m.poule] + ", match " + m.num, j1: m.j1, j2: m.j2, match: m.i, poule: m.poule }); });
   const libre = n => !occupes.has(n) && pauses(T).indexOf(n) < 0;
-  const finales = ["D1","D2","PF","F"].map(id => T.finale.find(x => x.id === id))
+  const finales = ["Q1","Q2","D1","D2","PF","F"].map(id => T.finale.find(x => x.id === id))
     .filter(f => f && f.pret && !f.joue && libre(f.j1) && libre(f.j2)).slice(0, 2);
   finales.forEach(f => { occupes.add(f.j1); occupes.add(f.j2); });
   T.poules.forEach((noms,p) => {
@@ -548,6 +550,8 @@ function blocArbre(T){
   if(directe){
     h += '<div class="arbre"><div class="demis" style="grid-column:1 / -1">' + blocMatch(T,"F",true) + "</div>";
   } else {
+    if(T.grosse) h += '<p class="legende" style="margin:-.4rem 0 .6rem">Grosse soirée : les vainqueurs des quarts rejoignent en demi-finale les deux meilleurs 1ers de poule.</p>' +
+      '<div class="quarts">' + blocMatch(T,"Q1") + blocMatch(T,"Q2") + "</div>";
     h += '<div class="arbre" id="arbre"><svg id="svgTraits" aria-hidden="true"></svg><div class="demis">' + blocMatch(T,"D1") + blocMatch(T,"D2") +
       '</div><div class="fin">' + blocMatch(T,"F",true) + '</div><div class="petite">' + blocMatch(T,"PF") + "</div>";
   }
@@ -699,15 +703,16 @@ $("fondRecord").addEventListener("click", e => { if(e.target === $("fondRecord")
 /* ---------------- Fenêtre des affiches de la phase finale ---------------- */
 function ouvrirAffiches(){
   const T = DATA.tournoi; if(!T) return;
-  const ids = T.finale.length === 1 ? ["F"] : ["D1","D2"];
+  const ids = T.finale.length === 1 ? ["F"] : T.grosse ? ["Q1","Q2","D1","D2"] : ["D1","D2"];
   const joueurs = tousJoueurs(T).slice().sort((a,b) => a.localeCompare(b));
   const select = (id, cote, nom, off) => '<select data-aff="' + id + '" data-cote="' + cote + '"' + (off ? " disabled" : "") + ' aria-label="Joueur ' + (cote + 1) + '">' +
     '<option value="">choisir...</option>' + joueurs.map(n => "<option" + (n === nom ? " selected" : "") + ">" + esc(n) + "</option>").join("") + "</select>";
   $("affListe").innerHTML = ids.map(id => {
     const f = T.finale.find(x => x.id === id);
     const nom = n => joueurs.indexOf(n) >= 0 ? n : "";
-    return '<div class="affiche"><h4>' + esc(f.libelle) + (f.joue ? ' <small class="aide">(déjà jouée : efface son score pour la changer)</small>' : "") + '</h4><div class="paire">' +
-      select(id, 0, nom(f.j1), f.joue) + "<i>contre</i>" + select(id, 1, nom(f.j2), f.joue) + "</div></div>";
+    return '<div class="affiche"><h4>' + esc(f.libelle) + (f.joue ? ' <small class="aide">(match déjà joué : efface son score pour le changer)</small>' : "") + '</h4><div class="paire">' +
+      select(id, 0, nom(f.j1), f.joue) + "<i>contre</i>" +
+      (T.grosse && id.charAt(0) === "D" ? '<i style="text-align:left">vainqueur du quart ' + id.charAt(1) + "</i>" : select(id, 1, nom(f.j2), f.joue)) + "</div></div>";
   }).join("");
   $("affAuto").hidden = !T.forcage;
   note($("affMsg"), "");
@@ -821,6 +826,8 @@ function ongletNouveau(c){
   h += '<h3>Poules</h3><div class="champ"><label for="nvNb">Nombre de poules</label><select id="nvNb">' + [1,2,3].map(k => "<option" + (NV.nb === k ? " selected" : "") + ">" + k + "</option>").join("") +
     '</select><button class="btn ghost small" id="nvTirage" type="button">Refaire le tirage</button></div>' +
     '<p class="aide">Réglage du club : 2 poules dès ' + DATA.seuils.seuil2 + " joueurs, 3 dès " + DATA.seuils.seuil3 + ". Pour déplacer un joueur, change sa poule.</p>";
+  if(NV.nb === 3) h += '<button type="button" class="case' + (NV.grosse ? " on" : "") + '" id="nvGrosse" aria-pressed="' + NV.grosse + '">Grosse soirée</button>' +
+    '<p class="aide">Les 2 premiers de chaque poule sont qualifiés (6 joueurs) : les deux meilleurs 1ers attendent en demi-finale, les quatre autres jouent les quarts.</p>';
   if(presents().length){
     h += '<div class="tirage">';
     for(let p=0;p<NV.nb;p++){
@@ -844,6 +851,7 @@ function ongletNouveau(c){
   });
   $("nvNb").onchange = e => { NV.nb = Number(e.target.value); tirer(); ongletNouveau(c); };
   $("nvTirage").onclick = () => { tirer(); ongletNouveau(c); };
+  if($("nvGrosse")) $("nvGrosse").onclick = () => { NV.grosse = !NV.grosse; ongletNouveau(c); };
   c.querySelectorAll("[data-mv]").forEach(s => s.onchange = () => { NV.affect[s.dataset.mv] = Number(s.value); ongletNouveau(c); });
   c.querySelectorAll("[data-legs]").forEach(s => s.onchange = () => { NV.legs[Number(s.dataset.legs)] = Number(s.value); });
   $("nvLegsF").onchange = e => NV.legsF = Number(e.target.value);
@@ -868,14 +876,14 @@ function ongletNouveau(c){
     for(let p=0;p<NV.nb;p++){ poules.push(presents().filter(n => NV.affect[n] === p)); legs.push(legsPoule(p)); }
     $("nvLancer").disabled = true;
     try {
-      const r = await agir("lancer", { date: NV.date, poules, legs, legsFinale: NV.legsF, remplacer });
+      const r = await agir("lancer", { date: NV.date, poules, legs, legsFinale: NV.legsF, grosse: NV.nb === 3 && NV.grosse, remplacer });
       if(r && r.confirmer){
         note($("nvMsg"), esc(r.confirmer) + '<div class="boutons"><button class="btn small" id="nvRemplacer">Oui, remplacer</button><button class="btn ghost small" id="nvGarder">Annuler</button></div>', "warn");
         $("nvRemplacer").onclick = () => lancer(true);
         $("nvGarder").onclick = () => { note($("nvMsg"), ""); $("nvLancer").disabled = false; };
         return;
       }
-      NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false };
+      NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false, grosse: false };
       fermerPanneau(); toast(r.message);
     } catch(e){ note($("nvMsg"), esc(e.message), "err"); $("nvLancer").disabled = false; }
   };
