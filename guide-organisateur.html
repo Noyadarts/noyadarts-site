@@ -147,7 +147,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
       <li><strong>Date</strong> : le prochain jeudi est proposé.</li>
       <li><strong>Joueurs présents</strong> : clique sur les noms. Seuls les habitués (venus dans les 6 dernières semaines) sont affichés ; les autres sont sous <span class="ui">Voir les autres joueurs</span>. Un nouveau venu s'ajoute avec <span class="ui">Ajouter</span> : si son nom ressemble à un joueur existant (« Alex » et « Alexandre »), la page demande confirmation, pour éviter les doublons.</li>
       <li><strong>Poules</strong> : le nombre est proposé selon le nombre de présents (réglage du club), et le tirage est fait au hasard. <span class="ui">Refaire le tirage</span> si besoin ; pour déplacer un joueur, change sa poule dans la liste.</li>
-      <li><strong>Legs gagnants</strong> : 2 par défaut, 3 pour la plus petite poule si les tailles diffèrent. Modifiables pour chaque poule et pour la phase finale. Ils sont fixés au lancement.</li>
+      <li><strong>Legs gagnants</strong> : 2 par défaut, 3 pour la plus petite poule si les tailles diffèrent. Modifiables pour chaque poule et pour la phase finale. Ceux des poules sont fixés au lancement ; ceux de la phase finale peuvent encore changer pendant la soirée (voir « Legs de la phase finale »).</li>
       <li><strong>Grosse soirée</strong> (avec 3 poules seulement) : 6 qualifiés et des quarts de finale, voir les <a href="regles.html#grosse">règles</a>. Pratique quand on est nombreux et qu'on a le temps.</li>
       <li><span class="ui">Lancer le tournoi</span>. S'il y a déjà un tournoi, la page demande confirmation avant de le remplacer.</li>
     </ol>
@@ -169,8 +169,10 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
       <li><strong>Cas plus rares</strong> (trois à égalité pour une seule place, quatre ou plus) : pas de barrage automatique. Décidez entre vous, puis clique sur le rang de chacun pour taper l'ordre (1 pour le premier, 2 pour le suivant), ou choisis les affiches à la main.</li>
     </ul>
     <p>Un résultat de barrage se corrige en recliquant dessus (<span class="ui">Effacer le résultat</span>). Les barrages sont archivés avec les autres matchs et comptent dans les statistiques des fiches joueurs.</p>
+    <h3>Legs de la phase finale</h3>
+    <p>En mode gestion, chaque match de l'arbre affiche un menu « 2 legs gagnants » à côté de son nom. Choisis une autre valeur pour jouer par exemple la finale en 3 legs. Le changement vaut pour toute la phase : les deux demi-finales ensemble, les deux quarts ensemble, la petite finale et la finale séparément. Il n'est possible que tant qu'aucun match de la phase n'a de score : sinon, efface d'abord ce score. Le menu disparaît une fois la phase commencée, et les legs choisis restent affichés quand ils diffèrent d'un match à l'autre. Dans l'onglet « Tournoi » du Google Sheet, les menus des legs suivent le changement.</p>
     <h3>Records du soir</h3>
-    <p>Dans « Records du soir » (bandeau du haut), clique sur un record pour le noter, le corriger ou l'effacer : score et joueur. Un seul par catégorie, le meilleur de la soirée. Les minimums sont vérifiés (50 de moyenne, 100 pour une volée, 60 pour une sortie). Ils ne comptent au championnat qu'à la validation de la soirée.</p>
+    <p>Dans « Records du soir » (bandeau du haut), clique sur un record pour le noter, le corriger ou l'effacer : score et joueur. Un seul par catégorie, le meilleur de la soirée, sauf pour les <strong>scores parfaits</strong> : chaque 180 et chaque 170 en sortie compte, même s'il y en a plusieurs le même soir, même pour le même joueur. Note-les un par un (bouton <span class="ui">Ajouter ce 180</span>) ; la fenêtre les liste avec un bouton <span class="ui">Retirer</span> pour corriger une erreur, et <span class="ui">Tout effacer</span> vide la catégorie. Les minimums sont vérifiés (50 de moyenne, 100 pour une volée, 60 pour une sortie). Ils ne comptent au championnat qu'à la validation de la soirée.</p>
   </section>
 
   <section id="finale">
@@ -183,7 +185,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
 
   <section id="valider">
     <h2>Valider la soirée</h2>
-    <p>Une fois la finale et la petite finale jouées : <span class="ui">Gérer</span> &gt; <span class="ui">Valider la soirée</span>. Le classement du soir est repris du tournoi (1er à 4e, participation pour les autres) et les records du bandeau sont préremplis. Vérifie-les puis <span class="ui">Enregistrer la soirée</span> :</p>
+    <p>Une fois la finale et la petite finale jouées : <span class="ui">Gérer</span> &gt; <span class="ui">Valider la soirée</span>. Le classement du soir est repris du tournoi (1er à 4e, participation pour les autres) et les records du bandeau sont préremplis. Vérifie-les (un score parfait de plus : <span class="ui">+ un autre 180</span> ou <span class="ui">+ un autre 170</span>) puis <span class="ui">Enregistrer la soirée</span> :</p>
     <ul>
       <li>les points sont ajoutés au championnat ;</li>
       <li>les records sont enregistrés ;</li>

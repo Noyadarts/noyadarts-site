@@ -163,6 +163,8 @@ table.classement{ border-collapse:collapse; }
 .match .lib{ display:flex; justify-content:space-between; gap:.5rem; font-size:.9rem; color:var(--chalk-dim); margin:0 .2rem .25rem; }
 .match.finale{ box-shadow:inset 0 0 0 2px var(--red); }
 .match.finale .lib{ color:var(--sisal); font-weight:600; }
+.match .lib .legs-ph{ margin-left:.5rem; font-style:normal; font-size:.85rem; color:var(--chalk-dim); font-weight:400; }
+.match .lib select.legs-ph{ font:inherit; font-size:.85rem; background:var(--slate-3); color:var(--chalk); border:0; border-radius:5px; padding:0 .2rem; cursor:pointer; }
 .joueur{ display:flex; align-items:center; gap:.5rem; padding:.25rem .4rem; border-radius:6px; }
 .joueur + .joueur{ margin-top:3px; }
 .joueur b{ flex:1; font-family:var(--display); font-weight:800; font-size:1.55rem; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -248,6 +250,8 @@ a.btn{ text-decoration:none; display:inline-block; }
 .note.err{ background:rgba(212,69,59,.18); color:#f2b8b2; }
 .note.warn{ background:rgba(227,212,174,.14); color:var(--sisal); }
 .rec{ display:grid; grid-template-columns:9.5rem 5.5rem 1fr; gap:.5rem; align-items:center; margin:.4rem 0; }
+.rec-plus{ margin:-.1rem 0 .6rem 10rem; font-size:.9rem; }
+#recListe .ligne{ margin:.2rem 0; }
 
 /* ---------- Fenêtres ---------- */
 .fond{ position:fixed; inset:0; background:rgba(10,14,15,.65); z-index:30; display:grid; place-items:center; padding:1rem; }
@@ -359,12 +363,13 @@ a.btn{ text-decoration:none; display:inline-block; }
   <form class="modal" id="formRecord" role="dialog" aria-labelledby="recTitre">
     <h2 id="recTitre">Record</h2>
     <p class="aide" id="recAide"></p>
+    <div id="recListe"></div>
     <div class="champ"><label for="recScore">Score</label><input id="recScore" inputmode="decimal" style="width:7rem"></div>
     <div class="champ"><label for="recNom">Joueur</label><select id="recNom"></select></div>
     <div id="recMsg"></div>
     <div class="boutons">
-      <button class="btn" type="submit">Enregistrer le record</button>
-      <button class="btn ghost" type="button" id="recEffacer">Effacer le record</button>
+      <button class="btn" type="submit" id="recOk">Enregistrer le record</button>
+      <button class="btn ghost" type="button" id="recEffacer">Tout effacer</button>
       <button class="btn ghost" type="button" id="recAnnuler">Annuler</button>
     </div>
   </form>
@@ -416,14 +421,28 @@ const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"
 const dateFr = iso => { if(!iso) return ""; const [a,m,j] = iso.split("-").map(Number);
   return new Date(Date.UTC(a,m-1,j)).toLocaleDateString("fr-FR",{ weekday:"long", day:"numeric", month:"long", timeZone:"UTC" }); };
 const legsTxt = n => n + " leg" + (n>1?"s":"") + " gagnant" + (n>1?"s":"");
+/* Legs gagnants d'un match de phase finale (réglables phase par phase en cours de soirée) */
+const legsF = f => (f && f.legs) || DATA.tournoi.legsFinale;
+const PHASE = id => /^Q/.test(id) ? "Q" : /^D/.test(id) ? "D" : id;
 
 try { CODE = localStorage.getItem("noyadarts-code") || ""; } catch(e){}
 
 /* ---------------- Échanges avec le Google Sheet ---------------- */
+/* Dernier état reçu, gardé dans le navigateur : affiché tout de suite à l'ouverture de la page,
+   le temps que le Google Sheet réponde (12 heures au plus, pour ne pas montrer un vieux tournoi). */
+const MEMOIRE = { cle: "noyadarts-tournoi-etat", age: 12 * 3600 * 1000 };
+function memoriser(d){
+  try { const c = Object.assign({}, d); delete c.resultat; localStorage.setItem(MEMOIRE.cle, JSON.stringify({ t: Date.now(), d: c })); } catch(e){}
+}
+function memoire(){
+  try { const m = JSON.parse(localStorage.getItem(MEMOIRE.cle) || "null"); return m && m.d && Date.now() - m.t < MEMOIRE.age ? m.d : null; }
+  catch(e){ return null; }
+}
 async function lire(){
   const r = await fetch(API_URL, { cache:"no-store" });
   const d = await r.json();
   if(!d.ok) throw new Error(d.erreur || "Lecture impossible.");
+  memoriser(d);
   return d;
 }
 async function agir(action, donnees){
@@ -436,7 +455,7 @@ async function agir(action, donnees){
       if(d.codeFaux){ oublierCode(); }
       throw new Error(d.erreur || "Action impossible.");
     }
-    DATA = d; afficher();
+    DATA = d; memoriser(d); afficher();
     return d.resultat;
   } finally { OCCUPE--; }
 }
@@ -525,13 +544,19 @@ function blocSuivre(T){
 }
 
 const COURT = { "Moyenne Leg": "Moyenne leg", "Meilleure Volée": "Meilleure volée", "Meilleure Sortie": "Meilleure sortie" };
+/* « Nico ×2, Bob » : détenteurs d'un score parfait (180, 170), chaque score parfait compte */
+function nomsRecord(noms){
+  const nb = {}, ordre = [];
+  noms.forEach(n => { if(!nb[n]){ nb[n] = 0; ordre.push(n); } nb[n]++; });
+  return ordre.map(n => n + (nb[n] > 1 ? " ×" + nb[n] : "")).join(", ");
+}
 function blocRecords(T){
   const recs = T.records || [];
   return '<div class="recs"><h2>Records du soir</h2>' + DATA.types.map(t => {
-    const r = recs.find(x => x.type === t.nom);
+    const l = recs.filter(x => x.type === t.nom), r = l[0];
     return '<div class="r' + (r ? "" : " aucun") + (estAdmin() ? " clic" : "") + '" data-rec="' + esc(t.nom) + '"' +
       (estAdmin() ? ' title="Noter ou corriger ce record"' : "") + "><small>" + esc(COURT[t.nom] || t.nom) + "</small>" +
-      (r ? "<b>" + esc(String(r.score).replace(".", ",")) + "</b><span>" + esc(r.nom) + "</span>"
+      (r ? "<b>" + esc(String(r.score).replace(".", ",")) + "</b><span>" + esc(nomsRecord(l.map(x => x.nom))) + "</span>"
          : "<b>?</b><span>" + (estAdmin() ? "à noter" : "pas encore") + "</span>") + "</div>";
   }).join("") + "</div>";
 }
@@ -593,7 +618,7 @@ function blocPoule(T,p){
 
 function blocMatch(T, id, finale){
   const f = T.finale.find(x => x.id === id); if(!f) return "";
-  const L = T.legsFinale;
+  const L = legsF(f);
   const ligne = (nom, legs, autre) => {
     const cls = !f.pret ? "attente" : (f.joue ? (nom === f.gagnant ? "gagne" : "perd") : "");
     let score;
@@ -604,13 +629,22 @@ function blocMatch(T, id, finale){
     return '<div class="joueur ' + cls + '"><b>' + esc(nom) + "</b>" + score + "</div>";
   };
   const etat = f.etat === "✔" || f.etat === "En attente" || f.etat === "À jouer" ? "" : f.etat;
-  return '<div class="match' + (finale ? " finale" : "") + '" id="m-' + id + '"><div class="lib"><span>' + f.libelle + "</span><span>" + esc(etat) + "</span></div>" +
+  /* Legs du match : modifiables (toute la phase) tant qu'aucun match de la phase n'a de score */
+  const memePhase = T.finale.filter(x => PHASE(x.id) === PHASE(id));
+  const libre = estAdmin() && !T.termine && memePhase.every(x => x.a === "" && x.b === "");
+  const legsMix = T.finale.some(x => legsF(x) !== legsF(T.finale[0]));
+  const legsLib = libre
+    ? '<select class="legs-ph" data-legsph="' + PHASE(id) + '" title="Legs gagnants' + (memePhase.length > 1 ? " (les deux matchs de la phase)" : "") + '" aria-label="Legs gagnants, ' + esc(f.libelle) + '">' +
+      Array.from({length:DATA.legsMax},(_,k)=>'<option value="' + (k+1) + '"' + (k+1 === L ? " selected" : "") + ">" + legsTxt(k+1) + "</option>").join("") + "</select>"
+    : (legsMix ? '<em class="legs-ph">' + legsTxt(L) + "</em>" : "");
+  return '<div class="match' + (finale ? " finale" : "") + '" id="m-' + id + '"><div class="lib"><span>' + f.libelle + legsLib + "</span><span>" + esc(etat) + "</span></div>" +
     ligne(f.j1, f.a, "a") + ligne(f.j2, f.b, "b") + "</div>";
 }
 
 function blocArbre(T){
   const directe = T.finale.length === 1;
-  let h = '<h2 class="titre">Phase finale<small>' + legsTxt(T.legsFinale) + "</small></h2>";
+  const lg = T.finale.map(legsF), pareil = lg.every(n => n === lg[0]);
+  let h = '<h2 class="titre">Phase finale<small>' + (pareil ? legsTxt(lg[0]) : "legs gagnants par match") + "</small></h2>";
   if(T.forcage || (estAdmin() && !T.termine)){
     h += '<div class="finale-outils">' + (T.forcage ? '<p class="legende">Affiches choisies à la main.</p>' : "") +
       (estAdmin() && !T.termine ? '<button class="lien" id="btnAffiches" type="button">Modifier les affiches</button>' : "") + "</div>";
@@ -656,6 +690,12 @@ function brancher(){
   document.querySelectorAll(".suivre [data-rec]").forEach(e => e.onclick = () => ouvrirRecord(e.dataset.rec));
   document.querySelectorAll("select[data-f]").forEach(s => s.onchange = () => scoreArbre(s.dataset.f));
   if($("btnAffiches")) $("btnAffiches").onclick = ouvrirAffiches;
+  document.querySelectorAll("select[data-legsph]").forEach(s => s.onchange = async () => {
+    $("main").classList.add("charge");
+    try { toast(await agir("legsPhase", { phase: s.dataset.legsph, legs: Number(s.value) })); }
+    catch(e){ toast(e.message, true); afficher(); }
+    finally { $("main").classList.remove("charge"); }
+  });
   document.querySelectorAll("td.clic[data-pause]").forEach(td => td.onclick = async () => {
     const nom = td.dataset.pause, on = pauses(DATA.tournoi).indexOf(nom) < 0;
     $("main").classList.add("charge");
@@ -683,7 +723,7 @@ function brancher(){
 
 /* Score saisi directement dans l'arbre : envoyé dès que les deux menus forment un score valable */
 async function scoreArbre(id){
-  const T = DATA.tournoi, L = T.legsFinale;
+  const T = DATA.tournoi, L = legsF(T.finale.find(x => x.id === id));
   const a = document.querySelector('select[data-f="' + id + '"][data-cote="a"]').value;
   const b = document.querySelector('select[data-f="' + id + '"][data-cote="b"]').value;
   if(a === "" && b === ""){ return envoyerScore({ finale:id, a:"", b:"" }); }
@@ -707,7 +747,7 @@ function ouvrirScore(req){
   if(req.finale){
     const f = T.finale.find(x => x.id === req.finale);
     if(!f.pret){ toast("Les joueurs de ce match ne sont pas encore connus.", true); return; }
-    j1 = f.j1; j2 = f.j2; a = f.a; b = f.b; L = T.legsFinale; titre = f.libelle;
+    j1 = f.j1; j2 = f.j2; a = f.a; b = f.b; L = legsF(f); titre = f.libelle;
   } else {
     const m = T.matchs[req.match];
     j1 = m.j1; j2 = m.j2; a = m.a; b = m.b; L = T.legs[m.poule]; titre = "Poule " + LETTRES[m.poule] + ", match " + m.num;
@@ -754,20 +794,27 @@ document.addEventListener("keydown", e => {
 let RECORD = null;
 function ouvrirRecord(type){
   const T = DATA.tournoi, t = DATA.types.find(x => x.nom === type); if(!T || !t) return;
-  const r = (T.records || []).find(x => x.type === type) || {};
+  const l = (T.records || []).filter(x => x.type === type), r = l[0] || {};
   const joueurs = [].concat(...T.poules).sort((a,b) => a.localeCompare(b));
+  /* Score parfait déjà noté (180, 170) : on en ajoute un autre, chacun compte */
+  const parfaits = t.parfait && l.length && l.every(x => x.score === t.parfait);
   RECORD = type;
   $("recTitre").textContent = COURT[type] || type;
   $("recAide").textContent = "Record de la soirée, entre " + t.min + " et " + t.max + ". Il comptera au championnat à la validation de la soirée." +
-    (r.score !== undefined ? " Record actuel : " + String(r.score).replace(".", ",") + " par " + r.nom + "." : "");
-  $("recScore").value = r.score !== undefined ? String(r.score).replace(".", ",") : "";
-  $("recNom").innerHTML = '<option value="">qui ?</option>' + joueurs.map(n => "<option" + (r.nom === n ? " selected" : "") + ">" + esc(n) + "</option>").join("");
+    (t.parfait ? " Chaque " + t.parfait + " compte : s'il y en a plusieurs ce soir, même du même joueur, note-les un par un." : "") +
+    (r.score !== undefined && !parfaits ? " Record actuel : " + String(r.score).replace(".", ",") + " par " + r.nom + "." : "");
+  $("recListe").innerHTML = parfaits ? "<p class=\"aide\">" + t.parfait + " notés ce soir :</p>" + l.map((x,k) =>
+    '<div class="ligne"><span>' + esc(x.nom) + '</span><button class="lien" type="button" data-retirer="' + k + '">Retirer</button></div>').join("") : "";
+  $("recListe").querySelectorAll("[data-retirer]").forEach(b => b.onclick = () => envoyerRecord("", "", Number(b.dataset.retirer)));
+  $("recScore").value = parfaits ? String(t.parfait) : r.score !== undefined ? String(r.score).replace(".", ",") : "";
+  $("recNom").innerHTML = '<option value="">qui ?</option>' + joueurs.map(n => "<option" + (!parfaits && r.nom === n ? " selected" : "") + ">" + esc(n) + "</option>").join("");
+  $("recOk").textContent = parfaits ? "Ajouter ce " + t.parfait : "Enregistrer le record";
   note($("recMsg"), "");
   $("fondRecord").hidden = false; $("recScore").focus(); $("recScore").select();
 }
 function fermerRecord(){ $("fondRecord").hidden = true; RECORD = null; }
-async function envoyerRecord(score, nom){
-  try { const msg = await agir("record", { type: RECORD, score, nom }); VAL.date = null; fermerRecord(); toast(msg); }
+async function envoyerRecord(score, nom, retirer){
+  try { const msg = await agir("record", { type: RECORD, score, nom, retirer }); VAL.date = null; fermerRecord(); toast(msg); }
   catch(e){ note($("recMsg"), esc(e.message), "err"); }
 }
 $("formRecord").onsubmit = e => { e.preventDefault(); envoyerRecord($("recScore").value.trim(), $("recNom").value); };
@@ -1048,16 +1095,26 @@ async function ongletValider(c){
   let h = (T.enregistre ? '<div class="note ok">Cette soirée est déjà enregistrée au championnat. Tu peux corriger les records et réenregistrer.</div>' : "") +
     "<h3>Classement du " + dateFr(T.date) + "</h3>" +
     participants.map(n => '<div class="ligne"><span>' + esc(n) + "</span><span>" + place(T.rangs[n]) + "</span></div>").join("") +
-    '<h3>Records de la soirée</h3><p class="aide">Repris du bandeau « Records du soir ». Laisse vide s\'il n\'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.</p>';
-  h += DATA.types.map((t,i) => {
-    const r = (VAL.records || []).find(x => x.type === t.nom) || {};
-    return '<div class="rec"><label for="rs' + i + '">' + esc(t.nom) + '</label><input id="rs' + i + '" inputmode="decimal" placeholder="' + t.min + " à " + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace(".", ",")) : "") + '">' +
-      '<select id="rn' + i + '" aria-label="Auteur du record ' + esc(t.nom) + '"><option value="">qui ?</option>' + participants.map(n => "<option" + (r.nom === n ? " selected" : "") + ">" + esc(n) + "</option>").join("") + "</select></div>";
+    '<h3>Records de la soirée</h3><p class="aide">Repris du bandeau « Records du soir ». Laisse vide s\'il n\'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie. Chaque 180 et chaque 170 en sortie compte : une ligne par score parfait.</p>';
+  let k = 0;
+  const ligneRec = (t, r) => {
+    const i = k++;
+    return '<div class="rec" data-type="' + esc(t.nom) + '"><label for="rs' + i + '">' + esc(t.nom) + '</label><input id="rs' + i + '" class="rs" inputmode="decimal" placeholder="' + t.min + " à " + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace(".", ",")) : "") + '">' +
+      '<select class="rn" aria-label="Auteur du record ' + esc(t.nom) + '"><option value="">qui ?</option>' + participants.map(n => "<option" + (r.nom === n ? " selected" : "") + ">" + esc(n) + "</option>").join("") + "</select></div>";
+  };
+  h += DATA.types.map(t => {
+    const l = (VAL.records || []).filter(x => x.type === t.nom);
+    return (l.length ? l : [{}]).map(r => ligneRec(t, r)).join("") +
+      (t.parfait ? '<p class="rec-plus"><button class="lien" type="button" data-plus="' + esc(t.nom) + '">+ un autre ' + t.parfait + "</button></p>" : "");
   }).join("");
   h += '<div id="valMsg"></div><div class="boutons"><button class="btn" id="valOk" type="button">Enregistrer la soirée</button></div>';
   c.innerHTML = h;
+  c.querySelectorAll("[data-plus]").forEach(b => b.onclick = () => {
+    const t = DATA.types.find(x => x.nom === b.dataset.plus);
+    b.parentNode.insertAdjacentHTML("beforebegin", ligneRec(t, { score: t.parfait }));
+  });
   $("valOk").onclick = async () => {
-    const records = DATA.types.map((t,i) => ({ type: t.nom, score: $("rs" + i).value, nom: $("rn" + i).value }));
+    const records = [...c.querySelectorAll(".rec[data-type]")].map(d => ({ type: d.dataset.type, score: d.querySelector(".rs").value, nom: d.querySelector(".rn").value }));
     $("valOk").disabled = true; note($("valMsg"), "Enregistrement...", "warn");
     try {
       const msg = await agir("enregistrer", { date: T.date, rangs: T.rangs, records });
@@ -1194,6 +1251,12 @@ if(!API_URL){
   $("main").innerHTML = '<div class="accueil"><h2>Presque prêt</h2><p>Il reste à publier le script du Google Sheet en application Web, puis à coller son adresse dans la constante API_URL de cette page.</p></div>';
   $("btnGerer").disabled = true;
 } else {
+  /* Affichage immédiat du dernier état connu, puis mise à jour dès que le Google Sheet répond */
+  const dejaVu = memoire();
+  if(dejaVu){
+    DATA = dejaVu;
+    try { afficher(); $("statut").textContent += " (mise à jour en cours...)"; } catch(e){ DATA = null; }
+  }
   rafraichir();
   setInterval(rafraichir, RAFRAICHIR_MS);
   document.addEventListener("visibilitychange", () => { if(!document.hidden) rafraichir(); });

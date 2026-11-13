@@ -146,6 +146,9 @@ a{ color:var(--sisal); }
   transition:background .15s ease, transform .15s ease;
 }
 .btn:hover{ background:var(--red-deep); }
+.btn-line{ background:transparent; box-shadow:inset 0 0 0 2px var(--red); }
+.btn-line:hover{ background:var(--red); }
+.join{ margin-top:1.4rem; }
 .btn:active{ transform:translateY(1px); }
 .hint{ color:var(--chalk-dim); font-size:.98rem; }
 
@@ -336,6 +339,29 @@ th.num, td.num{ text-align:center; }
 .move.same{ color:var(--chalk-dim); font-weight:500; }
 .move.new{ color:var(--sisal); font-weight:600; font-size:.78rem; }
 .points-rule{ color:var(--chalk-dim); font-size:.95rem; max-width:70ch; margin:1rem 0 0; }
+/* Onglets des classements */
+.tabs{ display:flex; flex-wrap:wrap; gap:.2rem 1.8rem; margin:3rem 0 1.2rem; border-bottom:1px solid var(--slate-3); }
+.tab{ font-family:var(--display); font-weight:800; font-size:1.7rem; line-height:1.1; color:var(--chalk-dim); background:none; border:0; padding:0 0 .55rem; margin-bottom:-1px; border-bottom:3px solid transparent; }
+.tab:hover{ color:var(--chalk); }
+.tab[aria-selected="true"]{ color:var(--chalk); border-bottom-color:var(--red); }
+.tab:focus-visible{ outline:2px solid var(--sisal); outline-offset:4px; }
+td.pct{ width:40%; min-width:150px; }
+.unranked{ color:var(--chalk-dim); font-size:.95rem; margin:1rem 0 0; }
+/* Wall of fame : un tableau de craie par score parfait */
+.fame{ display:grid; gap:1.6rem; }
+@media (min-width:780px){ .fame{ grid-template-columns:repeat(3,1fr); } }
+.wall{ background:var(--slate-2); border-radius:14px; padding:1.1rem 1.2rem 1rem; }
+.wall h4{ margin:0; font-family:var(--display); font-weight:900; font-size:3.2rem; line-height:.95; color:var(--red); }
+.wall:nth-child(2) h4{ color:var(--sisal); }
+.wall:nth-child(3) h4{ color:var(--green); }
+.wall h4 small{ font-size:.42em; font-weight:800; color:var(--chalk); margin-left:.4rem; }
+.wall .what{ margin:.3rem 0 .7rem; color:var(--chalk-dim); font-size:.92rem; }
+.wall ol{ list-style:none; margin:0; padding:0; }
+.wall li{ display:flex; align-items:baseline; justify-content:space-between; gap:1rem; padding:.45rem 0; border-top:1px solid var(--slate-3); font-weight:600; color:var(--chalk); }
+.wall li .x{ font-family:var(--display); font-weight:900; font-size:1.6rem; line-height:1; color:var(--sisal); font-variant-numeric:tabular-nums; }
+.wall li .x.one{ color:var(--chalk-dim); font-size:1.2rem; font-weight:700; }
+.wall .empty{ margin:0; padding:.45rem 0; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
+.wall .total{ margin:.5rem 0 0; text-align:left; color:var(--chalk-dim); font-size:.88rem; }
 .nights{ display:grid; gap:1.4rem 1.6rem; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); }
 .night{ border-left:3px solid var(--slate-3); padding:.2rem 0 .2rem 1rem; }
 .night:first-child{ border-left-color:var(--red); }
@@ -478,6 +504,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc-recs .when{ color:var(--chalk-dim); font-size:.88rem; }
 .pc-recs .none{ grid-column:2 / -1; color:var(--chalk-dim); font-size:.92rem; }
 .pc-note{ color:var(--chalk-dim); font-size:.88rem; margin:0 0 1.8rem; }
+.pc-fame{ margin:-.4rem 0 .6rem; color:var(--sisal); font-weight:600; }
 .pc table{ min-width:0; font-size:.95rem; }
 .pc th, .pc td{ padding:.5rem .45rem; }
 .pc th:first-child, .pc td:first-child{ padding-left:0; white-space:nowrap; }
@@ -531,6 +558,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       <li><a href="regles.html">Règles</a></li>
       <li><a href="#photos">Photos</a></li>
       <li><a href="#contact">Contact</a></li>
+      <li><a href="https://noya-darts.assoconnect.com/collect/description/755785-t-adhesion-annuelle" target="_blank" rel="noopener">Adhérer</a></li>
     </ul>
   </nav>
   <div class="wrap">
@@ -592,6 +620,8 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       <div>
         <p>Noya'Darts est né d'une idée simple : se retrouver une fois par semaine autour d'une cible, sans prise de tête. On joue, on rigole, on s'encourage, et on progresse un peu au passage.</p>
         <p>Le club est ouvert à toutes celles et ceux qui veulent essayer. Si tu as une question avant de venir, écris-nous, on te répondra avec plaisir.</p>
+        <p class="join">Envie de rejoindre le club pour de bon ? L'adhésion annuelle se fait en ligne, sur AssoConnect.</p>
+        <p><a class="btn btn-line" href="https://noya-darts.assoconnect.com/collect/description/755785-t-adhesion-annuelle" target="_blank" rel="noopener">Adhérer au club</a></p>
       </div>
     </div>
   </section>
@@ -620,9 +650,22 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       <div class="periods" id="records"></div>
       <p class="points-rule">Un record n'est retenu qu'à partir de 50 de moyenne sur un leg, 100 points pour une volée et 60 points pour une sortie.</p>
 
-      <h3 class="subhead" id="champ-title">Championnat annuel</h3>
-      <div class="table-scroll" id="ranking"></div>
-      <p class="points-rule">Barème de chaque jeudi : 10 points pour le vainqueur, 7 pour le finaliste, 5 pour le 3e, 3 pour le 4e, 1 point de participation, et 1 point bonus par record de la soirée. Les flèches à côté des noms montrent les places gagnées ou perdues au dernier jeudi. <a href="regles.html#championnat">Les règles en détail</a></p>
+      <h3 class="subhead" id="fame-title">Wall of fame</h3>
+      <div class="fame" id="fame"></div>
+      <p class="points-rule">Les scores parfaits depuis la création du club. Chaque 180 et chaque 170 compte, même s'il y en a plusieurs le même soir.</p>
+
+      <div class="tabs" role="tablist" aria-label="Classements">
+        <button type="button" role="tab" class="tab" id="tab-champ" aria-selected="true" aria-controls="panel-champ"><span id="champ-title">Championnat annuel</span></button>
+        <button type="button" role="tab" class="tab" id="tab-pct" aria-selected="false" aria-controls="panel-pct" tabindex="-1">% de victoires</button>
+      </div>
+      <div role="tabpanel" id="panel-champ" aria-labelledby="tab-champ">
+        <div class="table-scroll" id="ranking"></div>
+        <p class="points-rule">Barème de chaque jeudi : 10 points pour le vainqueur, 7 pour le finaliste, 5 pour le 3e, 3 pour le 4e, 1 point de participation, et 1 point bonus par record de la soirée (chaque 180 et chaque 170 en sortie compte, même à plusieurs le même soir). Les flèches à côté des noms montrent les places gagnées ou perdues au dernier jeudi. <a href="regles.html#championnat">Les règles en détail</a></p>
+      </div>
+      <div role="tabpanel" id="panel-pct" aria-labelledby="tab-pct" hidden>
+        <div class="table-scroll" id="winrate"></div>
+        <p class="points-rule" id="winrate-note"></p>
+      </div>
 
       <h3 class="subhead">Les jeudis de la saison</h3>
       <div class="nights" id="nights"></div>
@@ -691,7 +734,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
   <div class="wrap">
     <span class="foot-id"><img src="logo-noyadarts.webp" alt="" width="640" height="576" loading="lazy">Noya'Darts, club de fléchettes de Noyarey (Isère)</span>
     <span>Jeudis dès 19 h, salle Chartreuse, Maison des Associations</span>
-    <span><a href="regles.html">Règles du tournoi</a><span class="orga" hidden> · <a href="guide-organisateur.html">Guide de l'organisateur</a></span></span>
+    <span><a href="https://noya-darts.assoconnect.com/collect/description/755785-t-adhesion-annuelle" target="_blank" rel="noopener">Adhérer au club</a> · <a href="regles.html">Règles du tournoi</a><span class="orga" hidden> · <a href="guide-organisateur.html">Guide de l'organisateur</a></span></span>
   </div>
 </footer>
 
@@ -895,6 +938,31 @@ const PHOTOS = [];
     { k:"meilleure volee", titre:"Meilleure volée", court:"Volée" },
     { k:"meilleure sortie", titre:"Meilleure sortie", court:"Sortie" }
   ];
+  /* Wall of fame : scores parfaits, comptés sur tout « Records BD ». Un 6 darter (301 en 6 fléchettes) = 150,5 de moyenne sur le leg. */
+  const FAME = [
+    { titre:"180", sous:"", what:"Le maximum en une volée : trois triples 20.", type:"meilleure volee", test:v => v >= 180 },
+    { titre:"170", sous:"big fish", what:"La plus grosse sortie possible : triple 20, triple 20, bull.", type:"meilleure sortie", test:v => v >= 170 },
+    { titre:"6", sous:"darter", what:"301 bouclé en 6 fléchettes, soit 150,5 de moyenne sur le leg.", type:"moyenne leg", test:v => v >= 150.5 }
+  ];
+  /* % de victoires : il faut au moins ce nombre de matchs archivés pour être classé */
+  const MIN_MATCHS_PCT = 5;
+
+  /* Plusieurs détenteurs le même soir (scores parfaits) : « Nico ×2, Bob », chaque nom cliquable */
+  function countNames(names){
+    const out = [];
+    names.forEach(n => { const o = out.find(x => norm(x.name) === norm(n)); if(o) o.n++; else out.push({ name:n, n:1 }); });
+    return out;
+  }
+  function appendNames(parent, names){
+    countNames(names).forEach((x, i) => {
+      if(i) parent.append(", ");
+      parent.append(playerLink(x.name));
+      if(x.n > 1) parent.append(" \u00d7" + x.n);
+    });
+    return parent;
+  }
+  /* Tous les détenteurs d'un record : même type, même soir, même score */
+  const holders = (recs, top) => recs.filter(r => norm(r.type) === norm(top.type) && key(r.date) === key(top.date) && r.score === top.score).map(r => r.name);
 
   const best = list => list.reduce((b, r) => (!b || r.score > b.score || (r.score === b.score && r.date > b.date)) ? r : b, null);
   const dayMonth = d => d.getDate() + (d.getDate() === 1 ? "er" : "") + " " + MOIS[d.getMonth()];
@@ -1083,6 +1151,8 @@ const PHOTOS = [];
       dl.appendChild(row);
     });
     body.appendChild(dl);
+    const exploits = FAME.map(f => ({ f, n:mine.filter(r => norm(r.type) === f.type && f.test(r.score)).length })).filter(x => x.n);
+    if(exploits.length) body.appendChild(el("p", "pc-fame", "Au wall of fame : " + exploits.map(x => x.f.titre + (x.f.sous ? " " + x.f.sous : "") + (x.n > 1 ? " \u00d7" + x.n : "")).join(", ") + "."));
     body.appendChild(el("p", "pc-note", "Records de soirée enregistrés au club (minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie)."));
 
     fillMatchs(body, p);
@@ -1101,7 +1171,10 @@ const PHOTOS = [];
         tr.appendChild(el("td", null, shortDate(n.date)));
         tr.appendChild(el("td", "place-" + r.rank, PLACE[r.rank] || String(r.rank)));
         const soir = mine.filter(x => key(x.date) === key(n.date));
-        const txt = TYPES.flatMap(tp => soir.filter(x => norm(x.type) === tp.k).map(x => tp.court + " " + fmtNum(x.score))).join(", ")
+        const txt = TYPES.flatMap(tp => {
+            const l = soir.filter(x => norm(x.type) === tp.k);
+            return [...new Set(l.map(x => x.score))].map(sc => { const nb = l.filter(x => x.score === sc).length; return tp.court + " " + fmtNum(sc) + (nb > 1 ? " \u00d7" + nb : ""); });
+          }).join(", ")
           || (r.recs ? r.recs + (r.recs > 1 ? " records" : " record") : "");
         tr.appendChild(el("td", "recs", txt));
         tr.appendChild(el("td", "num", r.pts != null ? fmtNum(r.pts) : ""));
@@ -1151,6 +1224,107 @@ const PHOTOS = [];
   let nightsOpen = false;
   const NIGHTS_VISIBLE = 6;
 
+  /* ---- Wall of fame : 180, 170 (big fish) et 6 darter, sur tout l'historique de « Records BD » ---- */
+  function renderFame(recs){
+    const box = document.getElementById("fame"); box.textContent = "";
+    FAME.forEach(f => {
+      const l = recs.filter(r => norm(r.type) === f.type && f.test(r.score));
+      const wall = el("div", "wall");
+      const h = el("h4", null, f.titre); if(f.sous) h.appendChild(el("small", null, f.sous));
+      wall.append(h, el("p", "what", f.what));
+      const parJoueur = {};
+      l.forEach(r => { const k = norm(r.name); const x = parJoueur[k] = parJoueur[k] || { name:r.name, dates:[], last:r.date }; x.dates.push(r.date); if(r.date > x.last) x.last = r.date; });
+      const liste = Object.values(parJoueur).sort((a, b) => b.dates.length - a.dates.length || b.last - a.last);
+      if(!liste.length){
+        wall.appendChild(el("p", "empty", "Personne pour l'instant. La place est libre."));
+      } else {
+        const ol = el("ol");
+        liste.forEach(x => {
+          const li = el("li"), nom = el("span");
+          nom.appendChild(playerLink(x.name));
+          const n = x.dates.length, b = el("span", "x" + (n > 1 ? "" : " one"), "\u00d7" + n);
+          const quand = x.dates.slice().sort((a, b) => a - b).map(d => shortDate(d) + " " + d.getFullYear()).join(", ");
+          b.title = (n > 1 ? n + " fois : " : "Le ") + quand; b.setAttribute("aria-label", n + " fois (" + quand + ")");
+          li.append(nom, b); ol.appendChild(li);
+        });
+        wall.appendChild(ol);
+        if(l.length > 1) wall.appendChild(el("p", "total", l.length + " au total"));
+      }
+      box.appendChild(wall);
+    });
+  }
+
+  /* ---- Classement par % de victoires, d'après « Matchs BD » (tout l'historique, barrages compris) ---- */
+  function renderWinrate(){
+    const wrap = document.getElementById("winrate"), noteEl = document.getElementById("winrate-note");
+    if(!wrap) return;
+    wrap.textContent = ""; noteEl.textContent = "";
+    if(!SHEET_CSV.matchs){ document.getElementById("tab-pct").hidden = true; return; }
+    if(!matchs.length){ wrap.appendChild(el("p", "empty", matchsLoaded ? "Pas encore de match archivé." : "Chargement des matchs...")); return; }
+    const stats = {};
+    const add = (name, v) => {
+      const k = norm(name), p = findPlayer(name);
+      const x = stats[k] = stats[k] || { name:p ? p.name : name, n:0, v:0 };
+      x.n++; if(v) x.v++;
+    };
+    matchs.forEach(m => { add(m.j1, norm(m.winner) === norm(m.j1)); add(m.j2, norm(m.winner) === norm(m.j2)); });
+    const tous = Object.values(stats);
+    const classes = tous.filter(x => x.n >= MIN_MATCHS_PCT)
+      .sort((a, b) => b.v / b.n - a.v / a.n || b.n - a.n || a.name.localeCompare(b.name, "fr"));
+    if(!classes.length){
+      wrap.appendChild(el("p", "empty", "Personne n'a encore joué " + MIN_MATCHS_PCT + " matchs."));
+    } else {
+      const t = el("table"), thead = el("thead"), hr = el("tr");
+      [["Rang"],["Joueur"],["Victoires"],["Matchs","num"],["V","num"],["D","num"]].forEach(([txt, c]) => hr.appendChild(el("th", c, txt)));
+      thead.appendChild(hr); t.appendChild(thead);
+      const tb = el("tbody");
+      let rank = 0, prev = null;
+      classes.forEach((x, i) => {
+        const r = x.v / x.n;
+        if(r !== prev){ rank = i + 1; prev = r; }
+        const tr = el("tr", rank <= 3 ? "top" + rank : "");
+        tr.appendChild(el("td", "rank", String(rank)));
+        const tdName = el("td", "player"); tdName.appendChild(playerLink(x.name)); tr.appendChild(tdName);
+        const td = el("td", "pct"), bar = el("div", "bar"), i2 = el("i");
+        i2.style.width = Math.max(4, Math.round(r * 100)) + "%"; i2.style.maxWidth = "calc(100% - 4rem)";
+        bar.append(i2, el("b", null, pct(x.v, x.n))); td.appendChild(bar); tr.appendChild(td);
+        tr.append(el("td", "num", String(x.n)), el("td", "num", String(x.v)), el("td", "num", String(x.n - x.v)));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); wrap.appendChild(t);
+    }
+    const autres = tous.filter(x => x.n < MIN_MATCHS_PCT).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, "fr"));
+    if(autres.length){
+      const p = el("p", "unranked", "Pas encore classés : ");
+      autres.forEach((x, i) => { if(i) p.append(", "); p.append(playerLink(x.name), " (" + x.n + ")"); });
+      wrap.appendChild(p);
+    }
+    const debut = matchs.reduce((a, m) => m.date < a ? m.date : a, matchs[0].date);
+    noteEl.textContent = "Tous les matchs archivés depuis le " + dayMonth(debut) + " " + debut.getFullYear() + ", barrages compris. Il faut au moins "
+      + MIN_MATCHS_PCT + " matchs pour être classé ; à pourcentage égal, celui qui a joué le plus de matchs passe devant (même rang).";
+  }
+
+  /* Onglets des classements (flèches gauche et droite au clavier) */
+  {
+    const tabs = [...document.querySelectorAll('.tabs [role="tab"]')];
+    const choisir = (t, focus) => {
+      tabs.forEach(x => {
+        const on = x === t;
+        x.setAttribute("aria-selected", String(on)); x.tabIndex = on ? 0 : -1;
+        document.getElementById(x.getAttribute("aria-controls")).hidden = !on;
+      });
+      if(focus) t.focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => choisir(t));
+      t.addEventListener("keydown", e => {
+        const vis = tabs.filter(x => !x.hidden), j = vis.indexOf(t);
+        if(e.key === "ArrowRight"){ e.preventDefault(); choisir(vis[(j + 1) % vis.length], true); }
+        if(e.key === "ArrowLeft"){ e.preventDefault(); choisir(vis[(j - 1 + vis.length) % vis.length], true); }
+      });
+    });
+  }
+
   function render(champ, recs, live){
     current = { champ, recs };
     { let rk = 0, pv = null; champ.players.forEach((p, i) => { if(p.points !== pv){ rk = i + 1; pv = p.points; } p.rank = rk; }); }
@@ -1197,7 +1371,7 @@ const PHOTOS = [];
           row.appendChild(el("dt", null, t.titre));
           if(top){
             row.appendChild(el("dd", "val", fmtNum(top.score)));
-            const w = el("dd", "who"); w.appendChild(playerLink(top.name));
+            const w = appendNames(el("dd", "who"), holders(recs, top));
             if(per.showDate) w.appendChild(el("span", "when", "le " + longDate(top.date)));
             row.appendChild(w);
           } else {
@@ -1208,6 +1382,9 @@ const PHOTOS = [];
         col.appendChild(dl); box.appendChild(col);
       });
     }
+
+    renderFame(recs);
+    renderWinrate();
 
     /* Tableau du championnat */
     document.getElementById("champ-title").textContent = champ.title;
@@ -1259,9 +1436,13 @@ const PHOTOS = [];
       const list = (byDate[key(n.date)] || []);
       if(list.length){
         const ul = el("ul");
-        TYPES.forEach(t => list.filter(r => norm(r.type) === t.k).forEach(r => {
-          const li = el("li"); li.append(t.court + " ", el("strong", null, fmtNum(r.score)), " par ", playerLink(r.name)); ul.appendChild(li);
-        }));
+        TYPES.forEach(t => {
+          const l = list.filter(r => norm(r.type) === t.k);
+          [...new Set(l.map(r => r.score))].forEach(sc => {
+            const li = el("li"); li.append(t.court + " ", el("strong", null, fmtNum(sc)), " par ");
+            appendNames(li, l.filter(r => r.score === sc).map(r => r.name)); ul.appendChild(li);
+          });
+        });
         card.appendChild(ul);
       }
       nb.appendChild(card);
@@ -1388,6 +1569,7 @@ const PHOTOS = [];
     let ok = true;
     try { matchs = readMatchs(text); } catch(e){ console.warn(e); ok = false; }
     if(live) matchsLoaded = true; // chargement terminé même si le contenu est illisible (on garde la version en cache)
+    renderWinrate();
     if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); }
     return ok;
   }
@@ -1396,7 +1578,7 @@ const PHOTOS = [];
     if(cM && showMatchs(cM, false)) matchsLoaded = true;
     fetchCSV(SHEET_CSV.matchs)
       .then(t => { if(showMatchs(t, true)) cacheSet("matchs", t); })
-      .catch(err => { console.warn("Matchs du Google Sheet indisponibles.", err); matchsLoaded = true; if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); } });
+      .catch(err => { console.warn("Matchs du Google Sheet indisponibles.", err); matchsLoaded = true; renderWinrate(); if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); } });
   }
 })();
 
