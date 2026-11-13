@@ -48,13 +48,54 @@ const TYPES = [
   { nom: 'Moyenne Leg', min: 50, max: 167,
     tropBas: "On ne prend qu'au dessus de 50 MPR en record de moyenne / leg, en vrai tu n'as rien fait d'exceptionnel...",
     tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire plus que 150 de moyenne au 301 ou 167 au 501 ?!?!" },
-  { nom: 'Meilleure Volée', min: 100, max: 180,
+  { nom: 'Meilleure Volée', min: 100, max: 180, parfait: 180,
     tropBas: "On ne prend qu'au dessus de 100 points en record de volée, en vrai tu n'as rien fait d'exceptionnel...",
     tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire plus que 180 en une seule volée ?!?!" },
-  { nom: 'Meilleure Sortie', min: 60, max: 170,
+  { nom: 'Meilleure Sortie', min: 60, max: 170, parfait: 170,
     tropBas: "On ne prend qu'au dessus de 60 points en record de sortie, en vrai tu n'as rien fait d'exceptionnel...",
     tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire une sortie à plus de 170 ?!?!" },
 ];
+// Score parfait (180, et 170 en sortie : le « big fish ») : plusieurs joueurs peuvent le faire le même soir,
+// et un joueur peut le faire plusieurs fois. Chaque score parfait est un record (1 point bonus chacun).
+
+/** Noms des détenteurs d'un record, « Nico ×2, Bob » si plusieurs scores parfaits le même soir. */
+function nomsRecord_(noms) {
+  const ordre = [], nb = {};
+  noms.forEach(function (n) { if (!nb[n]) { nb[n] = 0; ordre.push(n); } nb[n]++; });
+  return ordre.map(function (n) { return n + (nb[n] > 1 ? ' ×' + nb[n] : ''); }).join(', ');
+}
+
+/**
+ * Contrôle les records d'une soirée : [{ type, score, nom }] (lignes vides ignorées).
+ * Un seul record par type, sauf les scores parfaits (180, 170) : autant de lignes que de scores parfaits.
+ * estPresent(nom) dit si le joueur a joué ce soir-là.
+ */
+function validerRecords_(liste, estPresent) {
+  const recs = [];
+  (liste || []).forEach(function (r) {
+    const brut = String(r.score === undefined || r.score === null ? '' : r.score).trim().replace(',', '.');
+    if (!brut && !r.nom) return; // ligne vide : pas de record ce soir-là
+    const t = TYPES.find(function (x) { return x.nom === r.type; });
+    if (!t) throw new Error('Type de record inconnu : ' + r.type);
+    if (!brut) throw new Error('Faudrait voir à remplir la valeur du record « ' + t.nom + ' », je ne suis pas devin...');
+    if (!r.nom) throw new Error('Qui a fait le record « ' + t.nom + ' » ?');
+    const v = Number(brut);
+    if (isNaN(v)) throw new Error('« ' + r.score + ' » n\'est pas un nombre (' + t.nom + ').');
+    if (v < t.min) throw new Error(t.tropBas);
+    if (v > t.max) throw new Error(t.tropHaut);
+    if (!estPresent(r.nom)) throw new Error(r.nom + " n'a pas joué ce soir-là, son record ne peut pas compter.");
+    recs.push({ type: t.nom, score: v, nom: r.nom });
+  });
+  TYPES.forEach(function (t) {
+    const l = recs.filter(function (r) { return r.type === t.nom; });
+    if (l.length < 2) return;
+    if (!t.parfait) throw new Error('Un seul record « ' + t.nom + ' » par soirée.');
+    if (l.some(function (r) { return r.score !== t.parfait; })) {
+      throw new Error('Plusieurs records « ' + t.nom + ' » le même soir : seulement pour des ' + t.parfait + ' (chacun compte).');
+    }
+  });
+  return recs;
+}
 
 const RANGS = [
   { v: 1, l: 'Vainqueur' }, { v: 2, l: 'Finaliste' }, { v: 3, l: '3e' },
@@ -189,14 +230,20 @@ function installerOngletRecords_() {
     .filter(function (d, i, a) { return d && a.indexOf(d) === i; })
     .sort().reverse(); // de la plus récente à la plus ancienne
 
-  // Record d'un type pour une soirée (premier trouvé, comme avant)
+  // Record d'un type pour une soirée (scores parfaits : tous les détenteurs, « Nico ×2, Bob »)
+  const regrouper = function (l) {
+    return l.length ? { cle: l[0].cle, score: l[0].score, nom: nomsRecord_(l.map(function (x) { return x.nom; })) } : undefined;
+  };
   const duSoir = function (iso, type) {
-    return recs.filter(function (l) { return l.cle === iso && l.type === type; })[0];
+    const l = recs.filter(function (x) { return x.cle === iso && x.type === type; });
+    return regrouper(l.filter(function (x) { return Number(x.score) === Number(l[0] && l[0].score); }));
   };
   // Meilleur record d'un type sur une période ; à égalité, le plus récent l'emporte
+  // (et tous ses détenteurs de ce soir-là s'il s'agit de scores parfaits)
   const meilleur = function (type, depuis) {
-    return recs.filter(function (l) { return l.type === type && (!depuis || l.cle >= depuis); })
-      .sort(function (a, b) { return (Number(b.score) || 0) - (Number(a.score) || 0) || (a.cle < b.cle ? 1 : a.cle > b.cle ? -1 : 0); })[0];
+    const l = recs.filter(function (x) { return x.type === type && (!depuis || x.cle >= depuis); })
+      .sort(function (a, b) { return (Number(b.score) || 0) - (Number(a.score) || 0) || (a.cle < b.cle ? 1 : a.cle > b.cle ? -1 : 0); });
+    return regrouper(l.filter(function (x) { return l.length && x.cle === l[0].cle && Number(x.score) === Number(l[0].score); }));
   };
   const blocSoiree = function (ligneDate, iso) {
     sh.getRange(ligneDate, 1).setValue(iso ? serie_(iso) : '').setNumberFormat('d/m/yyyy');
@@ -240,7 +287,7 @@ function installerOngletRecords_() {
 function donneesSaisie() {
   return {
     joueurs: lireJoueurs_(),
-    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max }; }),
+    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max, parfait: t.parfait || null }; }),
     rangs: RANGS,
     dateDefaut: dernierJeudi_(),
   };
@@ -285,6 +332,7 @@ function chargerSoiree(iso) {
  * Sinon renvoie { nom, ajoute: true }.
  */
 function ajouterJoueur(nom, forcer) {
+  invaliderEtat_();
   nom = String(nom || '').trim().replace(/\s+/g, ' ');
   if (!nom) throw new Error("T'es bidon mec, il faut taper le nom avant de valider...");
   const sh = feuille_(CFG.champ);
@@ -330,6 +378,7 @@ function infosJoueur(nom) {
  * Sinon renvoie { nom, renomme: true, message }.
  */
 function renommerJoueur(ancien, nouveau, forcer) {
+  invaliderEtat_();
   ancien = String(ancien || '').trim();
   nouveau = String(nouveau || '').trim().replace(/\s+/g, ' ');
   if (!ancien) throw new Error('Choisis le joueur à renommer.');
@@ -398,6 +447,7 @@ function renommerJoueur(ancien, nouveau, forcer) {
 
 /** Supprime un joueur : sa ligne du championnat et ses records dans "Records BD". */
 function supprimerJoueur(nom) {
+  invaliderEtat_();
   const lock = LockService.getDocumentLock();
   lock.waitLock(30000);
   try {
@@ -426,6 +476,7 @@ function supprimerJoueur(nom) {
  * p = { date: 'aaaa-mm-jj', rangs: { nom: 1..5 }, records: [{ type, score, nom }] }
  */
 function enregistrerSoiree(p) {
+  invaliderEtat_();
   const lock = LockService.getDocumentLock();
   lock.waitLock(30000);
   try {
@@ -438,21 +489,7 @@ function enregistrerSoiree(p) {
     if (nb(1) !== 1) throw new Error('Il faut un vainqueur, et un seul.');
     if (nb(2) !== 1) throw new Error('Il faut un finaliste, et un seul.');
 
-    const recs = [];
-    (p.records || []).forEach(function (r) {
-      const brut = String(r.score === undefined || r.score === null ? '' : r.score).trim().replace(',', '.');
-      if (!brut && !r.nom) return; // ligne vide : pas de record ce soir-là
-      const t = TYPES.find(function (x) { return x.nom === r.type; });
-      if (!t) throw new Error('Type de record inconnu : ' + r.type);
-      if (!brut) throw new Error('Faudrait voir à remplir la valeur du record « ' + t.nom + ' », je ne suis pas devin...');
-      if (!r.nom) throw new Error('Qui a fait le record « ' + t.nom + ' » ?');
-      const v = Number(brut);
-      if (isNaN(v)) throw new Error('« ' + r.score + ' » n\'est pas un nombre (' + t.nom + ').');
-      if (v < t.min) throw new Error(t.tropBas);
-      if (v > t.max) throw new Error(t.tropHaut);
-      if (!rangs[r.nom]) throw new Error(r.nom + " n'a pas joué ce soir-là, son record ne peut pas compter.");
-      recs.push({ type: t.nom, score: v, nom: r.nom });
-    });
+    const recs = validerRecords_(p.records, function (n) { return !!rangs[n]; });
 
     const sh = feuille_(CFG.champ);
     const joueurs = lireJoueurs_();
@@ -527,6 +564,8 @@ function trierBlocPoule_(sh, a1) {
 /* ============================ TOURNOI ============================ */
 /*
  * Tournoi du jeudi : poules (chacun contre chacun), puis demi-finales, petite finale et finale.
+ * Option « Grosse soirée » (3 poules) : les 2 premiers de chaque poule sont qualifiés (6 joueurs).
+ * Les deux meilleurs 1ers vont directement en demi-finale, les quatre autres jouent les quarts.
  * L'état du tournoi (date et composition des poules) est rangé dans l'onglet « Tournoi » lui-même
  * (métadonnée invisible) : la mise à jour automatique à chaque score tapé fonctionne sans autorisation
  * supplémentaire. Le moteur (planTournoi_, calculTournoi_...) ne dépend pas du Google Sheet :
@@ -544,7 +583,10 @@ const TOURNOI = {
   colD: 9,          // colonne I : début du bloc de droite (classements et phase finale)
 };
 
-const LIBELLES_FINALE = { D1: 'Demi-finale 1', D2: 'Demi-finale 2', PF: 'Petite finale', F: 'Finale' };
+const LIBELLES_FINALE = { Q1: 'Quart de finale 1', Q2: 'Quart de finale 2', D1: 'Demi-finale 1', D2: 'Demi-finale 2', PF: 'Petite finale', F: 'Finale' };
+
+/** Grosse soirée : 6 qualifiés et quarts de finale (seulement avec 3 poules). */
+function estGrosse_(etat) { return !!etat.grosse && etat.poules.length === 3; }
 
 /* ---------- Menu ---------- */
 
@@ -598,6 +640,7 @@ function reglagesTournoi() {
 }
 
 function enregistrerSeuils_(n2, n3) {
+  invaliderEtat_();
   n2 = Number(n2); n3 = Number(n3);
   if (!Number.isInteger(n2) || n2 < 4) throw new Error('Pour 2 poules, il faut un nombre entier, au moins 4 (2 joueurs par poule).');
   if (!Number.isInteger(n3) || n3 < 6 || n3 <= n2) throw new Error('Pour 3 poules, il faut un nombre entier, au moins 6 et plus grand que le réglage des 2 poules (' + n2 + ').');
@@ -614,11 +657,82 @@ function seuilsTournoi_() {
 
 /** Legs gagnants d'une poule et de la phase finale (2 par défaut pour les tournois lancés avant ce réglage). */
 function legsPoule_(etat, p) { return (etat.legs && Number(etat.legs[p])) || TOURNOI.legs; }
-function legsFinale_(etat) { return Number(etat.legsFinale) || TOURNOI.legs; }
+/**
+ * Legs gagnants d'un match de phase finale. Réglables phase par phase en cours de soirée
+ * (etat.legsPhases = { Q: quarts, D: demi-finales, PF: petite finale, F: finale }), sinon le réglage du lancement.
+ */
+function phaseFinale_(id) { return /^Q/.test(id) ? 'Q' : /^D/.test(id) ? 'D' : id; }
+function legsFinale_(etat, id) {
+  const lp = etat.legsPhases || {};
+  return (id && Number(lp[phaseFinale_(id)])) || Number(etat.legsFinale) || TOURNOI.legs;
+}
+const LIBELLES_PHASES = { Q: 'Quarts de finale', D: 'Demi-finales', PF: 'Petite finale', F: 'Finale' };
+
+/**
+ * Change les legs gagnants d'une phase finale en cours de soirée : req = { phase: 'Q'|'D'|'PF'|'F', legs }.
+ * Refusé si un match de cette phase a déjà un score (l'effacer d'abord).
+ */
+function legsPhase_(req) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lu = lireTournoi_();
+    const ph = String(req.phase || '');
+    const ids = lu.plan.finale.matchs.map(function (m) { return m.id; }).filter(function (id) { return phaseFinale_(id) === ph; });
+    if (!ids.length) throw new Error('Phase introuvable dans ce tournoi.');
+    const n = Number(req.legs);
+    if (!Number.isInteger(n) || n < 1 || n > TOURNOI.legsMax) throw new Error('Legs gagnants : un nombre de 1 à ' + TOURNOI.legsMax + '.');
+    const vide = function (v) { return v === '' || v === null || v === undefined; };
+    lu.plan.finale.matchs.forEach(function (m, i) {
+      const c = lu.cells[i];
+      if (ids.indexOf(m.id) >= 0 && !(vide(c.a) && vide(c.b))) {
+        throw new Error('Le match « ' + LIBELLES_FINALE[m.id] + ' » a déjà un score : efface-le d\'abord pour changer les legs.');
+      }
+    });
+    const etat = lu.etat;
+    etat.legsPhases = etat.legsPhases || {};
+    etat.legsPhases[ph] = n;
+    ecrireEtatTournoi_(etat);
+    menusFinale_(lu.sh, etat, lu.plan);
+    majTournoi_(lu); // recalcule avec les nouveaux legs, sans relire l'onglet
+    return LIBELLES_PHASES[ph] + ' en ' + n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : '') + '.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Titre de la phase finale, libellé et legs de chaque match (legs indiqués quand ils diffèrent d'un match à l'autre). */
+function infosFinale_(etat, plan) {
+  const txt = function (n) { return n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : ''); };
+  const legs = plan.finale.matchs.map(function (m) { return legsFinale_(etat, m.id); });
+  const pareil = legs.every(function (n) { return n === legs[0]; });
+  return {
+    titre: 'Phase finale (' + (pareil ? txt(legs[0]) : 'legs gagnants par match') + ')',
+    legs: legs,
+    libelles: plan.finale.matchs.map(function (m, i) { return LIBELLES_FINALE[m.id] + (pareil ? '' : ' (' + legs[i] + ')'); }),
+  };
+}
+/** Menu déroulant des legs gagnés (0 à n). */
+function menuLegs_(n) {
+  const choix = [];
+  for (let k = 0; k <= n; k++) choix.push(String(k));
+  return SpreadsheetApp.newDataValidation().requireValueInList(choix, true).setAllowInvalid(false)
+    .setHelpText('Legs gagnés par ce joueur (' + n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : '') + ')').build();
+}
+
+/** Menus des legs et titres de la phase finale dans l'onglet « Tournoi » (après un changement de legs en cours de soirée). */
+function menusFinale_(sh, etat, plan) {
+  const inf = infosFinale_(etat, plan);
+  sh.getRange(plan.finale.titre, TOURNOI.colD).setValue(inf.titre);
+  plan.finale.matchs.forEach(function (m, i) {
+    sh.getRange(m.r1, m.col + 2, 2, 1).setDataValidation(menuLegs_(inf.legs[i]));
+  });
+}
 
 /** Mise à jour automatique : chaque modification dans l'onglet « Tournoi » recalcule tout. */
 function onEdit(e) {
   try {
+    invaliderEtat_(); // toute saisie dans le Google Sheet peut changer ce qu'affiche la page
     if (!e || !e.range || e.range.getSheet().getName() !== TOURNOI.onglet) return;
     majTournoi_();
   } catch (err) { /* silencieux : le menu « Mettre à jour le tournoi » affiche l'erreur */ }
@@ -658,10 +772,12 @@ function lancerTournoi(p) {
     const legsFinale = p.legsFinale !== undefined ? Number(p.legsFinale) : TOURNOI.legs;
     if (!legs.every(okLegs) || !okLegs(legsFinale)) throw new Error('Legs gagnants : un nombre de 1 à ' + TOURNOI.legsMax + '.');
     const etat = { date: p.date, poules: poules, legs: legs, legsFinale: legsFinale };
+    if (p.grosse && poules.length === 3) etat.grosse = true;
     ecrireTournoi_(etat);
     const n = poules.reduce(function (t, l) { return t + l.length; }, 0);
     return { message: 'Tournoi lancé : ' + n + ' joueurs, ' + poules.length + ' poule(s), ' +
-      planTournoi_(etat).matchs.length + ' matchs de poule. Bon jeu !' };
+      planTournoi_(etat).matchs.length + ' matchs de poule' +
+      (etat.grosse ? ', grosse soirée (6 qualifiés, quarts de finale)' : '') + '. Bon jeu !' };
   } finally {
     lock.releaseLock();
   }
@@ -720,13 +836,16 @@ function planTournoi_(etat) {
   // reliées par des traits dans la colonne L ; petite finale sous la demi-finale 2.
   const C = TOURNOI.colD;
   const m = function (id, ligne, col) { return { id: id, label: ligne, r1: ligne + 1, r2: ligne + 2, col: col }; };
+  // Grosse soirée : les deux quarts côte à côte au-dessus de l'arbre (I:K et M:O).
   let finale;
   if (P.length === 1 && n === 3) {
     finale = { titre: q, matchs: [m('F', q + 1, C)], traits: null };
     q += 5;
   } else {
-    finale = { titre: q, matchs: [m('D1', q + 1, C), m('D2', q + 7, C), m('PF', q + 11, C), m('F', q + 4, C + 4)], traits: q };
-    q += 15;
+    const quarts = estGrosse_(etat) ? [m('Q1', q + 1, C), m('Q2', q + 1, C + 4)] : [];
+    const b = q + (quarts.length ? 4 : 0);
+    finale = { titre: q, matchs: quarts.concat([m('D1', b + 1, C), m('D2', b + 7, C), m('PF', b + 11, C), m('F', b + 4, C + 4)]), traits: b };
+    q = b + 15;
   }
   const final = { titre: q, debut: q + 1, n: finale.matchs.length === 1 ? 3 : 4 };
   return { matchs: matchs, blocs: blocs, finale: finale, final: final, n: n,
@@ -781,8 +900,91 @@ function classerPoule_(noms, matchs, departage, p) {
   l.forEach(function (x, i) {
     x.rang = i + 1;
     x.egalite = (i > 0 && pareil(x, l[i - 1])) || (i < l.length - 1 && pareil(x, l[i + 1]));
+    x.cle = [x.V, x.diff, x.h2h, x.lp, dep(x)].join('|'); // même clé = égalité parfaite
   });
   return l;
+}
+
+/**
+ * Barrages en 1 leg d'une poule terminée (égalités parfaites qui comptent pour la qualification
+ * ou les croisements, c'est-à-dire qui touchent les nq premières places) :
+ *   - 2 joueurs à égalité : un barrage, le gagnant passe devant ;
+ *   - 3 joueurs à égalité pour 2 places qualificatives : on repêche le joueur classé juste derrière,
+ *     et les 4 jouent 2 barrages (affiches tirées au sort sur la page). Les 2 vainqueurs prennent les
+ *     places, dans l'ordre du classement (à égalité : le vainqueur du premier barrage devant) ;
+ *   - autres cas (rares) : ordre à la main (colonne « Départage ») ou affiches choisies à la main.
+ * Modifie cl (ordre, rangs, égalités). etat.barrages = [{ p, j1, j2, a, b }] (a, b : 1 et 0, ou vides).
+ */
+function resoudreBarrages_(etat, cl, p, nq) {
+  const L = TOURNOI.lettres[p];
+  const out = { attente: false, matchs: [], repechages: [], messages: [] };
+  const enreg = (etat.barrages || []).filter(function (x) { return x.p === p; });
+  const joueB = function (x) { return x && (x.a === 1 || x.a === 0) && (x.b === 1 || x.b === 0) && x.a + x.b === 1; };
+  const versMatch = function (x, type) {
+    const m = { p: p, j1: x.j1, j2: x.j2, type: type, joue: joueB(x), a: '', b: '' };
+    if (m.joue) { m.a = x.a; m.b = x.b; m.gagnant = x.a ? x.j1 : x.j2; m.perdant = x.a ? x.j2 : x.j1; }
+    return m;
+  };
+  const groupes = [];
+  for (let i = 0; i < cl.length;) {
+    let j = i;
+    while (j + 1 < cl.length && cl[j + 1].cle === cl[i].cle) j++;
+    if (j > i && i < nq) groupes.push([i, j]);
+    i = j + 1;
+  }
+  const placer = function (d, ordre) {
+    ordre.forEach(function (x, k) { cl[d + k] = x; x.egalite = false; });
+  };
+  groupes.forEach(function (g) {
+    const d = g[0], f = g[1], eg = cl.slice(d, f + 1), noms = eg.map(function (x) { return x.nom; });
+    if (eg.length === 2) {
+      const x = enreg.filter(function (y) { return noms.indexOf(y.j1) >= 0 && noms.indexOf(y.j2) >= 0 && y.j1 !== y.j2; })[0];
+      const m = versMatch(x || { j1: noms[0], j2: noms[1] }, 'duel');
+      out.matchs.push(m);
+      if (m.joue) placer(d, m.gagnant === noms[0] ? [eg[0], eg[1]] : [eg[1], eg[0]]);
+      else {
+        out.attente = true;
+        out.messages.push('⚔️ Égalité parfaite en poule ' + L + ' : barrage en 1 leg entre ' + noms[0] + ' et ' + noms[1] +
+          ' (page du tournoi, ou 1 pour le gagnant et 2 pour l\'autre dans la colonne « Départage » de l\'onglet).');
+      }
+      return;
+    }
+    const suivant = cl[f + 1];
+    const repechable = eg.length === 3 && nq - d === 2 && suivant && !(cl[f + 2] && cl[f + 2].cle === suivant.cle);
+    if (!repechable) {
+      out.messages.push('⚠️ Égalité parfaite en poule ' + L + ' (' + noms.join(', ') + ') : pas de barrage automatique dans ce cas. ' +
+        'Indique l\'ordre à la main (clic sur leur rang dans la page du tournoi, ou colonne « Départage » de l\'onglet) ou choisis les affiches de la phase finale à la main.');
+      return;
+    }
+    const tous = noms.concat([suivant.nom]);
+    const dedans = enreg.filter(function (y) { return tous.indexOf(y.j1) >= 0 && tous.indexOf(y.j2) >= 0 && y.j1 !== y.j2; });
+    const couverts = [].concat.apply([], dedans.map(function (y) { return [y.j1, y.j2]; }));
+    const rep = { p: p, egaux: noms, repeche: suivant.nom, joueurs: tous, paires: null, joue: false };
+    out.repechages.push(rep);
+    if (dedans.length !== 2 || tous.some(function (n) { return couverts.indexOf(n) < 0; })) {
+      out.messages.push('⚔️ Égalité parfaite à trois en poule ' + L + ' (' + noms.join(', ') + ') : ' + suivant.nom +
+        ' est repêché. Tirez au sort les 2 barrages en 1 leg dans la page du tournoi.');
+      out.attente = true;
+      return;
+    }
+    const ms = dedans.map(function (y) { return versMatch(y, 'repechage'); });
+    rep.paires = ms.map(function (m) { return [m.j1, m.j2]; });
+    ms.forEach(function (m) { out.matchs.push(m); });
+    if (!ms[0].joue || !ms[1].joue) {
+      out.messages.push('⚔️ Barrages en poule ' + L + ' (1 leg) : ' + ms.filter(function (m) { return !m.joue; })
+        .map(function (m) { return m.j1 + ' contre ' + m.j2; }).join(', ') + '.');
+      out.attente = true;
+      return;
+    }
+    rep.joue = true;
+    const st = {}; cl.forEach(function (x) { st[x.nom] = x; });
+    const ordre = function (l) { // joueurs à égalité avant le repêché, sinon ordre des barrages
+      return l.slice().sort(function (a, b) { return (a === suivant.nom) - (b === suivant.nom); }).map(function (n) { return st[n]; });
+    };
+    placer(d, ordre(ms.map(function (m) { return m.gagnant; })).concat(ordre(ms.map(function (m) { return m.perdant; }))));
+  });
+  cl.forEach(function (x, i) { x.rang = i + 1; });
+  return out;
 }
 
 /**
@@ -812,29 +1014,32 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
     etatsMatchs.push(s.erreur ? '⚠️ ' + s.erreur : s.joue ? '✔' : '');
     if (s.joue) { joues++; parPoule[m.poule].push({ j1: m.j1, j2: m.j2, s: s }); }
   });
-  const finies = joues === plan.matchs.length;
+  let finies = joues === plan.matchs.length;
   const classements = P.map(function (noms, p) {
     const cl = classerPoule_(noms, parPoule[p], departage || {}, p);
     cl.forEach(function (x) { x.legs = legsPoule_(etat, p); });
     return cl;
   });
 
-  // Égalités parfaites qui comptent pour la qualification ou les croisements
+  // Égalités parfaites qui comptent pour la qualification ou les croisements : barrages en 1 leg
   const nq = k === 1 ? Math.min(4, n) : 2;
+  const barrages = [], repechages = [];
+  let barragesEnAttente = false;
   classements.forEach(function (cl, p) {
     const finie = parPoule[p].length === P[p].length * (P[p].length - 1) / 2;
     if (!finie) { cl.forEach(function (x) { x.egalite = false; }); return; } // une égalité ne compte qu'à la fin de la poule
-    const eg = cl.filter(function (x) { return x.egalite; });
-    if (eg.length && eg.some(function (x) { return x.rang <= nq; })) {
-      messages.push('⚠️ Égalité parfaite en poule ' + L[p] + ' (' + eg.map(function (x) { return x.nom; }).join(', ') +
-        ') : départagez-les au bull, puis indiquez l\'ordre (1, 2...) dans la colonne « Départage » de l\'onglet ou en cliquant sur leur rang dans la page du tournoi.');
-    }
+    const b = resoudreBarrages_(etat, cl, p, nq);
+    b.matchs.forEach(function (m) { barrages.push(m); });
+    b.repechages.forEach(function (r) { repechages.push(r); });
+    b.messages.forEach(function (m) { messages.push(m); });
+    if (b.attente) barragesEnAttente = true;
   });
+  if (barragesEnAttente) finies = false; // qualifiés connus seulement une fois les barrages joués
 
   // Qualifiés : { nom } si connu, { attente: 'texte' } sinon
   const qui = function (p, r, txt) { return finies ? { nom: classements[p][r].nom } : { attente: txt }; };
   const qualifies = [];
-  let D1, D2, Fdirect = null;
+  let D1, D2, Fdirect = null, Q1 = null, Q2 = null, E1 = null, E2 = null; // E1, E2 : exemptés de quart (grosse soirée)
   if (k === 1 && n === 3) {
     Fdirect = [qui(0, 0, '1er'), qui(0, 1, '2e')];
     if (finies) qualifies.push(classements[0][0].nom, classements[0][1].nom);
@@ -846,6 +1051,24 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
     D1 = [qui(0, 0, '1er poule A'), qui(1, 1, '2e poule B')];
     D2 = [qui(1, 0, '1er poule B'), qui(0, 1, '2e poule A')];
     if (finies) [0, 1].forEach(function (p) { qualifies.push(classements[p][0].nom, classements[p][1].nom); });
+  } else if (estGrosse_(etat)) {
+    // Têtes de série : 1ers puis 2es, classés entre eux (comparerTaux_). Les deux meilleurs 1ers
+    // attendent en demi-finale ; quart 1 : meilleur 2e contre 2e meilleur 2e (vainqueur contre le
+    // meilleur 1er), quart 2 : 3e meilleur 1er contre 3e meilleur 2e (sauf s'ils viennent de la même poule).
+    if (finies) {
+      const v = [0, 1, 2].map(function (p) { return classements[p][0]; }).sort(comparerTaux_);
+      const s = [0, 1, 2].map(function (p) { return classements[p][1]; }).sort(comparerTaux_);
+      let q1 = [s[0], s[1]], q2 = [v[2], s[2]];
+      if (s[2].poule === v[2].poule) { q1 = [s[0], s[2]]; q2 = [v[2], s[1]]; }
+      Q1 = [{ nom: q1[0].nom }, { nom: q1[1].nom }];
+      Q2 = [{ nom: q2[0].nom }, { nom: q2[1].nom }];
+      E1 = { nom: v[0].nom }; E2 = { nom: v[1].nom };
+      v.concat(s).forEach(function (x) { qualifies.push(x.nom); });
+    } else {
+      Q1 = [{ attente: 'Meilleur 2e' }, { attente: '2e meilleur 2e' }];
+      Q2 = [{ attente: '3e meilleur 1er' }, { attente: '3e meilleur 2e' }];
+      E1 = { attente: 'Meilleur 1er' }; E2 = { attente: '2e meilleur 1er' };
+    }
   } else {
     if (finies) {
       const v = [0, 1, 2].map(function (p) { return classements[p][0]; }).sort(comparerTaux_);
@@ -865,10 +1088,12 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
   const choisis = function (l) { return l.map(function (nom) { return { nom: nom }; }); };
   let force = false;
   if (fo && Fdirect && fo.F) { Fdirect = choisis(fo.F); force = true; }
-  if (fo && !Fdirect && fo.D1 && fo.D2) { D1 = choisis(fo.D1); D2 = choisis(fo.D2); force = true; }
+  else if (fo && Q1 && fo.Q1 && fo.Q2 && fo.D1 && fo.D2) {
+    Q1 = choisis(fo.Q1); Q2 = choisis(fo.Q2); E1 = { nom: fo.D1[0] }; E2 = { nom: fo.D2[0] }; force = true;
+  } else if (fo && !Fdirect && !Q1 && fo.D1 && fo.D2) { D1 = choisis(fo.D1); D2 = choisis(fo.D2); force = true; }
   if (force) {
     qualifies.length = 0;
-    (Fdirect || D1.concat(D2)).forEach(function (x) { qualifies.push(x.nom); });
+    (Fdirect || (Q1 ? Q1.concat(Q2, [E1, E2]) : D1.concat(D2))).forEach(function (x) { qualifies.push(x.nom); });
   }
 
   // Phase finale, dans l'ordre de calcul : demi-finales, puis finale et petite finale
@@ -881,16 +1106,16 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
     const prets = !!(A.nom && B.nom);
     const vide = function (v) { return v === '' || v === null || v === undefined; };
     const aScore = !(vide(c.a) && vide(c.b));
-    let s = lireScore_(c.a, c.b, legsFinale_(etat)), etatTxt, effacer = false;
+    let s = lireScore_(c.a, c.b, legsFinale_(etat, id)), etatTxt, effacer = false;
     if (aScore && (!prets || String(c.j1) !== noms[0] || String(c.j2) !== noms[1])) {
       effacer = true; s = { joue: false };
-      messages.push('Score de la ' + LIBELLES_FINALE[id].toLowerCase() + ' effacé : ' +
+      messages.push('Score du match « ' + LIBELLES_FINALE[id] + ' » effacé : ' +
         (prets ? 'les joueurs ont changé (score de poule corrigé ?).' : 'les joueurs ne sont pas encore connus.'));
     }
     if (s.erreur) etatTxt = '⚠️ ' + s.erreur;
     else if (s.joue) etatTxt = '✔';
     else etatTxt = prets ? 'À jouer' : 'En attente';
-    const res = { id: id, j1: noms[0], j2: noms[1], effacer: effacer, etat: etatTxt, joue: !!s.joue };
+    const res = { id: id, j1: noms[0], j2: noms[1], effacer: effacer, etat: etatTxt, joue: !!s.joue, legs: legsFinale_(etat, id) };
     if (s.joue) {
       res.gagnant = s.a > s.b ? A.nom : B.nom;
       res.perdant = s.a > s.b ? B.nom : A.nom;
@@ -902,8 +1127,13 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
   if (Fdirect) {
     F = jouer('F', Fdirect[0], Fdirect[1]);
   } else {
-    const d1 = jouer('D1', D1[0], D1[1]), d2 = jouer('D2', D2[0], D2[1]);
     const g = function (d, txt) { return d.joue ? { nom: d.gagnant } : { attente: txt }; };
+    if (Q1) {
+      const q1 = jouer('Q1', Q1[0], Q1[1]), q2 = jouer('Q2', Q2[0], Q2[1]);
+      D1 = [E1, g(q1, 'Vainqueur quart 1')];
+      D2 = [E2, g(q2, 'Vainqueur quart 2')];
+    }
+    const d1 = jouer('D1', D1[0], D1[1]), d2 = jouer('D2', D2[0], D2[1]);
     const pp = function (d, txt) { return d.joue ? { nom: d.perdant } : { attente: txt }; };
     F = jouer('F', g(d1, 'Vainqueur demi 1'), g(d2, 'Vainqueur demi 2'));
     PF = jouer('PF', pp(d1, 'Perdant demi 1'), pp(d2, 'Perdant demi 2'));
@@ -928,6 +1158,8 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
   let statut;
   if (termine) statut = '🏆 Tournoi terminé : ' + podium[0] + ' remporte la soirée ! Enregistre-la avec le menu 🎯 Noya\'Darts > Valider le tournoi.';
   else if (finies) statut = 'Poules terminées : place à la phase finale.';
+  else if (barragesEnAttente && joues === plan.matchs.length) statut = 'Poules terminées : barrage(s) à jouer avant la phase finale.' +
+    (force ? ' Phase finale lancée.' : '');
   else statut = 'Poules en cours : ' + joues + ' match(s) joué(s) sur ' + plan.matchs.length + '.' +
     (force ? ' Phase finale lancée.' : '');
 
@@ -935,6 +1167,7 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
     date: etat.date, etatsMatchs: etatsMatchs, classements: classements, qualifies: qualifies, finies: finies,
     finale: finale, podium: podium.slice(0, plan.final.n), termine: termine, rangs: rangs,
     avecPetiteFinale: !!PF, statut: statut, messages: messages, force: force,
+    barrages: barrages, repechages: repechages,
   };
 }
 
@@ -942,6 +1175,8 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
 
 /** Réécrit l'état du tournoi (métadonnée de l'onglet), par exemple après un record noté en cours de soirée. */
 function ecrireEtatTournoi_(etat) {
+  invaliderEtat_();
+  DERNIER_LU_ = null; // l'état a changé : la page relira l'onglet
   const sh = ss_().getSheetByName(TOURNOI.onglet);
   if (!sh) throw new Error('Onglet « ' + TOURNOI.onglet + ' » introuvable : relance le tournoi.');
   const m = sh.getDeveloperMetadata().filter(function (x) { return x.getKey() === TOURNOI.meta; })[0];
@@ -956,6 +1191,11 @@ function lireEtatTournoi_() {
   try { return JSON.parse(m.getValue()); } catch (e) { return null; }
 }
 
+/**
+ * Crée (ou recrée) l'onglet « Tournoi ». Toute la mise en page est préparée en mémoire dans des grilles
+ * (valeurs, couleurs, gras, tailles, alignements, menus), puis écrite d'un coup : une écriture par propriété
+ * au lieu d'une par case, ce qui rend le lancement du tournoi bien plus rapide.
+ */
 function ecrireTournoi_(etat) {
   const ss = ss_();
   let sh = ss.getSheetByName(TOURNOI.onglet);
@@ -970,85 +1210,114 @@ function ecrireTournoi_(etat) {
   tout.clearDataValidations();
   sh.getDeveloperMetadata().forEach(function (m) { if (m.getKey() === TOURNOI.meta) m.remove(); });
   sh.addDeveloperMetadata(TOURNOI.meta, JSON.stringify(etat));
+  invaliderEtat_();
 
   const ROUGE = '#d4453b', ARDOISE = '#1b2224', CRAIE = '#eceae2', SAISIE = '#fff6e0';
   const C = TOURNOI.colD, L = TOURNOI.lettres;
-  const menuLegs = function (n) {
-    const choix = [];
-    for (let i = 0; i <= n; i++) choix.push(String(i));
-    return SpreadsheetApp.newDataValidation().requireValueInList(choix, true).setAllowInvalid(false)
-      .setHelpText('Legs gagnés par ce joueur (' + n + ' legs gagnants)').build();
-  };
-  const entete = function (rg) { rg.setBackground(ARDOISE).setFontColor(CRAIE).setFontWeight('bold'); };
   const txtLegs = function (n) { return n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : ''); };
 
-  sh.getRange(1, 1).setValue('🎯 Tournoi du jeudi ' + dateFr_(etat.date)).setFontSize(16).setFontWeight('bold').setFontColor(ROUGE);
-  sh.getRange(3, 1).setValue('Choisis dans les menus les legs gagnés par chaque joueur : tout se met à jour seul.').setFontColor('#888');
-  sh.getRange(3, C).setValue('Classements').setFontColor('#888');
+  // Grilles de la mise en page (lignes 1 à R, colonnes A à Q)
+  const R = plan.derniereLigne, NC = 17;
+  const G = { v: [], bg: [], fc: [], fw: [], fs: [], ha: [], dv: [] };
+  const DEFAUT = { v: '', bg: null, fc: '#000000', fw: 'normal', fs: 10, ha: 'left', dv: null };
+  Object.keys(G).forEach(function (k) {
+    for (let r = 0; r < R; r++) { const l = []; for (let c = 0; c < NC; c++) l.push(DEFAUT[k]); G[k].push(l); }
+  });
+  // zone(ligne, colonne, nb lignes, nb colonnes, { v, bg, fc, fw, fs, ha, dv }) ; v peut être une grille
+  const zone = function (r, c, nr, nc, o) {
+    Object.keys(o).forEach(function (k) {
+      for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) {
+        G[k][r - 1 + i][c - 1 + j] = Array.isArray(o[k]) ? o[k][i][j] : o[k];
+      }
+    });
+  };
+  const entete = { bg: ARDOISE, fc: CRAIE, fw: 'bold' };
+  const titre = function (r, c, texte, taille) { zone(r, c, 1, 1, { v: texte, fw: 'bold', fc: ROUGE, fs: taille || 12 }); };
+
+  titre(1, 1, '🎯 Tournoi du jeudi ' + dateFr_(etat.date), 16);
+  zone(2, 1, 1, 1, { fw: 'bold' }); // statut, écrit par majTournoi_
+  zone(3, 1, 1, 1, { v: 'Choisis dans les menus les legs gagnés par chaque joueur : tout se met à jour seul.', fc: '#888' });
+  zone(3, C, 1, 1, { v: 'Classements', fc: '#888' });
 
   // Matchs de poule (un menu des legs à côté de chaque nom)
-  entete(sh.getRange(4, 1, 1, 7).setValues([['Poule', 'N°', 'Joueur 1', 'Legs', 'Legs', 'Joueur 2', 'État']]));
+  zone(4, 1, 1, 7, Object.assign({ v: [['Poule', 'N°', 'Joueur 1', 'Legs', 'Legs', 'Joueur 2', 'État']] }, entete));
   if (plan.matchs.length) {
     const r0 = plan.matchs[0].row, nm = plan.matchs.length;
-    sh.getRange(r0, 1, nm, 7).setValues(plan.matchs.map(function (m) { return ['Poule ' + L[m.poule], m.num, m.j1, '', '', m.j2, '']; }));
-    sh.getRange(r0, 4, nm, 2).setBackground(SAISIE).setHorizontalAlignment('center').setFontWeight('bold');
-    sh.getRange(r0, 2, nm, 1).setHorizontalAlignment('center');
-    sh.getRange(r0, 3, nm, 1).setHorizontalAlignment('right');
+    zone(r0, 1, nm, 7, { v: plan.matchs.map(function (m) { return ['Poule ' + L[m.poule], m.num, m.j1, '', '', m.j2, '']; }) });
+    zone(r0, 4, nm, 2, { bg: SAISIE, ha: 'center', fw: 'bold' });
+    zone(r0, 2, nm, 1, { ha: 'center' });
+    zone(r0, 3, nm, 1, { ha: 'right' });
     etat.poules.forEach(function (noms, p) {
       const ms = plan.matchs.filter(function (m) { return m.poule === p; });
       if (!ms.length) return;
-      sh.getRange(ms[0].row, 4, ms.length, 2).setDataValidation(menuLegs(legsPoule_(etat, p)));
-      if (p % 2) sh.getRange(ms[0].row, 1, ms.length, 3).setBackground('#f3f3f3'); // une poule sur deux grisée
+      zone(ms[0].row, 4, ms.length, 2, { dv: menuLegs_(legsPoule_(etat, p)) });
+      if (p % 2) zone(ms[0].row, 1, ms.length, 3, { bg: '#f3f3f3' }); // une poule sur deux grisée
     });
   }
 
   // Classements des poules
+  const menuDep = SpreadsheetApp.newDataValidation().requireNumberBetween(1, 20).setAllowInvalid(false)
+    .setHelpText('Seulement en cas d\'égalité parfaite (si le barrage n\'est pas noté sur la page) : 1 pour le gagnant du barrage, 2 pour le suivant...').build();
   plan.blocs.forEach(function (b) {
-    sh.getRange(b.titre, C).setValue('Poule ' + L[b.poule] + ' (' + txtLegs(legsPoule_(etat, b.poule)) + ')')
-      .setFontWeight('bold').setFontColor(ROUGE).setFontSize(12);
-    entete(sh.getRange(b.entete, C, 1, 9).setValues([['Rang', 'Joueur', 'J', 'V', 'D', 'Legs +', 'Legs -', 'Diff', 'Départage']]));
-    sh.getRange(b.debut, C + 8, b.n, 1).setBackground(SAISIE).setHorizontalAlignment('center')
-      .setDataValidation(SpreadsheetApp.newDataValidation().requireNumberBetween(1, 20).setAllowInvalid(false)
-        .setHelpText('Seulement en cas d\'égalité parfaite : 1 pour le gagnant du bull, 2 pour le suivant...').build());
-    sh.getRange(b.debut, C, b.n, 1).setHorizontalAlignment('center');
-    sh.getRange(b.debut, C + 2, b.n, 6).setHorizontalAlignment('center');
+    titre(b.titre, C, 'Poule ' + L[b.poule] + ' (' + txtLegs(legsPoule_(etat, b.poule)) + ')');
+    zone(b.entete, C, 1, 9, Object.assign({ v: [['Rang', 'Joueur', 'J', 'V', 'D', 'Legs +', 'Legs -', 'Diff', 'Départage']] }, entete));
+    zone(b.debut, C + 8, b.n, 1, { bg: SAISIE, ha: 'center', dv: menuDep });
+    zone(b.debut, C, b.n, 1, { ha: 'center' });
+    zone(b.debut, C + 2, b.n, 6, { ha: 'center' });
   });
 
-  // Phase finale en arbre
-  sh.getRange(plan.finale.titre, C).setValue('Phase finale (' + txtLegs(legsFinale_(etat)) + ')')
-    .setFontWeight('bold').setFontColor(ROUGE).setFontSize(12);
-  const menuF = menuLegs(legsFinale_(etat));
-  plan.finale.matchs.forEach(function (m) {
-    sh.getRange(m.label, m.col).setValue(LIBELLES_FINALE[m.id]).setFontWeight('bold').setFontColor(m.id === 'F' ? ROUGE : '#555');
-    [m.r1, m.r2].forEach(function (r) {
-      sh.getRange(r, m.col, 1, 2).merge().setFontWeight('bold').setBackground(CRAIE);
-      sh.getRange(r, m.col + 2).setBackground(SAISIE).setDataValidation(menuF).setHorizontalAlignment('center').setFontWeight('bold');
-    });
-    sh.getRange(m.r1, m.col, 2, 3).setBorder(true, true, true, true, null, true, ARDOISE, SpreadsheetApp.BorderStyle.SOLID);
+  // Phase finale en arbre (noms, états et couleurs du moment : écrits ensuite par majTournoi_)
+  const inf = infosFinale_(etat, plan);
+  titre(plan.finale.titre, C, inf.titre);
+  plan.finale.matchs.forEach(function (m, i) {
+    zone(m.label, m.col, 1, 1, { v: inf.libelles[i], fw: 'bold', fc: m.id === 'F' ? ROUGE : '#555' });
+    zone(m.r1, m.col, 2, 2, { fw: 'bold', bg: CRAIE });
+    zone(m.r1, m.col + 2, 2, 1, { bg: SAISIE, ha: 'center', fw: 'bold', dv: menuLegs_(inf.legs[i]) });
   });
+
+  // Classement de la soirée
+  titre(plan.final.titre, C, 'Classement de la soirée');
+  zone(plan.final.debut, C, plan.final.n, 1, { v: ['🥇 1er', '🥈 2e', '🥉 3e', '4e'].slice(0, plan.final.n).map(function (x) { return [x]; }) });
+  zone(plan.final.debut, C + 1, plan.final.n, 1, { fw: 'bold' });
+
+  // Écriture de toute la mise en page, une propriété à la fois
+  sh.getRange(1, 1, R, NC).setValues(G.v).setBackgrounds(G.bg).setFontColors(G.fc).setFontWeights(G.fw)
+    .setFontSizes(G.fs).setHorizontalAlignments(G.ha).setDataValidations(G.dv);
+
+  // Ce qui ne s'écrit pas en grille : fusions des noms, cadres des matchs, traits de l'arbre
+  if (plan.finale.matchs.length) {
+    plan.finale.matchs.forEach(function (m) { sh.getRange(m.r1, m.col, 2, 2).mergeAcross(); });
+    sh.getRangeList(plan.finale.matchs.map(function (m) { return sh.getRange(m.r1, m.col, 2, 3).getA1Notation(); }))
+      .setBorder(true, true, true, true, null, true, ARDOISE, SpreadsheetApp.BorderStyle.SOLID);
+  }
   if (plan.finale.traits !== null) {
     const q = plan.finale.traits, T = C + 3, st = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
-    sh.getRange(q + 2, T).setBorder(null, null, true, null, null, null, ROUGE, st);  // sortie de la demi-finale 1
-    sh.getRange(q + 8, T).setBorder(null, null, true, null, null, null, ROUGE, st);  // sortie de la demi-finale 2
+    sh.getRangeList([sh.getRange(q + 2, T).getA1Notation(), sh.getRange(q + 8, T).getA1Notation()])
+      .setBorder(null, null, true, null, null, null, ROUGE, st);  // sorties des demi-finales
     sh.getRange(q + 3, T, 6, 1).setBorder(null, null, null, true, null, null, ROUGE, st); // trait vertical vers la finale
   }
 
-  // Classement de la soirée
-  sh.getRange(plan.final.titre, C).setValue('Classement de la soirée').setFontWeight('bold').setFontColor(ROUGE).setFontSize(12);
-  sh.getRange(plan.final.debut, C, plan.final.n, 1).setValues(['🥇 1er', '🥈 2e', '🥉 3e', '4e'].slice(0, plan.final.n).map(function (x) { return [x]; }));
-
-  // Largeurs : A à G (matchs de poule), H (marge), I à Q (classements et arbre)
-  [60, 36, 130, 46, 46, 130, 190, 20, 60, 130, 46, 46, 60, 70, 60, 50, 80].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  // Largeurs : A à G (matchs de poule), H (marge), I à Q (classements et arbre) ; colonnes voisines de même largeur ensemble
+  const largeurs = [60, 36, 130, 46, 46, 130, 190, 20, 60, 130, 46, 46, 60, 70, 60, 50, 80];
+  for (let i = 0; i < largeurs.length;) {
+    let j = i; while (j + 1 < largeurs.length && largeurs[j + 1] === largeurs[i]) j++;
+    sh.setColumnWidths(i + 1, j - i + 1, largeurs[i]);
+    i = j + 1;
+  }
   sh.setFrozenRows(4);
   try { sh.activate(); } catch (e) { /* lancé depuis la page web : pas d'onglet à afficher */ }
-  SpreadsheetApp.flush();
-  return majTournoi_();
+
+  // Premier calcul sans relire l'onglet : aucun score, aucun départage
+  const vides = { sh: sh, etat: etat, plan: plan, departage: {},
+    scores: plan.matchs.map(function () { return ['', '']; }),
+    cells: plan.finale.matchs.map(function () { return { j1: '', a: '', j2: '', b: '' }; }) };
+  return majTournoi_(vides);
 }
 
 /** Lit l'onglet « Tournoi » et calcule le tournoi, sans rien écrire. */
-function lireTournoi_() {
+function lireTournoi_(etatDejaLu) {
   const sh = ss_().getSheetByName(TOURNOI.onglet);
-  const etat = lireEtatTournoi_();
+  const etat = etatDejaLu || lireEtatTournoi_();
   if (!sh || !etat) throw new Error("Aucun tournoi en cours : utilise d'abord le menu 🎯 Noya'Darts > Lancer un tournoi.");
   const plan = planTournoi_(etat);
   const C = TOURNOI.colD;
@@ -1069,9 +1338,15 @@ function lireTournoi_() {
     res: calculTournoi_(etat, plan, scores, cells, departage) };
 }
 
-/** Relit les scores de l'onglet, recalcule et réécrit classements, arbre de la phase finale et état. */
-function majTournoi_() {
-  const lu = lireTournoi_();
+/**
+ * Recalcule le tournoi et réécrit classements, arbre de la phase finale et état dans l'onglet.
+ * lu (facultatif) : ce qui vient d'être lu par lireTournoi_ et modifié en mémoire (score noté),
+ * pour ne pas relire l'onglet. Les écritures sont groupées par blocs (une écriture par propriété).
+ */
+function majTournoi_(lu) {
+  invaliderEtat_();
+  if (lu) lu.res = calculTournoi_(lu.etat, lu.plan, lu.scores, lu.cells, lu.departage);
+  else lu = lireTournoi_();
   const sh = lu.sh, etat = lu.etat, plan = lu.plan, cells = lu.cells, res = lu.res;
   const C = TOURNOI.colD;
 
@@ -1088,22 +1363,38 @@ function majTournoi_() {
       return [0, 1, 2, 3, 4, 5, 6, 7].map(function () { return q ? '#e6f4ec' : null; });
     }));
   });
-  plan.finale.matchs.forEach(function (m, i) {
-    const f = res.finale[i], c = cells[i];
-    sh.getRange(m.label, m.col + 1).setValue(f.etat).setFontColor(f.etat.indexOf('⚠️') === 0 ? '#a12a22' : '#888');
-    [[m.r1, f.j1, c.a], [m.r2, f.j2, c.b]].forEach(function (x) {
-      const gagnant = f.joue && x[1] === f.gagnant, perdant = f.joue && x[1] === f.perdant;
-      sh.getRange(x[0], m.col).setValue(x[1])
-        .setFontColor(perdant ? '#999' : (f.j1 && f.j2 && f.etat === 'En attente' ? '#999' : '#1b2224'))
-        .setFontStyle(f.etat === 'En attente' ? 'italic' : 'normal');
-      sh.getRange(x[0], m.col, 1, 2).setBackground(gagnant ? '#e6f4ec' : '#eceae2');
-      if (f.effacer) sh.getRange(x[0], m.col + 2).setValue('');
+
+  // Phase finale : deux blocs de 2 colonnes (I:J et M:N), réécrits d'un coup (noms, état, couleurs).
+  // Les colonnes des scores (K et O) ne sont pas touchées, sauf pour effacer un score devenu faux.
+  const r0 = plan.finale.titre + 1, nb = plan.final.titre - r0;
+  const libs = infosFinale_(etat, plan).libelles;
+  let effaces = false;
+  [C, C + 4].forEach(function (col) {
+    if (nb <= 0) return;
+    const grille = function (x) { const g = []; for (let i = 0; i < nb; i++) g.push([x, x]); return g; };
+    const v = grille(''), fc = grille('#1b2224'), st = grille('normal'), bg = grille(null);
+    plan.finale.matchs.forEach(function (m, i) {
+      if (m.col !== col) return;
+      const f = res.finale[i], c = cells[i], L = m.label - r0;
+      v[L][0] = libs[i]; fc[L][0] = m.id === 'F' ? '#d4453b' : '#555';
+      v[L][1] = f.etat; fc[L][1] = f.etat.indexOf('⚠️') === 0 ? '#a12a22' : '#888';
+      [[m.r1, f.j1, 'a'], [m.r2, f.j2, 'b']].forEach(function (x) {
+        const k = x[0] - r0, gagnant = f.joue && x[1] === f.gagnant, perdant = f.joue && x[1] === f.perdant;
+        v[k][0] = x[1];
+        fc[k][0] = perdant ? '#999' : (f.j1 && f.j2 && f.etat === 'En attente' ? '#999' : '#1b2224');
+        st[k][0] = f.etat === 'En attente' ? 'italic' : 'normal';
+        bg[k][0] = bg[k][1] = gagnant ? '#e6f4ec' : '#eceae2';
+        if (f.effacer) { sh.getRange(x[0], m.col + 2).setValue(''); c[x[2]] = ''; effaces = true; }
+      });
     });
+    sh.getRange(r0, col, nb, 2).setValues(v).setFontColors(fc).setFontStyles(st).setBackgrounds(bg);
   });
-  sh.getRange(plan.final.debut, C + 1, plan.final.n, 1).setValues(res.podium.map(function (x) { return [x]; }))
-    .setFontWeight('bold');
-  sh.getRange(2, 1).setValue([res.statut].concat(res.messages).join('   ')).setFontWeight('bold')
+  sh.getRange(plan.final.debut, C + 1, plan.final.n, 1).setValues(res.podium.map(function (x) { return [x]; }));
+  sh.getRange(2, 1).setValue([res.statut].concat(res.messages).join('   '))
     .setFontColor(res.messages.length ? '#a12a22' : (res.termine ? '#1d6b43' : '#1b2224'));
+  // Scores effacés : le calcul gardé pour la page tient compte des cases vidées
+  if (effaces) lu.res = calculTournoi_(etat, plan, lu.scores, cells, lu.departage);
+  DERNIER_LU_ = lu;
   return res;
 }
 
@@ -1148,8 +1439,43 @@ function definirCode() {
   ui.alert('Code enregistré. Donne-le seulement aux personnes qui gèrent les soirées.');
 }
 
+/*
+ * Performances : la réponse de la page (etatPage_) est gardée en cache (CacheService) et servie
+ * telle quelle tant que rien n'a changé. Toute modification (action de la page, menu, saisie dans
+ * le Google Sheet) change le numéro de version (invaliderEtat_), et le cache est alors ignoré.
+ * Sécurité : le cache expire de toute façon au bout de CACHE_PAGE.secondes.
+ */
+const CACHE_PAGE = { cle: 'etatPage', version: 'etatPageVersion', secondes: 120 };
+let DERNIER_LU_ = null; // dernier tournoi calculé pendant cette exécution (évite de relire l'onglet)
+
+function cachePage_() { try { return CacheService.getScriptCache(); } catch (e) { return null; } }
+function versionPage_(c) {
+  let v = c.get(CACHE_PAGE.version);
+  if (!v) { v = String(Date.now()) + Math.random(); c.put(CACHE_PAGE.version, v, 21600); }
+  return v;
+}
+/** À appeler après toute modification des données lues par la page. */
+function invaliderEtat_() {
+  const c = cachePage_();
+  if (c) try { c.put(CACHE_PAGE.version, String(Date.now()) + Math.random(), 21600); } catch (e) { /* sans gravité */ }
+}
+/** Met en cache l'état de la page s'il correspond encore à la version v (rien n'a changé pendant le calcul). */
+function memoriserEtat_(c, v, texte) {
+  try { if (c.get(CACHE_PAGE.version) === v) c.put(CACHE_PAGE.cle, v + '\n' + texte, CACHE_PAGE.secondes); }
+  catch (e) { /* trop gros ou cache indisponible : tant pis, on recalculera */ }
+}
+
 function doGet() {
-  try { return json_(etatPage_()); }
+  try {
+    const c = cachePage_();
+    if (!c) return json_(etatPage_());
+    const v = versionPage_(c);
+    const enCache = c.get(CACHE_PAGE.cle);
+    if (enCache && enCache.slice(0, v.length + 1) === v + '\n') return jsonTexte_(enCache.slice(v.length + 1));
+    const texte = JSON.stringify(etatPage_());
+    memoriserEtat_(c, v, texte);
+    return jsonTexte_(texte);
+  }
   catch (e) { return json_({ ok: false, erreur: e.message }); }
 }
 
@@ -1159,10 +1485,13 @@ function doPost(e) {
   catch (err) { return json_({ ok: false, erreur: 'Requête illisible.' }); }
   try {
     verifierCode_(req.code);
+    const lectureSeule = req.action === 'verifier' || req.action === 'infosJoueur' || req.action === 'chargerSoiree';
     const resultat = actionPage_(req);
-    const out = etatPage_();
-    out.resultat = resultat === undefined ? null : resultat;
-    return json_(out);
+    if (!lectureSeule) invaliderEtat_();
+    const c = cachePage_(), v = c ? versionPage_(c) : null;
+    const texte = JSON.stringify(etatPage_());
+    if (c) memoriserEtat_(c, v, texte); // le prochain affichage (et les autres écrans) en profite
+    return jsonTexte_(texte.slice(0, -1) + ',"resultat":' + JSON.stringify(resultat === undefined ? null : resultat) + '}');
   } catch (err) {
     return json_({ ok: false, erreur: err.message, codeFaux: !!err.codeFaux });
   }
@@ -1170,6 +1499,9 @@ function doPost(e) {
 
 function json_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+function jsonTexte_(texte) {
+  return ContentService.createTextOutput(texte).setMimeType(ContentService.MimeType.JSON);
 }
 
 /** Vérifie le code du club, avec blocage de 10 minutes après 10 essais ratés. */
@@ -1193,6 +1525,8 @@ function actionPage_(req) {
     case 'lancer': return lancerTournoi(req);
     case 'score': return ecrireScore_(req);
     case 'departage': return ecrireDepartage_(req.nom, req.valeur);
+    case 'barrage': return ecrireBarrage_(req);
+    case 'tirerBarrages': return tirerBarrages_(req);
     case 'ajouterJoueur': return ajouterJoueur(req.nom, !!req.forcer);
     case 'renommer': return renommerJoueur(req.ancien, req.nouveau, !!req.forcer);
     case 'infosJoueur': return infosJoueur(req.nom);
@@ -1206,10 +1540,13 @@ function actionPage_(req) {
     }
     case 'reglages': enregistrerSeuils_(req.seuil2, req.seuil3); return 'Réglages enregistrés.';
     case 'chargerSoiree': return chargerSoiree(req.date);
-    case 'record': return noterRecord_(req.type, req.score, req.nom);
+    case 'record': return noterRecord_(req.type, req.score, req.nom, req.retirer);
     case 'annoncer': return annoncerMatch_(req.match, !!req.on);
     case 'pause': return pauseJoueur_(req.nom, !!req.on);
     case 'forcer': return forcerAffiches_(req.affiches || null);
+    case 'legsPhase': return legsPhase_(req);
+    case 'annonce': return ecrireAnnonce_(req);
+    case 'supprimerAnnonce': return supprimerAnnonce_(req.date);
     case 'enregistrer': {
       const msg = enregistrerSoiree({ date: req.date, rangs: req.rangs, records: req.records });
       // Les records validés deviennent ceux du tournoi (bandeau de la page)
@@ -1234,15 +1571,20 @@ function etatPage_() {
     habitues: CFG.habitues,
     seuils: seuilsTournoi_(),
     legsMax: TOURNOI.legsMax,
-    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max }; }),
+    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max, parfait: t.parfait || null }; }),
     tournoi: tournoiPage_(),
+    annonces: annoncesPage_(),
   };
 }
 
 function tournoiPage_() {
-  if (!lireEtatTournoi_()) return null;
-  let lu = lireTournoi_();
-  if (lu.res.finale.some(function (f) { return f.effacer; })) { majTournoi_(); lu = lireTournoi_(); }
+  let lu = DERNIER_LU_; // déjà calculé par l'action qui vient d'avoir lieu : rien à relire
+  if (!lu) {
+    const etat0 = lireEtatTournoi_();
+    if (!etat0) return null;
+    lu = lireTournoi_(etat0);
+    if (lu.res.finale.some(function (f) { return f.effacer; })) { majTournoi_(lu); lu = DERNIER_LU_; }
+  }
   const etat = lu.etat, plan = lu.plan, res = lu.res;
   const v = function (x) { return x === '' || x === null || x === undefined ? '' : Number(x); };
   return {
@@ -1250,6 +1592,7 @@ function tournoiPage_() {
     poules: etat.poules,
     legs: etat.poules.map(function (l, p) { return legsPoule_(etat, p); }),
     legsFinale: legsFinale_(etat),
+    grosse: estGrosse_(etat),
     matchs: plan.matchs.map(function (m, i) {
       return { i: i, poule: m.poule, num: m.num, j1: m.j1, j2: m.j2, a: v(lu.scores[i][0]), b: v(lu.scores[i][1]), etat: res.etatsMatchs[i] };
     }),
@@ -1262,7 +1605,7 @@ function tournoiPage_() {
     finies: res.finies,
     finale: res.finale.map(function (f, i) {
       return { id: f.id, libelle: LIBELLES_FINALE[f.id], j1: f.j1, j2: f.j2, a: v(lu.cells[i].a), b: v(lu.cells[i].b),
-        etat: f.etat, pret: f.etat !== 'En attente', joue: f.joue, gagnant: f.gagnant || '', perdant: f.perdant || '' };
+        etat: f.etat, pret: f.etat !== 'En attente', joue: f.joue, gagnant: f.gagnant || '', perdant: f.perdant || '', legs: f.legs };
     }),
     podium: res.podium,
     termine: res.termine,
@@ -1274,10 +1617,14 @@ function tournoiPage_() {
     annonces: (etat.annonces || []).filter(function (i) { return plan.matchs[i] && res.etatsMatchs[i] !== '✔'; }),
     pauses: etat.pauses || [],
     forcage: res.force ? etat.forcage : null,
+    barrages: res.barrages.map(function (m) {
+      return { p: m.p, j1: m.j1, j2: m.j2, a: m.a, b: m.b, joue: m.joue, gagnant: m.gagnant || '', type: m.type };
+    }),
+    repechages: res.repechages,
   };
 }
 
-/** Score d'un match : req = { match: n° du match de poule } ou { finale: 'D1'|'D2'|'PF'|'F' }, avec a et b (vides pour effacer). */
+/** Score d'un match : req = { match: n° du match de poule } ou { finale: 'Q1'|'Q2'|'D1'|'D2'|'PF'|'F' }, avec a et b (vides pour effacer). */
 function ecrireScore_(req) {
   const lock = LockService.getDocumentLock();
   lock.waitLock(30000);
@@ -1291,7 +1638,7 @@ function ecrireScore_(req) {
       if (i < 0) throw new Error('Match introuvable.');
       if (!effacer && lu.res.finale[i].etat === 'En attente') throw new Error('Les joueurs de ce match ne sont pas encore connus.');
       const m = lu.plan.finale.matchs[i];
-      r1 = m.r1; r2 = m.r2; c1 = c2 = m.col + 2; L = legsFinale_(lu.etat);
+      r1 = m.r1; r2 = m.r2; c1 = c2 = m.col + 2; L = legsFinale_(lu.etat, m.id);
     } else {
       const m = lu.plan.matchs[Number(req.match)];
       if (!m) throw new Error('Match introuvable.');
@@ -1301,14 +1648,19 @@ function ecrireScore_(req) {
       const s = lireScore_(req.a, req.b, L);
       if (!s.joue) throw new Error('Score refusé : ' + (s.erreur || 'score incomplet') + '.');
     }
-    lu.sh.getRange(r1, c1).setValue(effacer ? '' : Number(req.a));
-    lu.sh.getRange(r2, c2).setValue(effacer ? '' : Number(req.b));
+    const a = effacer ? '' : Number(req.a), b = effacer ? '' : Number(req.b);
+    if (r1 === r2) lu.sh.getRange(r1, c1, 1, 2).setValues([[a, b]]);
+    else { lu.sh.getRange(r1, c1).setValue(a); lu.sh.getRange(r2, c2).setValue(b); }
+    // Le score est reporté dans ce qui a été lu : inutile de relire l'onglet pour recalculer
+    if (req.finale) {
+      const c = lu.cells[lu.plan.finale.matchs.findIndex(function (m) { return m.id === req.finale; })];
+      c.a = a; c.b = b;
+    } else lu.scores[Number(req.match)] = [a, b];
     if (!req.finale && !effacer && (lu.etat.annonces || []).indexOf(Number(req.match)) >= 0) {
       lu.etat.annonces = lu.etat.annonces.filter(function (i) { return i !== Number(req.match); });
       ecrireEtatTournoi_(lu.etat); // un match joué sort de « À suivre »
     }
-    SpreadsheetApp.flush();
-    return majTournoi_().statut;
+    return majTournoi_(lu).statut;
   } finally {
     lock.releaseLock();
   }
@@ -1331,6 +1683,69 @@ function ecrireDepartage_(nom, valeur) {
   return majTournoi_().statut;
 }
 
+/**
+ * Résultat d'un barrage en 1 leg : req = { poule, j1, j2, vainqueur } (vainqueur vide pour effacer).
+ * Le barrage doit être l'un de ceux que le calcul demande en ce moment.
+ */
+function ecrireBarrage_(req) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lu = lireTournoi_();
+    const p = Number(req.poule), a = String(req.j1 || ''), b = String(req.j2 || '');
+    const m = lu.res.barrages.filter(function (x) {
+      return x.p === p && ((x.j1 === a && x.j2 === b) || (x.j1 === b && x.j2 === a));
+    })[0];
+    if (!m) throw new Error('Ce barrage n\'est pas (ou plus) à jouer : la page va se mettre à jour.');
+    const v = String(req.vainqueur || '');
+    if (v && v !== m.j1 && v !== m.j2) throw new Error('« ' + v + ' » ne joue pas ce barrage.');
+    const etat = lu.etat;
+    const meme = function (x) { return x.p === p && ((x.j1 === m.j1 && x.j2 === m.j2) || (x.j1 === m.j2 && x.j2 === m.j1)); };
+    etat.barrages = (etat.barrages || []).filter(function (x) { return !meme(x); });
+    etat.barrages.push({ p: p, j1: m.j1, j2: m.j2, a: v ? (v === m.j1 ? 1 : 0) : '', b: v ? (v === m.j2 ? 1 : 0) : '' });
+    ecrireEtatTournoi_(etat);
+    SpreadsheetApp.flush();
+    majTournoi_();
+    return v ? 'Barrage : ' + v + ' gagne contre ' + (v === m.j1 ? m.j2 : m.j1) + '.' : 'Résultat du barrage effacé.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Affiches des 2 barrages d'un repêchage (égalité parfaite à trois) : req = { poule, paires: [[a, b], [c, d]] },
+ * tirées au sort par la page et modifiables. Refusé si l'un des barrages actuels est déjà joué.
+ */
+function tirerBarrages_(req) {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const lu = lireTournoi_();
+    const p = Number(req.poule);
+    const r = lu.res.repechages.filter(function (x) { return x.p === p; })[0];
+    if (!r) throw new Error('Pas de barrage à tirer au sort dans cette poule : la page va se mettre à jour.');
+    const paires = (req.paires || []).map(function (x) { return (x || []).map(function (n) { return String(n || '').trim(); }); });
+    const noms = [].concat.apply([], paires);
+    if (paires.length !== 2 || paires.some(function (x) { return x.length !== 2; }) || noms.length !== 4 ||
+        r.joueurs.some(function (n) { return noms.indexOf(n) < 0; })) {
+      throw new Error('Les deux barrages doivent réunir ' + r.joueurs.join(', ') + ', chacun une seule fois.');
+    }
+    const dans = function (x) { return x.p === p && r.joueurs.indexOf(x.j1) >= 0 && r.joueurs.indexOf(x.j2) >= 0; };
+    if (lu.res.barrages.some(function (m) { return dans(m) && m.joue; })) {
+      throw new Error('Un barrage est déjà joué : efface d\'abord son résultat pour changer les affiches.');
+    }
+    const etat = lu.etat;
+    etat.barrages = (etat.barrages || []).filter(function (x) { return !dans(x); })
+      .concat(paires.map(function (x) { return { p: p, j1: x[0], j2: x[1], a: '', b: '' }; }));
+    ecrireEtatTournoi_(etat);
+    SpreadsheetApp.flush();
+    majTournoi_();
+    return 'Barrages : ' + paires.map(function (x) { return x[0] + ' contre ' + x[1]; }).join(', ') + '.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /** Après un changement de nom : le tournoi en cours suit (poules et noms affichés dans l'onglet). */
 function renommerDansTournoi_(ancien, nouveau) {
   const etat = lireEtatTournoi_();
@@ -1340,6 +1755,7 @@ function renommerDansTournoi_(ancien, nouveau) {
   if (etat.forcage) Object.keys(etat.forcage).forEach(function (k) { etat.forcage[k] = etat.forcage[k].map(r); });
   if (etat.pauses) etat.pauses = etat.pauses.map(r);
   if (etat.records) etat.records.forEach(function (x) { x.nom = r(x.nom); });
+  if (etat.barrages) etat.barrages.forEach(function (x) { x.j1 = r(x.j1); x.j2 = r(x.j2); });
   const sh = ss_().getSheetByName(TOURNOI.onglet);
   sh.getDeveloperMetadata().forEach(function (m) { if (m.getKey() === TOURNOI.meta) m.setValue(JSON.stringify(etat)); });
   const rg = sh.getRange(1, 1, planTournoi_(etat).derniereLigne, 17);
@@ -1359,8 +1775,10 @@ function renommerDansTournoi_(ancien, nouveau) {
  * Record noté en cours de soirée (bandeau de la page) : un par type, gardé avec le tournoi.
  * Il ne compte au championnat qu'à la validation de la soirée. Score vide = effacer.
  * Mêmes contrôles que la saisie d'une soirée (minimums, maximums, joueur présent).
+ * Score parfait (180, 170) : il s'ajoute aux scores parfaits déjà notés (chacun compte).
+ * retirer = n° (à partir de 0) d'un des détenteurs de ce type à retirer, sans toucher aux autres.
  */
-function noterRecord_(type, score, nom) {
+function noterRecord_(type, score, nom, retirer) {
   const lock = LockService.getDocumentLock();
   lock.waitLock(30000);
   try {
@@ -1368,10 +1786,17 @@ function noterRecord_(type, score, nom) {
     if (!etat) throw new Error('Aucun tournoi en cours.');
     const t = TYPES.find(function (x) { return x.nom === type; });
     if (!t) throw new Error('Type de record inconnu : ' + type);
+    const duType = (etat.records || []).filter(function (r) { return r.type === t.nom; });
     const recs = (etat.records || []).filter(function (r) { return r.type !== t.nom; });
     const brut = String(score === undefined || score === null ? '' : score).trim().replace(',', '.');
     let msg;
-    if (!brut) {
+    if (retirer !== undefined && retirer !== null && retirer !== '') {
+      const k = Number(retirer);
+      if (!duType[k]) throw new Error('Record introuvable : recharge la page.');
+      msg = String(duType[k].score).replace('.', ',') + ' de ' + duType[k].nom + ' retiré.';
+      duType.splice(k, 1);
+      duType.forEach(function (r) { recs.push(r); });
+    } else if (!brut) {
       msg = 'Record « ' + t.nom + ' » effacé.';
     } else {
       const v = Number(brut);
@@ -1380,8 +1805,17 @@ function noterRecord_(type, score, nom) {
       if (v > t.max) throw new Error(t.tropHaut);
       if (!nom) throw new Error('Qui a fait le record « ' + t.nom + ' » ?');
       if ([].concat.apply([], etat.poules).indexOf(nom) < 0) throw new Error(nom + " ne joue pas ce soir, son record ne peut pas compter.");
-      recs.push({ type: t.nom, score: v, nom: nom });
-      msg = 'Record « ' + t.nom + ' » : ' + String(v).replace('.', ',') + ' par ' + nom + '.';
+      if (t.parfait && v === t.parfait) {
+        // Score parfait : s'ajoute aux autres scores parfaits du soir (les records plus faibles sont battus)
+        const parfaits = duType.filter(function (r) { return r.score === t.parfait; });
+        parfaits.forEach(function (r) { recs.push(r); });
+        recs.push({ type: t.nom, score: v, nom: nom });
+        const tous = parfaits.map(function (r) { return r.nom; }).concat([nom]);
+        msg = t.parfait + ' de ' + nom + ' noté' + (tous.length > 1 ? ' : ' + tous.length + ' ce soir (' + nomsRecord_(tous) + '), chacun compte.' : '.');
+      } else {
+        recs.push({ type: t.nom, score: v, nom: nom });
+        msg = 'Record « ' + t.nom + ' » : ' + String(v).replace('.', ',') + ' par ' + nom + '.';
+      }
     }
     recs.sort(function (a, b) {
       return TYPES.findIndex(function (x) { return x.nom === a.type; }) - TYPES.findIndex(function (x) { return x.nom === b.type; });
@@ -1436,7 +1870,8 @@ function pauseJoueur_(nom, on) {
 
 /**
  * Affiches de la phase finale choisies à la main : affiches = { D1: [a, b], D2: [c, d] }
- * (ou { F: [a, b] } pour une finale directe à 3 joueurs), parmi tous les joueurs du tournoi,
+ * (ou { F: [a, b] } pour une finale directe à 3 joueurs, ou pour une grosse soirée
+ * { Q1: [a, b], Q2: [c, d], D1: [e], D2: [f] }, e et f attendant le vainqueur du quart), parmi tous les joueurs du tournoi,
  * même avant la fin des poules. null = retour au calcul automatique.
  * Refusé si cela change les joueurs d'un match déjà joué (il faut d'abord effacer son score).
  */
@@ -1445,15 +1880,20 @@ function forcerAffiches_(affiches) {
   lock.waitLock(30000);
   try {
     const lu = lireTournoi_();
-    const ids = lu.plan.finale.matchs.length === 1 ? ['F'] : ['D1', 'D2'];
+    const grosse = estGrosse_(lu.etat);
+    const ids = lu.plan.finale.matchs.length === 1 ? ['F'] : grosse ? ['Q1', 'Q2', 'D1', 'D2'] : ['D1', 'D2'];
     const tous = [].concat.apply([], lu.etat.poules);
     let choix = null;
     if (affiches) {
       choix = {};
       const vus = [];
       ids.forEach(function (id) {
-        const l = (affiches[id] || []).map(function (n) { return String(n || '').trim(); });
-        if (l.length !== 2 || !l[0] || !l[1]) throw new Error('Choisis les deux joueurs de la ' + LIBELLES_FINALE[id].toLowerCase() + '.');
+        const nb = grosse && (id === 'D1' || id === 'D2') ? 1 : 2;
+        const l = (affiches[id] || []).slice(0, nb).map(function (n) { return String(n || '').trim(); });
+        if (l.length !== nb || l.some(function (n) { return !n; })) {
+          throw new Error(nb === 1 ? 'Choisis le joueur qui attend le vainqueur du quart en « ' + LIBELLES_FINALE[id] + ' ».'
+            : 'Choisis les deux joueurs du match « ' + LIBELLES_FINALE[id] + ' ».');
+        }
         l.forEach(function (n) {
           if (tous.indexOf(n) < 0) throw new Error('« ' + n + ' » ne joue pas ce tournoi.');
           if (vus.indexOf(n) >= 0) throw new Error('« ' + n + ' » est choisi deux fois.');
@@ -1467,13 +1907,137 @@ function forcerAffiches_(affiches) {
     const res = calculTournoi_(etat, lu.plan, lu.scores, lu.cells, lu.departage);
     const touche = res.finale.filter(function (f, i) { return f.effacer && lu.res.finale[i].joue; });
     if (touche.length) {
-      throw new Error('La ' + LIBELLES_FINALE[touche[0].id].toLowerCase() +
-        ' est déjà jouée : efface d\'abord son score pour changer ses joueurs.');
+      throw new Error('Le match « ' + LIBELLES_FINALE[touche[0].id] +
+        ' » est déjà joué : efface d\'abord son score pour changer ses joueurs.');
     }
     ecrireEtatTournoi_(etat);
     SpreadsheetApp.flush();
     majTournoi_();
     return choix ? 'Affiches de la phase finale modifiées.' : 'Phase finale : retour au calcul automatique.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/* ============================ ANNONCES ============================ */
+/*
+ * Onglet « Annonces » (publié en CSV, lu par le bandeau « Prochain rendez-vous » du site) :
+ * une ligne par jeudi, colonnes « Date », « Annulé » (case à cocher ou oui/x) et « Message ».
+ * Géré depuis la page tournoi (panneau Gérer > Annonces) ou à la main.
+ */
+
+const ANNONCES = { onglet: 'Annonces', entetes: ['Date', 'Annulé', 'Message'], messageMax: 200 };
+
+function estAnnule_(v) {
+  if (v === true) return true;
+  return ['oui', 'x', 'vrai', 'true', '1', 'annule', 'annulé'].indexOf(norm_(v)) >= 0;
+}
+
+/** Lit l'onglet « Annonces » : { sh, h (ligne d'en-tête), iD, iA, iM (colonnes, 1 = A), lignes: [{ row, iso, annule, message, brut }] }. */
+function lireAnnonces_(creer) {
+  let sh = ss_().getSheetByName(ANNONCES.onglet);
+  if (!sh) {
+    if (!creer) return null;
+    sh = ss_().insertSheet(ANNONCES.onglet);
+  }
+  const last = sh.getLastRow(), lastCol = Math.max(sh.getLastColumn(), 1);
+  const vals = last ? sh.getRange(1, 1, last, lastCol).getValues() : [];
+  let h = vals.findIndex(function (r) { return r.map(norm_).indexOf('date') >= 0; });
+  if (h < 0) {
+    if (!creer) return null;
+    if (last) throw new Error('Onglet « Annonces » : il faut une colonne « Date » sur la ligne d\'en-tête (avec « Annulé » et « Message »). Corrige-la à la main.');
+    sh.getRange(1, 1, 1, 3).setValues([ANNONCES.entetes]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    return { sh: sh, h: 1, iD: 1, iA: 2, iM: 3, lignes: [] };
+  }
+  const head = vals[h].map(norm_);
+  const out = { sh: sh, h: h + 1, iD: head.indexOf('date') + 1,
+    iA: head.findIndex(function (x) { return x.indexOf('annul') === 0; }) + 1,
+    iM: head.findIndex(function (x) { return x.indexOf('message') === 0; }) + 1, lignes: [] };
+  vals.slice(h + 1).forEach(function (r, k) {
+    const d = r[out.iD - 1];
+    const iso = d instanceof Date ? cleDate_(d) : lireDateSaisie_(d, []);
+    if (!iso) {
+      // Première ligne vide (cases à cocher décochées éventuelles) : réutilisable pour une nouvelle annonce
+      if (!out.libre && r.every(function (x) { return x === '' || x === null || x === false; })) out.libre = h + 2 + k;
+      return;
+    }
+    out.lignes.push({ row: h + 2 + k, iso: iso, annule: out.iA ? estAnnule_(r[out.iA - 1]) : false,
+      message: out.iM ? String(r[out.iM - 1] || '').trim() : '', brut: out.iA ? r[out.iA - 1] : '' });
+  });
+  return out;
+}
+
+/** Annonces pour la page (triées par date), [] si l'onglet est absent ou illisible. */
+function annoncesPage_() {
+  try {
+    const A = lireAnnonces_(false);
+    if (!A) return [];
+    return A.lignes.filter(function (l) { return l.annule || l.message; })
+      .map(function (l) { return { date: l.iso, annule: l.annule, message: l.message }; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  } catch (e) { return []; }
+}
+
+/**
+ * Crée ou modifie l'annonce d'un jeudi : req = { date: 'aaaa-mm-jj', annule, message, ancienne }.
+ * ancienne = date d'origine si on change la date d'une annonce existante.
+ */
+function ecrireAnnonce_(req) {
+  invaliderEtat_();
+  const iso = String(req.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new Error('Choisis la date du jeudi.');
+  if (new Date(iso + 'T12:00:00Z').getUTCDay() !== 4) throw new Error('Choisis un jeudi : le bandeau du site ne regarde que les jeudis.');
+  const annule = !!req.annule;
+  const message = String(req.message || '').replace(/\s+/g, ' ').trim();
+  if (message.length > ANNONCES.messageMax) throw new Error('Message trop long (' + ANNONCES.messageMax + ' caractères au plus).');
+  if (!annule && !message) throw new Error('Indique que la soirée est annulée ou écris un message (pour retirer l\'annonce : « Supprimer »).');
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const A = lireAnnonces_(true), sh = A.sh;
+    if (!A.iA || !A.iM) {
+      // Colonne manquante : ajoutée à droite de l'en-tête
+      let c = Math.max(sh.getLastColumn(), A.iD);
+      if (!A.iA) { A.iA = ++c; sh.getRange(A.h, A.iA).setValue('Annulé').setFontWeight('bold'); }
+      if (!A.iM) { A.iM = ++c; sh.getRange(A.h, A.iM).setValue('Message').setFontWeight('bold'); }
+    }
+    // Ancienne date (changement de date) et doublons : effacés, du bas vers le haut
+    const ancienne = req.ancienne && req.ancienne !== iso ? String(req.ancienne) : null;
+    const memes = A.lignes.filter(function (l) { return l.iso === iso; });
+    const aEffacer = A.lignes.filter(function (l) { return (ancienne && l.iso === ancienne) || (l.iso === iso && l !== memes[0]); });
+    // Cases à cocher si la colonne « Annulé » en contient déjà
+    const cases = A.lignes.some(function (l) { return typeof l.brut === 'boolean'; });
+    let row;
+    if (memes.length) row = memes[0].row;
+    else row = A.libre || Math.max(sh.getLastRow(), A.h) + 1;
+    sh.getRange(row, A.iD).setValue(serie_(iso)).setNumberFormat('d/m/yyyy');
+    const cA = sh.getRange(row, A.iA);
+    if (cases) { if (!memes.length) cA.insertCheckboxes(); cA.setValue(annule); }
+    else cA.setValue(annule ? 'oui' : '');
+    sh.getRange(row, A.iM).setValue(message);
+    aEffacer.map(function (l) { return l.row; }).sort(function (a, b) { return b - a; })
+      .forEach(function (r) { sh.deleteRow(r); });
+    SpreadsheetApp.flush();
+    return 'Annonce du jeudi ' + dateFr_(iso) + ' enregistrée' + (annule ? ' (soirée annulée)' : '') +
+      '. Le site la montrera d\'ici 5 minutes.';
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Supprime l'annonce d'un jeudi. */
+function supprimerAnnonce_(iso) {
+  invaliderEtat_();
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const A = lireAnnonces_(false);
+    const rows = A ? A.lignes.filter(function (l) { return l.iso === iso; }).map(function (l) { return l.row; }) : [];
+    if (!rows.length) throw new Error('Pas d\'annonce pour cette date.');
+    rows.sort(function (a, b) { return b - a; }).forEach(function (r) { A.sh.deleteRow(r); });
+    SpreadsheetApp.flush();
+    return 'Annonce du jeudi ' + dateFr_(iso) + ' supprimée. Le site suivra d\'ici 5 minutes.';
   } finally {
     lock.releaseLock();
   }
@@ -1498,10 +2062,13 @@ function lignesMatchs_(iso) {
     const s = lireScore_(lu.scores[i][0], lu.scores[i][1], L);
     if (s.joue) lignes.push([d, 'Poule ' + TOURNOI.lettres[m.poule], m.j1, s.a, m.j2, s.b, L, s.a > s.b ? m.j1 : m.j2]);
   });
+  lu.res.barrages.forEach(function (m) {
+    if (m.joue) lignes.push([d, 'Barrage poule ' + TOURNOI.lettres[m.p], m.j1, m.a, m.j2, m.b, 1, m.gagnant]);
+  });
   lu.res.finale.forEach(function (f, i) {
     if (!f.joue) return;
     const c = lu.cells[i];
-    lignes.push([d, LIBELLES_FINALE[f.id], f.j1, Number(c.a), f.j2, Number(c.b), legsFinale_(lu.etat), f.gagnant]);
+    lignes.push([d, LIBELLES_FINALE[f.id], f.j1, Number(c.a), f.j2, Number(c.b), legsFinale_(lu.etat, f.id), f.gagnant]);
   });
   return lignes;
 }
@@ -1842,6 +2409,7 @@ function bilanSoiree_(iso) {
 
 /** Efface la soirée partout et renvoie le message de confirmation. */
 function retirerSoiree_(iso) {
+  invaliderEtat_();
   const lock = LockService.getDocumentLock();
   lock.waitLock(30000);
   try {
@@ -2205,6 +2773,7 @@ const HTML_SAISIE = `<!DOCTYPE html>
   .j span{flex:1;cursor:pointer;user-select:none}
   select,input{font-size:13px;padding:3px 4px}
   .rec{display:grid;grid-template-columns:140px 90px 1fr;gap:8px;align-items:center;margin:5px 0}
+  .plus{margin:0 0 8px 148px}.plus .btn2{padding:3px 8px;font-size:11px}
   .ajout{display:flex;gap:6px;margin-top:8px}
   .ajout input{flex:1}
   .btn{background:#d4453b;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-size:14px;cursor:pointer}
@@ -2236,7 +2805,8 @@ const HTML_SAISIE = `<!DOCTYPE html>
 
   <fieldset>
     <legend>Records de la soirée</legend>
-    <p class="aide">Laisse vide s'il n'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.</p>
+    <p class="aide">Laisse vide s'il n'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.
+    Chaque 180 et chaque 170 en sortie compte : une ligne par score parfait, même pour le même joueur.</p>
     <div id="records"></div>
   </fieldset>
 
@@ -2302,15 +2872,28 @@ function dessinerJoueurs(rangs){
   maj();
 }
 
+function ligneRecord(t, r, avant){
+  var div = document.createElement('div'); div.className = 'rec';
+  div.innerHTML = '<label>' + esc(t.nom) + '</label>' +
+    '<input class="recscore" data-type="' + esc(t.nom) + '" placeholder="' + t.min + ' à ' + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace('.', ',')) : '') + '">' +
+    '<select class="recnom" data-init="' + esc(r.nom || '') + '"></select>';
+  $('records').insertBefore(div, avant || null);
+  return div;
+}
+
+/* Scores parfaits (180, 170) : une ligne par score parfait, bouton pour en ajouter un autre */
 function dessinerRecords(recs){
   var box = $('records'); box.innerHTML = '';
   TYPES.forEach(function(t){
-    var r = recs.filter(function(x){ return x.type === t.nom; })[0] || {};
-    var div = document.createElement('div'); div.className = 'rec';
-    div.innerHTML = '<label>' + esc(t.nom) + '</label>' +
-      '<input class="recscore" data-type="' + esc(t.nom) + '" placeholder="' + t.min + ' à ' + t.max + '" value="' + (r.score !== undefined ? esc(String(r.score).replace('.', ',')) : '') + '">' +
-      '<select class="recnom" data-init="' + esc(r.nom || '') + '"></select>';
-    box.appendChild(div);
+    var l = recs.filter(function(x){ return x.type === t.nom; });
+    if (!l.length) l = [{}];
+    l.forEach(function(r){ ligneRecord(t, r); });
+    if (t.parfait){
+      var b = document.createElement('div'); b.className = 'plus';
+      b.innerHTML = '<button class="btn2" type="button">+ un autre ' + t.parfait + '</button>';
+      b.querySelector('button').onclick = function(){ ligneRecord(t, { score: t.parfait }, b); maj(); };
+      box.appendChild(b);
+    }
   });
   maj();
   document.querySelectorAll('.recnom').forEach(function(s){ if (s.dataset.init) s.value = s.dataset.init; });
@@ -2589,6 +3172,9 @@ const HTML_TOURNOI = `<!DOCTYPE html>
       <button class="btn2" onclick="tirage()">🎲 Refaire le tirage</button>
     </div>
     <p class="aide" id="reglage"></p>
+    <label class="aide" id="grosseBox" style="display:none;color:#1b2224;font-size:13px;margin:0 0 6px">
+      <input type="checkbox" id="grosse"> <b>Grosse soirée</b> : les 2 premiers de chaque poule sont qualifiés (6 joueurs) ;
+      les deux meilleurs 1ers attendent en demi-finale, les quatre autres jouent les quarts.</label>
     <p class="aide">Tirage au sort automatique. Pour déplacer un joueur, change sa poule dans la liste.
     Par défaut, la plus petite poule joue en 3 legs gagnants (si les poules n'ont pas la même taille).</p>
     <div id="poules" class="poules"></div>
@@ -2708,6 +3294,7 @@ function tirage(){
 
 function dessinerPoules(){
   var k = Number($('nb').value), box = $('poules');
+  $('grosseBox').style.display = k === 3 ? 'block' : 'none';
   box.style.gridTemplateColumns = 'repeat(' + k + ', 1fr)';
   box.innerHTML = '';
   if (!presents().length){ box.innerHTML = '<p class="aide">Coche les joueurs présents.</p>'; return; }
@@ -2755,7 +3342,7 @@ function lancer(remplacer){
       return;
     }
     message('✅ ' + esc(r.message) + ' Tu peux fermer cette fenêtre.', 'ok');
-  }).lancerTournoi({ date: $('date').value, poules: poules, legs: legs, legsFinale: Number($('legsF').value), remplacer: !!remplacer });
+  }).lancerTournoi({ date: $('date').value, poules: poules, legs: legs, legsFinale: Number($('legsF').value), grosse: k === 3 && $('grosse').checked, remplacer: !!remplacer });
 }
 </script>
 </body></html>`;
