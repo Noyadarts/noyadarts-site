@@ -47,7 +47,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Barlow:wght@400;500;600&family=Permanent+Marker&display=swap" rel="stylesheet">
 <style>
 :root{
   --slate:#1b2224;
@@ -362,6 +362,55 @@ td.pct{ width:40%; min-width:150px; }
 .wall li .x.one{ color:var(--chalk-dim); font-size:1.2rem; font-weight:700; }
 .wall .empty{ margin:0; padding:.45rem 0; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
 .wall .total{ margin:.5rem 0 0; text-align:left; color:var(--chalk-dim); font-size:.88rem; }
+.wall .mur-btn{ margin-top:.8rem; font:600 .95rem/1 var(--body); color:var(--chalk); background:transparent; border:0; border-radius:999px; padding:.55rem 1rem; box-shadow:inset 0 0 0 2px var(--slate-3); transition:background .2s, box-shadow .2s; }
+.wall .mur-btn:hover{ background:var(--slate-3); box-shadow:inset 0 0 0 2px var(--sisal); }
+
+/* ---------- Le mur des scores parfaits (fenêtre modale) ---------- */
+.mur{ border:0; padding:0; margin:0; width:100vw; height:100dvh; max-width:100vw; max-height:100dvh; color:#1b2224; overflow:hidden;
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(255,250,235,.18), rgba(0,0,0,0) 55%),
+    radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 45%, rgba(20,16,10,.45) 100%),
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="228" height="168"><rect width="228" height="168" fill="%23b8b2a6"/><rect x="2.0" y="2.0" width="72" height="24" rx="2" fill="%23ebe8e1"/><rect x="2.0" y="22.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="78.0" y="2.0" width="72" height="24" rx="2" fill="%23dedad1"/><rect x="78.0" y="22.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="154.0" y="2.0" width="72" height="24" rx="2" fill="%23d8d4ca"/><rect x="154.0" y="22.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="230.0" y="2.0" width="72" height="24" rx="2" fill="%23d2cec3"/><rect x="230.0" y="22.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="-36.0" y="30.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="-36.0" y="50.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="192.0" y="30.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="192.0" y="50.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="40.0" y="30.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="40.0" y="50.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="116.0" y="30.0" width="72" height="24" rx="2" fill="%23e2ded5"/><rect x="116.0" y="50.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="192.0" y="30.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="192.0" y="50.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="2.0" y="58.0" width="72" height="24" rx="2" fill="%23ebe8e1"/><rect x="2.0" y="78.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="78.0" y="58.0" width="72" height="24" rx="2" fill="%23e2ded5"/><rect x="78.0" y="78.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="154.0" y="58.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="154.0" y="78.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="230.0" y="58.0" width="72" height="24" rx="2" fill="%23e2ded5"/><rect x="230.0" y="78.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="-36.0" y="86.0" width="72" height="24" rx="2" fill="%23dedad1"/><rect x="-36.0" y="106.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="192.0" y="86.0" width="72" height="24" rx="2" fill="%23dedad1"/><rect x="192.0" y="106.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="40.0" y="86.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="40.0" y="106.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="116.0" y="86.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="116.0" y="106.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="192.0" y="86.0" width="72" height="24" rx="2" fill="%23d8d4ca"/><rect x="192.0" y="106.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="2.0" y="114.0" width="72" height="24" rx="2" fill="%23d8d4ca"/><rect x="2.0" y="134.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="78.0" y="114.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="78.0" y="134.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="154.0" y="114.0" width="72" height="24" rx="2" fill="%23dedad1"/><rect x="154.0" y="134.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="230.0" y="114.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="230.0" y="134.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="-36.0" y="142.0" width="72" height="24" rx="2" fill="%23e2ded5"/><rect x="-36.0" y="162.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="192.0" y="142.0" width="72" height="24" rx="2" fill="%23e2ded5"/><rect x="192.0" y="162.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="40.0" y="142.0" width="72" height="24" rx="2" fill="%23d8d4ca"/><rect x="40.0" y="162.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="116.0" y="142.0" width="72" height="24" rx="2" fill="%23e6e3dc"/><rect x="116.0" y="162.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/><rect x="192.0" y="142.0" width="72" height="24" rx="2" fill="%23e2ded5"/><rect x="192.0" y="162.0" width="72" height="4" rx="2" fill="%23000" fill-opacity=".05"/></svg>') 0 0 / 228px 168px; background-color:#d8d4ca; }
+.mur::backdrop{ background:rgba(12,16,17,.9); }
+.mur-in{ height:100%; overflow:auto; overscroll-behavior:contain; }
+.mur-head{ position:sticky; top:0; z-index:20; display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1.2rem; padding:.8rem 4.2rem .8rem 1.2rem; background:rgba(27,34,36,.92); color:var(--chalk); box-shadow:0 4px 18px rgba(0,0,0,.35); }
+.mur-head h2{ margin:0; font-family:var(--display); font-weight:900; font-size:1.9rem; line-height:1; }
+.mur-tabs{ display:flex; gap:.4rem; flex-wrap:wrap; }
+.mur-tabs button{ font:800 1.15rem/1 var(--display); color:var(--chalk-dim); background:transparent; border:0; border-radius:999px; padding:.45rem .85rem; box-shadow:inset 0 0 0 2px var(--slate-3); }
+.mur-tabs button:hover{ color:var(--chalk); }
+.mur-tabs button[aria-pressed="true"]{ color:var(--chalk); background:var(--red); box-shadow:none; }
+.mur-tabs small{ font-size:.8em; font-weight:700; margin-left:.25rem; }
+.mur-close{ position:absolute; top:.65rem; right:.8rem; width:2.6rem; height:2.6rem; display:grid; place-items:center; border:0; border-radius:50%; background:var(--slate-3); color:var(--chalk); font:700 1.5rem/1 var(--body); transition:background .2s; }
+.mur-close:hover{ background:var(--red); }
+.mur-legende{ flex-basis:100%; margin:0; color:var(--chalk-dim); font-size:.9rem; }
+.mur-grid{ display:flex; flex-wrap:wrap; justify-content:center; align-content:flex-start; gap:1.5em 2.2em; padding:2.2em 1em 3em; font-size:18px; }
+@media (max-width:640px){ .mur-grid{ font-size:11.5px; gap:1.2em .6em; padding:1.6em .3em 2.5em; } .mur-head{ padding-right:3.8rem; } .mur-head h2{ font-size:1.5rem; } }
+
+/* Une affiche : cadre blanc façon photo d'identité judiciaire, bande large en haut pour l'épingle */
+.mug{ position:relative; width:13.4em; height:15.2em; margin:0; }
+.mug-cadre{ position:absolute; left:2em; top:.3em; width:9.4em; box-sizing:border-box; padding:2.9em .7em .7em; background:#fbfaf6; transform:rotate(var(--r, 0deg)); transform-origin:50% 1em; z-index:5;
+  box-shadow:0 .15em .25em rgba(0,0,0,.25), .35em .7em 1.2em rgba(30,20,10,.35); }
+.mug-img{ display:block; width:8em; height:8em; overflow:hidden; background:#cfd3d4; }
+.mug-img img, .mug-img svg{ display:block; width:100%; height:100%; object-fit:cover; }
+.mug.passe .mug-img img, .mug.passe .mug-img svg{ filter:grayscale(1) contrast(1.08) brightness(.97); }
+.mug-pin{ position:absolute; left:50%; top:.7em; width:1.15em; height:1.15em; margin-left:-.575em; border-radius:50%; z-index:2;
+  background:radial-gradient(circle at 35% 30%, #ff9c90 0 12%, #d4453b 30%, #8e231c 100%); box-shadow:.18em .3em .25em rgba(0,0,0,.4); }
+.mug-etoiles{ position:absolute; left:4.7em; top:6.9em; width:0; height:0; z-index:3; pointer-events:none; }
+.mug-etoiles svg{ position:absolute; width:var(--t, 1.45em); height:var(--t, 1.45em); transform:translate(-50%,-50%); overflow:visible; }
+.mug-etoiles path{ fill:#f2c14e; stroke:#5a3f05; stroke-width:1.4; stroke-linejoin:round; paint-order:stroke; }
+.mug-nom{ position:absolute; left:50%; top:10.3em; transform:translateX(-50%) rotate(calc(var(--r, 0deg) * -.6)); max-width:10.2em; z-index:4;
+  padding:.15em .7em .05em; background:rgba(236,226,196,.92); box-shadow:0 .1em .2em rgba(0,0,0,.25);
+  font:400 1.25em/1.2 "Permanent Marker", var(--display); color:#1b2224; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mug-nom .player-link{ color:inherit; border-bottom:0; font:inherit; }
+.mug-nom .player-link:hover{ color:#a92f27; }
+.mug-quand{ position:absolute; left:.8em; top:1.05em; font:400 .78em/1 "Permanent Marker", var(--display); color:#5d6669; }
+.mur-vide{ align-self:center; margin-top:3em; max-width:17em; padding:2.4em 1.6em 1.6em; position:relative; background:#fbfaf6; rotate:-2deg; text-align:center;
+  font:400 1.35em/1.3 "Permanent Marker", var(--display); color:#1b2224; box-shadow:.35em .7em 1.2em rgba(30,20,10,.35); }
+.mur-vide .mug-pin{ top:.6em; }
+@media (prefers-reduced-motion:no-preference){
+  .mur[open] .mug, .mur[open] .mur-vide{ animation:epingle .45s cubic-bezier(.2,.9,.3,1.2) both; animation-delay:calc(var(--i, 0) * 70ms); }
+  @keyframes epingle{ from{ opacity:0; transform:translateY(-1.2em) scale(1.06); } to{ opacity:1; transform:none; } }
+}
 .nights{ display:grid; gap:1.4rem 1.6rem; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); }
 .night{ border-left:3px solid var(--slate-3); padding:.2rem 0 .2rem 1rem; }
 .night:first-child{ border-left-color:var(--red); }
@@ -388,7 +437,7 @@ td.pct{ width:40%; min-width:150px; }
 .gallery .zoom:focus-visible{ outline:3px solid var(--sisal); outline-offset:-3px; border-radius:12px; }
 
 /* ---------- Photo agrandie (fenêtre modale) ---------- */
-html.lb-open, html.modal-open{ overflow:hidden; }
+html.lb-open, html.modal-open, html.mur-open{ overflow:hidden; }
 .lightbox{ border:0; padding:0; margin:0; width:100vw; height:100dvh; max-width:100vw; max-height:100dvh; background:transparent; color:var(--chalk); overflow:hidden; }
 .lightbox::backdrop{ background:rgba(12,16,17,.94); }
 .lightbox .lb-stage{ position:absolute; inset:0; display:grid; place-items:center; padding:3.5rem 4.2rem; }
@@ -697,6 +746,18 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
     </div>
   </dialog>
 
+  <dialog class="mur" id="mur" aria-labelledby="murTitre">
+    <div class="mur-in">
+      <div class="mur-head">
+        <h2 id="murTitre">Le mur</h2>
+        <div class="mur-tabs" id="murTabs" role="group" aria-label="Score parfait affiché"></div>
+        <p class="mur-legende">Une étoile par score parfait. Six mois sans le refaire, et la photo passe en noir et blanc.</p>
+        <button type="button" class="mur-close" aria-label="Fermer le mur">&times;</button>
+      </div>
+      <div class="mur-grid" id="murGrid"></div>
+    </div>
+  </dialog>
+
   <section class="block" id="contact">
     <div class="wrap contact">
       <div>
@@ -819,6 +880,9 @@ const SNAPSHOT_RECORDS = `date,Type,Score,Nom
 /* Photos ajoutées à la main : { src: "...", legende: "..." }
    (les photos du dossier Google Drive s'ajoutent automatiquement via SHEET_CSV.photos) */
 const PHOTOS = [];
+/* Portraits du mur du wall of fame, par joueur (clé = nom sans accents ni majuscules) :
+   remplis d'après l'onglet « Photos » (colonne « Joueur »), dossier Drive du wall of fame. */
+const PORTRAITS = {};
 
 /* ====== Classement, fiches joueurs et prochain rendez-vous ====== */
 (function(){
@@ -944,6 +1008,8 @@ const PHOTOS = [];
     { titre:"170", sous:"big fish", what:"La plus grosse sortie possible : triple 20, triple 20, bull.", type:"meilleure sortie", test:v => v >= 170 },
     { titre:"6", sous:"darter", what:"301 bouclé en 6 fléchettes, soit 150,5 de moyenne sur le leg.", type:"moyenne leg", test:v => v >= 150.5 }
   ];
+  /* Sans nouveau score parfait depuis ce nombre de mois, la photo passe en noir et blanc */
+  const MUR_MOIS_NB = 6;
   /* % de victoires : il faut au moins ce nombre de matchs archivés pour être classé */
   const MIN_MATCHS_PCT = 5;
 
@@ -1225,9 +1291,11 @@ const PHOTOS = [];
   const NIGHTS_VISIBLE = 6;
 
   /* ---- Wall of fame : 180, 170 (big fish) et 6 darter, sur tout l'historique de « Records BD » ---- */
+  let fameRecs = [];
   function renderFame(recs){
+    fameRecs = recs;
     const box = document.getElementById("fame"); box.textContent = "";
-    FAME.forEach(f => {
+    FAME.forEach((f, fi) => {
       const l = recs.filter(r => norm(r.type) === f.type && f.test(r.score));
       const wall = el("div", "wall");
       const h = el("h4", null, f.titre); if(f.sous) h.appendChild(el("small", null, f.sous));
@@ -1250,9 +1318,102 @@ const PHOTOS = [];
         wall.appendChild(ol);
         if(l.length > 1) wall.appendChild(el("p", "total", l.length + " au total"));
       }
+      const btn = el("button", "mur-btn", "Voir le mur"); btn.type = "button";
+      btn.setAttribute("aria-haspopup", "dialog");
+      btn.addEventListener("click", () => ouvrirMur(fi));
+      wall.appendChild(btn);
       box.appendChild(wall);
     });
   }
+
+  /* ---- Le mur : photos épinglées des joueurs d'un score parfait, une étoile par exploit ---- */
+  const mur = document.getElementById("mur"), murGrid = document.getElementById("murGrid"), murTabs = document.getElementById("murTabs");
+  let murIdx = 0;
+  const ETOILE = "M12 1.8l3 6.6 7.2.7-5.5 4.8 1.7 7.1L12 17.3 5.6 21l1.7-7.1L1.8 9.1 9 8.4z";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const hashNom = t => { let h = 0; for(const c of norm(t)) h = (h * 31 + c.charCodeAt(0)) | 0; return h; };
+  /* Portrait du joueur (dossier Drive du wall of fame), ou null : silhouette en attendant */
+  const trombine = name => PORTRAITS[norm(name).replace(/[^a-z0-9]/g, "")] || null;
+  document.addEventListener("portraits", () => { if(mur.open) renderMur(); });
+  /* Silhouette sur toise, en attendant la vraie photo */
+  function silhouette(){
+    const s = document.createElementNS(SVGNS, "svg");
+    s.setAttribute("viewBox", "0 0 100 100"); s.setAttribute("aria-hidden", "true");
+    let lignes = "";
+    for(let y = 8; y < 100; y += 8) lignes += '<line x1="0" x2="100" y1="' + y + '" y2="' + y + '" stroke="#9aa3a6" stroke-width="' + (y % 32 === 8 ? 1.2 : .5) + '"/>';
+    s.innerHTML = '<rect width="100" height="100" fill="#c9cfd0"/>' + lignes +
+      '<g fill="#3b4649"><circle cx="50" cy="40" r="17"/><path d="M14 104c0-24 16-38 36-38s36 14 36 38z"/></g>' +
+      '<text x="50" y="45" text-anchor="middle" font-family="Big Shoulders Display, Arial Narrow, sans-serif" font-weight="900" font-size="18" fill="#c9cfd0">?</text>';
+    return s;
+  }
+  function etoiles(n){
+    const box = el("span", "mug-etoiles"); box.setAttribute("aria-hidden", "true");
+    const R = 6, t = n > 16 ? .95 : n > 10 ? 1.15 : 1.45;
+    box.style.setProperty("--t", t + "em");
+    for(let i = 0; i < n; i++){
+      const a = (-45 + 360 * i / n) * Math.PI / 180;
+      const s = document.createElementNS(SVGNS, "svg"); s.setAttribute("viewBox", "0 0 24 24");
+      s.style.left = (R * Math.cos(a)).toFixed(3) + "em"; s.style.top = (R * Math.sin(a)).toFixed(3) + "em";
+      const p = document.createElementNS(SVGNS, "path"); p.setAttribute("d", ETOILE); s.appendChild(p);
+      box.appendChild(s);
+    }
+    return box;
+  }
+  function renderMur(){
+    const f = FAME[murIdx];
+    murTabs.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", String(i === murIdx)));
+    murGrid.textContent = "";
+    const l = fameRecs.filter(r => norm(r.type) === f.type && f.test(r.score));
+    const parJoueur = {};
+    l.forEach(r => { const k = norm(r.name); const x = parJoueur[k] = parJoueur[k] || { name:r.name, dates:[], last:r.date }; x.dates.push(r.date); if(r.date > x.last) x.last = r.date; });
+    const liste = Object.values(parJoueur).sort((a, b) => b.dates.length - a.dates.length || b.last - a.last);
+    const nomScore = f.titre + (f.sous ? " " + f.sous : "");
+    if(!liste.length){
+      const v = el("p", "mur-vide", "Personne au " + nomScore + " pour l'instant. La place est libre.");
+      v.prepend(el("span", "mug-pin"));
+      murGrid.appendChild(v); return;
+    }
+    const limite = new Date(); limite.setMonth(limite.getMonth() - MUR_MOIS_NB);
+    liste.forEach((x, i) => {
+      const n = x.dates.length, passe = x.last < limite;
+      const fig = el("figure", "mug" + (passe ? " passe" : ""));
+      fig.style.setProperty("--i", i);
+      fig.style.setProperty("--r", (((Math.abs(hashNom(x.name)) % 9) - 4) * .9).toFixed(1) + "deg");
+      const cadre = el("div", "mug-cadre"), img = el("span", "mug-img"), src = trombine(x.name);
+      if(src){
+        const im = document.createElement("img"); im.src = src.src; im.alt = ""; im.decoding = "async"; im.referrerPolicy = "no-referrer";
+        im.addEventListener("error", () => { if(src.secours && im.src !== src.secours) im.src = src.secours; else im.replaceWith(silhouette()); });
+        img.appendChild(im);
+      } else img.appendChild(silhouette());
+      const dd = n => String(n).padStart(2, "0");
+      cadre.append(el("span", "mug-pin"), el("span", "mug-quand", dd(x.last.getDate()) + "." + dd(x.last.getMonth() + 1) + "." + String(x.last.getFullYear()).slice(2)), img, etoiles(n));
+      const nom = el("figcaption", "mug-nom"); nom.appendChild(playerLink(x.name));
+      fig.append(cadre, nom);
+      const quand = x.dates.slice().sort((a, b) => a - b).map(d => shortDate(d) + " " + d.getFullYear()).join(", ");
+      const info = x.name + " : " + nomScore + (n > 1 ? " " + n + " fois (" + quand + ")" : " le " + quand) + (passe ? ". Pas refait depuis plus de " + MUR_MOIS_NB + " mois." : ".");
+      fig.title = info;
+      nom.appendChild(el("span", "sr-only", " " + info));
+      murGrid.appendChild(fig);
+    });
+  }
+  FAME.forEach((f, i) => {
+    const b = el("button", null, f.titre); b.type = "button";
+    if(f.sous) b.appendChild(el("small", null, f.sous));
+    b.addEventListener("click", () => { murIdx = i; renderMur(); murGrid.parentElement.scrollTop = 0; });
+    murTabs.appendChild(b);
+  });
+  function ouvrirMur(i){
+    murIdx = i; renderMur();
+    document.documentElement.classList.add("mur-open");
+    if(typeof mur.showModal === "function"){ if(!mur.open) mur.showModal(); } else mur.setAttribute("open", "");
+    mur.querySelector(".mur-in").scrollTop = 0;
+  }
+  function fermerMur(){
+    if(typeof mur.close === "function"){ if(mur.open) mur.close(); }
+    else { mur.removeAttribute("open"); document.documentElement.classList.remove("mur-open"); }
+  }
+  mur.addEventListener("close", () => document.documentElement.classList.remove("mur-open"));
+  mur.querySelector(".mur-close").addEventListener("click", fermerMur);
 
   /* ---- Classement par % de victoires, d'après « Matchs BD » (tout l'historique, barrages compris) ---- */
   function renderWinrate(){
@@ -1670,10 +1831,41 @@ const PHOTOS = [];
 
   afficher(PHOTOS);
 
-  // 1re colonne de chaque ligne = identifiant Drive de la photo (la ligne d'en-tête est ignorée)
-  const idsDe = txt => txt.split(/\r?\n/)
-    .map(l => (l.match(/^"?([A-Za-z0-9_-]{20,})"?(,|$)/) || [])[1])
-    .filter(Boolean);
+  // Onglet « Photos » : colonne A = identifiant Drive, colonne « Joueur » remplie = portrait du wall of fame
+  // (pas dans la galerie). La ligne d'en-tête est ignorée.
+  function lignesCSV(text){
+    const rows = []; let row = [], cell = "", q = false;
+    for(let i = 0; i < text.length; i++){
+      const c = text[i];
+      if(q){ if(c === '"'){ if(text[i+1] === '"'){ cell += '"'; i++; } else q = false; } else cell += c; }
+      else if(c === '"') q = true;
+      else if(c === ","){ row.push(cell); cell = ""; }
+      else if(c === "\n" || c === "\r"){ if(c === "\r" && text[i+1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += c;
+    }
+    if(cell !== "" || row.length){ row.push(cell); rows.push(row); }
+    return rows.map(r => r.map(v => v.trim()));
+  }
+  const cle = t => String(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  function idsDe(txt){
+    const rows = lignesCSV(txt);
+    const iJ = rows.length ? rows[0].findIndex(h => cle(h) === "joueur") : -1;
+    const ids = [];
+    Object.keys(PORTRAITS).forEach(k => delete PORTRAITS[k]);
+    rows.forEach(r => {
+      const id = r[0];
+      if(!/^[A-Za-z0-9_-]{20,}$/.test(id || "")) return;
+      const joueur = iJ >= 0 ? r[iJ] : "";
+      if(joueur){
+        PORTRAITS[cle(joueur)] = {
+          src: "https://drive.google.com/thumbnail?id=" + id + "&sz=w600",
+          secours: "https://lh3.googleusercontent.com/d/" + id + "=w600"
+        };
+      } else ids.push(id);
+    });
+    document.dispatchEvent(new Event("portraits"));
+    return ids;
+  }
 
   if(SHEET_CSV.photos){
     const enMemoire = cacheGet("photos");
