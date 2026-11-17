@@ -27,6 +27,12 @@
  *
  * Photos du site depuis un dossier Google Drive (menu "Mettre à jour les photos"),
  * listées dans l'onglet "Photos", que le site lit (onglet publié en CSV).
+ * Portraits du mur du wall of fame depuis un second dossier (menu "Changer le dossier du wall of fame"),
+ * listés dans le même onglet avec le nom du joueur en colonne D.
+ * Mise à jour automatique des photos toutes les heures (menu "Mise à jour automatique des photos").
+ *
+ * Nouvelle saison (menu "Nouvelle saison", seulement depuis le Google Sheet) : les soirées des saisons
+ * terminées (1er juillet au 30 juin) sont archivées dans l'onglet "Saisons BD" et le championnat repart à zéro.
  *
  * Installation : Extensions > Apps Script, coller ce fichier, enregistrer,
  * choisir la fonction "installer" puis cliquer sur Exécuter.
@@ -39,6 +45,7 @@ const CFG = {
   params: 'Paramètres points championnat',
   photos: 'Photos',
   matchs: 'Matchs BD',
+  saisons: 'Saisons BD',
   siteUrl: 'https://noyadarts.github.io/noyadarts-site/',
   col1: 4, // colonne D : première soirée (Classement, Records, Points)
   habitues: 6, // semaines : au lancement d'un tournoi, les joueurs pas venus depuis plus longtemps sont repliés
@@ -132,8 +139,12 @@ function onOpen() {
     .addItem('Trier les poules (onglet affiché)', 'trierPoules')
     .addSeparator()
     .addItem('Mettre à jour les photos', 'majPhotos')
+    .addItem('Mise à jour automatique des photos', 'photosAuto')
     .addItem('Changer le dossier photos', 'choisirDossierPhotos')
+    .addItem('Changer le dossier du wall of fame', 'choisirDossierMur')
     .addItem('Voir le site', 'ouvrirSite')
+    .addSeparator()
+    .addItem('Nouvelle saison', 'nouvelleSaison')
     .addSeparator()
     .addItem('Vérifier le fichier', 'verifierFichier')
     .addItem('Réparer le fichier', 'installer')
@@ -434,6 +445,16 @@ function renommerJoueur(ancien, nouveau, forcer) {
       }
     }
 
+    // Saisons BD : colonne Nom (C) des saisons archivées
+    const sb = ss_().getSheetByName(CFG.saisons);
+    if (sb && sb.getLastRow() >= 2) {
+      const rgS = sb.getRange(2, 3, sb.getLastRow() - 1, 1);
+      const nomsS = rgS.getValues();
+      let changeS = false;
+      nomsS.forEach(function (l) { if (String(l[0]).trim() === ancien) { l[0] = nouveau; changeS = true; } });
+      if (changeS) rgS.setValues(nomsS);
+    }
+
     installerOngletRecords_();
     try { renommerDansTournoi_(ancien, nouveau); } catch (e) { /* le tournoi en cours n'empêche pas le changement de nom */ }
     SpreadsheetApp.flush();
@@ -481,6 +502,11 @@ function enregistrerSoiree(p) {
   lock.waitLock(30000);
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) throw new Error('Choisis la date de la soirée.');
+    const saison = saisonDe_(p.date);
+    if (lireSaisons_().some(function (l) { return l.saison === saison; })) {
+      throw new Error('La saison ' + saison + ' est archivée (menu « Nouvelle saison ») : une soirée de cette saison ne peut plus être ajoutée ni corrigée au championnat. ' +
+        'Pour une correction, modifie à la main l\'onglet « ' + CFG.saisons + ' ».');
+    }
     const rangs = {};
     Object.keys(p.rangs || {}).forEach(function (n) { if (p.rangs[n]) rangs[n] = Number(p.rangs[n]); });
     const presents = Object.keys(rangs);
@@ -2119,7 +2145,7 @@ function ecrireMatchsBD_(iso, nouvelles) {
  */
 
 const ENTETES_RECORDS = ['Date', 'Type', 'Score', 'Nom'];
-const ENTETES_PHOTOS = ['id', 'Nom du fichier', 'Ajoutée le'];
+const ENTETES_PHOTOS = ['id', 'Nom du fichier', 'Ajoutée le', 'Joueur'];
 
 function verifierFichier() {
   const ui = SpreadsheetApp.getUi();
@@ -2234,6 +2260,33 @@ function verifierFichier_() {
       if (nb(1) !== 1 || nb(2) !== 1) problemes.push('Soirée du ' + frDate(iso) + ' : ' + nb(1) + ' vainqueur(s) et ' + nb(2) + ' finaliste(s) au championnat (il en faut un de chaque).');
     }
   }
+  // Saisons archivées (menu « Nouvelle saison ») : leurs soirées comptent pour les contrôles de « Records BD » et « Matchs BD »
+  const sb = ss.getSheetByName(CFG.saisons);
+  let nbArchivees = 0;
+  if (sb) {
+    entetes(sb, 1, 1, ENTETES_SAISONS, CFG.saisons);
+    const lastS = sb.getLastRow();
+    const lignesS = lastS >= 2 ? sb.getRange(2, 1, lastS - 1, ENTETES_SAISONS.length).getValues() : [];
+    const dejaChamp = {};
+    lignesS.forEach(function (l, i) {
+      const r = i + 2;
+      if (l.every(vide)) return;
+      const iso = cleDate_(l[1]);
+      if (!iso) { problemes.push('« ' + CFG.saisons + ' », ligne ' + r + ' : « ' + l[1] + ' » n\'est pas une date, la ligne est ignorée.'); return; }
+      const nom = String(l[2]).trim();
+      if (!nom) { problemes.push('« ' + CFG.saisons + ' », ligne ' + r + ' : il manque le nom du joueur.'); return; }
+      if (soirees[iso] && !soirees[iso].archive) {
+        if (!dejaChamp[iso]) problemes.push('La soirée du ' + frDate(iso) + ' est à la fois dans le championnat et dans « ' + CFG.saisons + ' ». Retire-la de l\'un des deux.');
+        dejaChamp[iso] = true;
+        return;
+      }
+      if (vide(l[3]) || isNaN(Number(l[3]))) problemes.push('« ' + CFG.saisons + ' », ligne ' + r + ' : classement « ' + l[3] + ' » qui n\'est pas un nombre.');
+      if (!vide(l[5]) && isNaN(Number(l[5]))) problemes.push('« ' + CFG.saisons + ' », ligne ' + r + ' : points « ' + l[5] + ' » qui ne sont pas un nombre.');
+      if (!soirees[iso]) { soirees[iso] = { col: null, rangs: {}, recs: {}, archive: true }; nbArchivees++; }
+      soirees[iso].rangs[nom] = Number(l[3]);
+      if (Number(l[4]) > 0) soirees[iso].recs[nom] = Number(l[4]);
+    });
+  }
   const estJoueur = function (n) { return joueurs.indexOf(String(n).trim()) >= 0; };
 
   // 3. Barème des points
@@ -2316,7 +2369,8 @@ function verifierFichier_() {
     if (h.indexOf('date') < 0) problemes.push('« Annonces », ligne 1 : il faut une colonne « Date » (avec « Annulé » et « Message »), sinon le site ignore les annonces.');
   }
 
-  if (champ) infos.push(Object.keys(soirees).length + ' soirée(s) et ' + joueurs.length + ' joueur(s) au championnat.');
+  if (champ) infos.push((Object.keys(soirees).length - nbArchivees) + ' soirée(s) et ' + joueurs.length + ' joueur(s) au championnat' +
+    (nbArchivees ? ', ' + nbArchivees + ' soirée(s) dans les saisons archivées.' : '.'));
   return { problemes: problemes, corrections: corrections, infos: infos };
 }
 
@@ -2346,6 +2400,7 @@ function retirerSoiree() {
   if (b.joueurs) quoi.push('le classement de ' + b.joueurs + ' joueur(s) au championnat (points recalculés)');
   if (b.records) quoi.push(b.records + ' record(s) dans « ' + CFG.bd + ' »');
   if (b.matchs) quoi.push(b.matchs + ' match(s) dans « ' + CFG.matchs + ' »');
+  if (b.archive) quoi.push(b.archive + ' ligne(s) de la saison archivée dans « ' + CFG.saisons + ' »');
   const ok = ui.alert('Retirer la soirée du ' + fr(iso) + ' ?',
     'Seront effacés : ' + quoi.join(', ') + '.\n\n' +
     'Les joueurs restent dans la liste. Pour revenir en arrière : ressaisir la soirée, ou Fichier > Historique des versions.',
@@ -2363,6 +2418,7 @@ function datesSoirees_() {
   for (let c = CFG.col1; c <= lastCol; c += 3) { const k = cleDate_(ligne1[c - 1]); if (k) out[k] = true; }
   lireRecordsBD_().forEach(function (l) { if (l.cle) out[l.cle] = true; });
   lignesMatchsBD_().forEach(function (l) { const k = cleDate_(l[0]); if (k) out[k] = true; });
+  lireSaisons_().forEach(function (l) { out[l.cle] = true; });
   return Object.keys(out).sort().reverse();
 }
 
@@ -2404,6 +2460,7 @@ function bilanSoiree_(iso) {
     joueurs: joueurs,
     records: lireRecordsBD_().filter(function (l) { return l.cle === iso; }).length,
     matchs: lignesMatchsBD_().filter(function (l) { return cleDate_(l[0]) === iso; }).length,
+    archive: lireSaisons_().filter(function (l) { return l.cle === iso; }).length,
   };
 }
 
@@ -2422,6 +2479,7 @@ function retirerSoiree_(iso) {
     }
     if (b.records) ecrireRecordsBD_(iso, []);
     if (b.matchs) ecrireMatchsBD_(iso, []);
+    if (b.archive) ecrireSaisons_(lireSaisons_().filter(function (l) { return l.cle !== iso; }));
     // La soirée du 1er octobre est réimportée par « Réparer le fichier » si elle manque : on note qu'elle a été retirée exprès
     if (iso === SOIREE_1ER_OCTOBRE.date) PropertiesService.getDocumentProperties().setProperty('soiree1erOctobreRetiree', 'oui');
 
@@ -2438,7 +2496,8 @@ function retirerSoiree_(iso) {
     const sansSoiree = Object.keys(venues).filter(function (nom) { return !venues[nom]; });
     const d = iso.split('-');
     let msg = 'Soirée du ' + Number(d[2]) + '/' + Number(d[1]) + '/' + d[0] + ' retirée : ' +
-      b.joueurs + ' classement(s), ' + b.records + ' record(s), ' + b.matchs + ' match(s) effacés. Le site sera à jour d\'ici 5 minutes.';
+      b.joueurs + ' classement(s), ' + b.records + ' record(s), ' + b.matchs + ' match(s)' +
+      (b.archive ? ', ' + b.archive + ' ligne(s) de saison archivée' : '') + ' effacés. Le site sera à jour d\'ici 5 minutes.';
     if (sansSoiree.length) msg += '\n\nCes joueurs n\'ont plus aucune soirée (ils n\'apparaissent plus sur le site, mais restent dans la liste) : ' +
       sansSoiree.join(', ') + '. Pour les enlever : menu « Supprimer un joueur ».';
     const etat = lireEtatTournoi_();
@@ -2451,11 +2510,11 @@ function retirerSoiree_(iso) {
 
 /* ============================ PHOTOS ============================ */
 
-/** Demande le lien du dossier Google Drive des photos et le mémorise. Renvoie l'ID ou null. */
-function choisirDossierPhotos() {
+/** Demande le lien d'un dossier Google Drive et le mémorise sous la clé donnée. Renvoie l'ID ou null. */
+function choisirDossier_(cle, titre, quoi) {
   const ui = SpreadsheetApp.getUi();
-  const rep = ui.prompt('Dossier des photos',
-    'Colle le lien du dossier Google Drive qui contient les photos du site\n' +
+  const rep = ui.prompt(titre,
+    'Colle le lien du dossier Google Drive qui contient ' + quoi + '\n' +
     '(dans Drive : clic droit sur le dossier > Partager > Copier le lien) :', ui.ButtonSet.OK_CANCEL);
   if (rep.getSelectedButton() !== ui.Button.OK) return null;
   const txt = rep.getResponseText().trim();
@@ -2464,27 +2523,27 @@ function choisirDossierPhotos() {
   let dossier;
   try { dossier = DriveApp.getFolderById(m[1]); }
   catch (e) { ui.alert("Dossier introuvable, ou tu n'y as pas accès avec ce compte Google."); return null; }
-  PropertiesService.getDocumentProperties().setProperty('dossierPhotos', m[1]);
+  PropertiesService.getDocumentProperties().setProperty(cle, m[1]);
   ss_().toast('Dossier « ' + dossier.getName() + ' » enregistré', "Noya'Darts", 4);
   return m[1];
 }
 
-/**
- * Liste les images du dossier dans l'onglet "Photos" (de la plus récente à la plus ancienne)
- * et les rend visibles par "tous les utilisateurs disposant du lien", condition pour
- * qu'elles s'affichent sur le site.
- */
-function majPhotos() {
-  const ui = SpreadsheetApp.getUi();
-  let id = PropertiesService.getDocumentProperties().getProperty('dossierPhotos');
-  if (!id) id = choisirDossierPhotos();
-  if (!id) return;
+/** Dossier des photos de la galerie « En images ». */
+function choisirDossierPhotos() {
+  return choisirDossier_('dossierPhotos', 'Dossier des photos', 'les photos du site');
+}
 
-  let dossier;
-  try { dossier = DriveApp.getFolderById(id); }
-  catch (e) { ui.alert("Le dossier photos est introuvable. Choisis-le à nouveau (menu « Changer le dossier photos »)."); return; }
+/** Dossier des portraits du mur du wall of fame (une photo par joueur, nommée comme lui). */
+function choisirDossierMur() {
+  const id = choisirDossier_('dossierMur', 'Dossier du wall of fame',
+    'les portraits du wall of fame\n(une photo par joueur, nommée comme au championnat : « Nico.jpg », « Bob le fou.jpg »)');
+  if (id && SpreadsheetApp.getUi().alert('Mettre à jour les photos maintenant ?', SpreadsheetApp.getUi().ButtonSet.YES_NO) === SpreadsheetApp.getUi().Button.YES) majPhotos();
+  return id;
+}
 
-  const photos = [], refus = [];
+/** Images d'un dossier, rendues visibles par « tous les utilisateurs disposant du lien ». */
+function imagesDossier_(dossier, refus) {
+  const out = [];
   const it = dossier.getFiles();
   while (it.hasNext()) {
     const f = it.next();
@@ -2493,31 +2552,377 @@ function majPhotos() {
       if (f.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK && f.getSharingAccess() !== DriveApp.Access.ANYONE) {
         f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       }
-      photos.push([f.getId(), f.getName(), f.getDateCreated()]);
+      out.push({ id: f.getId(), nom: f.getName(), date: f.getDateCreated() });
     } catch (e) {
       refus.push(f.getName());
     }
   }
-  photos.sort(function (a, b) { return b[2] - a[2]; });
+  out.sort(function (a, b) { return b.date - a.date; });
+  return out;
+}
 
-  let sh = ss_().getSheetByName(CFG.photos);
-  if (!sh) sh = ss_().insertSheet(CFG.photos);
-  sh.clearContents();
-  sh.getRange(1, 1, 1, 3).setValues([['id', 'Nom du fichier', 'Ajoutée le']]).setFontWeight('bold');
-  if (photos.length) {
-    sh.getRange(2, 1, photos.length, 3).setValues(photos);
-    sh.getRange(2, 3, photos.length, 1).setNumberFormat('d/m/yyyy');
-  }
-
+/**
+ * Menu « Mettre à jour les photos » : liste dans l'onglet "Photos"
+ * - les images du dossier de la galerie (de la plus récente à la plus ancienne), colonne « Joueur » vide ;
+ * - les portraits du dossier du wall of fame, colonne « Joueur » = nom du joueur au championnat
+ *   (reconnu d'après le nom du fichier, aux majuscules, accents et espaces près).
+ * Les images sont rendues visibles par "tous les utilisateurs disposant du lien", condition pour
+ * qu'elles s'affichent sur le site. Même travail que la mise à jour automatique, avec un compte rendu.
+ */
+function majPhotos() {
+  const ui = SpreadsheetApp.getUi();
   const props = PropertiesService.getDocumentProperties();
-  let msg = photos.length + ' photo(s) dans le dossier « ' + dossier.getName() + ' ». Le site sera à jour d\'ici 5 minutes.';
-  if (refus.length) msg += '\n\nCes photos n\'ont pas pu être partagées et ne s\'afficheront pas : ' + refus.join(', ');
+  if (!props.getProperty('dossierPhotos') && !choisirDossierPhotos()) return;
+  let r;
+  try { r = majPhotos_(); } catch (e) { ui.alert(e.message); return; }
+  let msg = r.message + (r.change ? '\nLe site sera à jour d\'ici 5 minutes.' : '\nRien de nouveau depuis la dernière mise à jour.');
   if (!props.getProperty('photosPubliees')) {
     msg += '\n\nPremière fois : publie l\'onglet « Photos » en CSV (Fichier > Partager > Publier sur le Web, ' +
       'choisis l\'onglet « Photos » et le format CSV), puis envoie le lien obtenu pour qu\'il soit ajouté au site.';
     props.setProperty('photosPubliees', 'rappel-fait');
   }
   ui.alert('Photos', msg, ui.ButtonSet.OK);
+}
+
+/**
+ * Cœur commun au menu et à la mise à jour automatique : lit les deux dossiers Drive et réécrit
+ * l'onglet « Photos » seulement si la liste a changé. Renvoie { message, change }.
+ */
+function majPhotos_() {
+  const props = PropertiesService.getDocumentProperties();
+  const id = props.getProperty('dossierPhotos');
+  if (!id) throw new Error('Pas encore de dossier photos : menu « Changer le dossier photos ».');
+  let dossier;
+  try { dossier = DriveApp.getFolderById(id); }
+  catch (e) { throw new Error('Le dossier photos est introuvable. Choisis-le à nouveau (menu « Changer le dossier photos »).'); }
+
+  const refus = [];
+  const photos = imagesDossier_(dossier, refus);
+
+  // Portraits du wall of fame
+  const idMur = props.getProperty('dossierMur');
+  let dossierMur = null, murIntrouvable = false;
+  const portraits = [], inconnus = [], doublons = [];
+  if (idMur) {
+    try { dossierMur = DriveApp.getFolderById(idMur); } catch (e) { murIntrouvable = true; }
+  }
+  if (dossierMur) {
+    const parCle = {};
+    lireJoueurs_().forEach(function (n) { if (n) parCle[cleNom_(n)] = n; });
+    const vus = {};
+    imagesDossier_(dossierMur, refus).forEach(function (p) {   // du plus récent au plus ancien
+      const base = p.nom.replace(/\.[^.]+$/, '').trim();
+      const joueur = parCle[cleNom_(base)];
+      if (!joueur) { inconnus.push(p.nom); return; }
+      if (vus[joueur]) { doublons.push(p.nom + ' (on garde « ' + vus[joueur] + ' », plus récente)'); return; }
+      vus[joueur] = p.nom;
+      p.joueur = joueur;
+      portraits.push(p);
+    });
+  }
+
+  const lignes = photos.map(function (p) { return [p.id, p.nom, p.date, '']; })
+    .concat(portraits.map(function (p) { return [p.id, p.nom, p.date, p.joueur]; }));
+
+  // Onglet réécrit seulement si la liste a changé (identifiant, nom du fichier, joueur)
+  let sh = ss_().getSheetByName(CFG.photos);
+  const empreinte = function (l) { return [String(l[0]), String(l[1]), String(l[3] || '')].join('|'); };
+  let change = true;
+  if (sh) {
+    const last = sh.getLastRow();
+    const tete = sh.getRange(1, 1, 1, ENTETES_PHOTOS.length).getValues()[0];
+    const avant = last >= 2 ? sh.getRange(2, 1, last - 1, 4).getValues().filter(function (l) { return String(l[0]).trim(); }) : [];
+    change = tete.some(function (h, i) { return String(h) !== ENTETES_PHOTOS[i]; }) ||
+      avant.map(empreinte).join('\n') !== lignes.map(empreinte).join('\n');
+  }
+  if (change) {
+    if (!sh) sh = ss_().insertSheet(CFG.photos);
+    sh.clearContents();
+    sh.getRange(1, 1, 1, ENTETES_PHOTOS.length).setValues([ENTETES_PHOTOS]).setFontWeight('bold');
+    if (lignes.length) {
+      sh.getRange(2, 1, lignes.length, 4).setValues(lignes);
+      sh.getRange(2, 3, lignes.length, 1).setNumberFormat('d/m/yyyy');
+    }
+  }
+
+  let msg = photos.length + ' photo(s) dans le dossier « ' + dossier.getName() + ' ».';
+  if (dossierMur) msg += '\n' + portraits.length + ' portrait(s) dans le dossier « ' + dossierMur.getName() + ' ».';
+  else if (murIntrouvable) msg += '\nLe dossier du wall of fame est introuvable : choisis-le à nouveau (menu « Changer le dossier du wall of fame »).';
+  else msg += '\nPas encore de dossier pour le wall of fame (menu « Changer le dossier du wall of fame »).';
+  if (refus.length) msg += '\n\nCes photos n\'ont pas pu être partagées et ne s\'afficheront pas : ' + refus.join(', ');
+  if (inconnus.length) msg += '\n\nWall of fame, nom qui ne correspond à aucun joueur du championnat (à renommer comme le joueur, par exemple « Bob le fou.jpg ») : ' + inconnus.join(', ');
+  if (doublons.length) msg += '\n\nWall of fame, plusieurs photos pour le même joueur, ignorées : ' + doublons.join(', ');
+  return { message: msg, change: change };
+}
+
+/* ------------- Mise à jour automatique des photos (déclencheur horaire) ------------- */
+const PHOTOS_AUTO = { fonction: 'majPhotosAuto', heures: 1 };
+
+/** Lancée par le déclencheur, toutes les heures : pas de fenêtre, compte rendu gardé pour le menu. */
+function majPhotosAuto() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return; // une mise à jour est déjà en cours
+  let txt;
+  try {
+    const r = majPhotos_();
+    txt = (r.change ? 'Onglet « Photos » mis à jour. ' : 'Rien de nouveau. ') + r.message;
+  } catch (e) {
+    txt = 'Erreur : ' + e.message;
+  } finally {
+    lock.releaseLock();
+  }
+  PropertiesService.getDocumentProperties().setProperty('photosAutoDernier', JSON.stringify({ t: new Date().toISOString(), msg: txt }));
+  return txt;
+}
+
+function declencheursPhotos_() {
+  return ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === PHOTOS_AUTO.fonction; });
+}
+
+/** Menu « Mise à jour automatique des photos » : état, activation ou désactivation. */
+function photosAuto() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  let dernier = '';
+  try {
+    const d = JSON.parse(props.getProperty('photosAutoDernier') || 'null');
+    if (d) dernier = '\n\nDernier passage, le ' + Utilities.formatDate(new Date(d.t), ss_().getSpreadsheetTimeZone(), "d/M/yyyy 'à' HH:mm") + ' :\n' + d.msg;
+  } catch (e) { /* compte rendu illisible : ignoré */ }
+  const actifs = declencheursPhotos_();
+  if (actifs.length) {
+    const rep = ui.alert('Mise à jour automatique des photos',
+      'Activée : les dossiers Drive sont relus toutes les heures, et l\'onglet « Photos » n\'est réécrit que s\'il y a du nouveau.' + dernier +
+      '\n\nLa désactiver ? (Le menu « Mettre à jour les photos » reste disponible.)', ui.ButtonSet.YES_NO);
+    if (rep !== ui.Button.YES) return;
+    actifs.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+    ui.alert('Mise à jour automatique désactivée. Utilise le menu « Mettre à jour les photos » après avoir déposé des photos.');
+    return;
+  }
+  if (!props.getProperty('dossierPhotos')) { ui.alert('Choisis d\'abord le dossier des photos (menu « Changer le dossier photos »).'); return; }
+  const rep = ui.alert('Mise à jour automatique des photos',
+    'Désactivée pour l\'instant.' + dernier + '\n\nL\'activer ? Les dossiers Drive seront relus toutes les heures : une photo déposée apparaît sur le site ' +
+    'dans l\'heure (plus 5 minutes). Le menu « Mettre à jour les photos » reste disponible pour vérifier le rendu tout de suite.\n\n' +
+    'À faire avec le compte du club. Google demandera peut-être une autorisation de plus (exécution automatique).', ui.ButtonSet.YES_NO);
+  if (rep !== ui.Button.YES) return;
+  ScriptApp.newTrigger(PHOTOS_AUTO.fonction).timeBased().everyHours(PHOTOS_AUTO.heures).create();
+  const txt = majPhotosAuto();
+  ui.alert('Mise à jour automatique activée (toutes les heures).\n\nPremier passage :\n' + txt);
+}
+
+/* ======================== NOUVELLE SAISON ======================== */
+/*
+ * Menu « Nouvelle saison », volontairement absent de la page web (pas de fausse manip possible en soirée).
+ * Les soirées des saisons terminées (une saison va du 1er juillet au 30 juin) sont copiées dans l'onglet
+ * « Saisons BD », une ligne par joueur et par soirée (Saison, Date, Nom, Classement, Records, Points),
+ * puis retirées du championnat, qui repart à zéro. Les joueurs restent dans la liste. « Records BD » et
+ * « Matchs BD » gardent tout l'historique (le site les découpe par saison). L'onglet « Saisons BD »,
+ * publié en CSV, alimente le bilan de fin de saison du site.
+ */
+const ENTETES_SAISONS = ['Saison', 'Date', 'Nom', 'Classement', 'Records', 'Points'];
+
+/** Saison d'une date 'aaaa-mm-jj' : '2026-2027' du 1er juillet 2026 au 30 juin 2027. */
+function saisonDe_(iso) {
+  const a = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7));
+  const d = m >= 7 ? a : a - 1;
+  return d + '-' + (d + 1);
+}
+
+function saisonCourante_() {
+  return saisonDe_(Utilities.formatDate(new Date(), ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd'));
+}
+
+/** Onglet « Saisons BD » (créé avec ses en-têtes si demandé). */
+function feuilleSaisons_(creer) {
+  let sh = ss_().getSheetByName(CFG.saisons);
+  if (!sh && creer) {
+    sh = ss_().insertSheet(CFG.saisons, ss_().getNumSheets());
+    sh.getRange(1, 1, 1, ENTETES_SAISONS.length).setValues([ENTETES_SAISONS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/** Lignes archivées : [{ saison, cle, nom, rang, recs, pts }] (vide si l'onglet n'existe pas). */
+function lireSaisons_() {
+  const sh = ss_().getSheetByName(CFG.saisons);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, ENTETES_SAISONS.length).getValues()
+    .filter(function (l) { return l[1] instanceof Date && String(l[2]).trim(); })
+    .map(function (l) {
+      const cle = cleDate_(l[1]);
+      return { saison: String(l[0]).trim() || saisonDe_(cle), cle: cle, nom: String(l[2]).trim(), rang: l[3], recs: l[4], pts: l[5] };
+    });
+}
+
+/** Réécrit « Saisons BD » : ordre chronologique, puis classement de la soirée, puis nom. */
+function ecrireSaisons_(lignes) {
+  const sh = feuilleSaisons_(true);
+  const lastAvant = sh.getLastRow();
+  const t = lignes.map(function (l) { return [l.saison, serie_(l.cle), l.nom, l.rang, l.recs, l.pts]; })
+    .sort(function (a, b) { return a[1] - b[1] || (Number(a[3]) || 9) - (Number(b[3]) || 9) || String(a[2]).localeCompare(String(b[2])); });
+  if (lastAvant >= 2) sh.getRange(2, 1, lastAvant - 1, ENTETES_SAISONS.length).clearContent();
+  if (t.length) {
+    sh.getRange(2, 1, t.length, 1).setNumberFormat('@'); // « 2026-2027 » reste un texte
+    sh.getRange(2, 1, t.length, ENTETES_SAISONS.length).setValues(t);
+    sh.getRange(2, 2, t.length, 1).setNumberFormat('d/m/yyyy');
+  }
+}
+
+/**
+ * Ce que contient le championnat, soirée par soirée, et ce qu'il faut archiver :
+ * { courante, soirees: [{ iso, col, saison, lignes: [{ nom, rang, recs, pts }] }], archiver: [...], saisons: { saison: résumé } }.
+ */
+function planSaison_(courante) {
+  const sh = feuille_(CFG.champ);
+  const last = derniereLigneJoueur_(sh);
+  const lastCol = Math.max(sh.getLastColumn(), CFG.col1 + 2);
+  const ligne1 = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const entetes = sh.getRange(2, 1, 1, lastCol).getValues()[0];
+  const data = last >= 3 ? sh.getRange(3, 1, last - 2, lastCol).getValues() : [];
+  const soirees = [];
+  for (let c = CFG.col1; c <= lastCol; c += 3) {
+    const iso = cleDate_(ligne1[c - 1]);
+    if (!iso) continue;
+    const col = function (nom, defaut) {
+      for (let j = c; j < c + 3 && j <= lastCol; j++) if (norm_(entetes[j - 1]) === nom) return j;
+      return defaut;
+    };
+    const cR = col('classement', c), cN = col('records', c + 1), cP = col('points', c + 2);
+    const lignes = [];
+    data.forEach(function (l) {
+      const rang = l[cR - 1];
+      if (rang === '' || rang === null) return;
+      const recs = Number(l[cN - 1]) || 0, pts = l[cP - 1];
+      lignes.push({ nom: String(l[0]).trim(), rang: Number(rang), recs: recs, pts: typeof pts === 'number' ? pts : (Number(pts) || 0) });
+    });
+    soirees.push({ iso: iso, col: c, saison: saisonDe_(iso), lignes: lignes });
+  }
+  const archiver = soirees.filter(function (s) { return s.saison < courante; });
+  const saisons = {};
+  archiver.forEach(function (s) {
+    const x = saisons[s.saison] = saisons[s.saison] || { soirees: 0, points: {}, debut: s.iso, fin: s.iso };
+    x.soirees++;
+    if (s.iso < x.debut) x.debut = s.iso;
+    if (s.iso > x.fin) x.fin = s.iso;
+    s.lignes.forEach(function (l) { x.points[l.nom] = (x.points[l.nom] || 0) + l.pts; });
+  });
+  Object.keys(saisons).forEach(function (k) {
+    const x = saisons[k], noms = Object.keys(x.points);
+    const max = Math.max.apply(null, noms.map(function (n) { return x.points[n]; }));
+    x.joueurs = noms.length;
+    x.champions = noms.filter(function (n) { return x.points[n] === max; });
+    x.max = max;
+  });
+  return { courante: courante, soirees: soirees, archiver: archiver, saisons: saisons };
+}
+
+/** Archive les saisons terminées et remet le championnat à zéro. Renvoie le plan exécuté. */
+function nouvelleSaison_(courante) {
+  invaliderEtat_();
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    const plan = planSaison_(courante);
+    feuilleSaisons_(true);
+    if (!plan.archiver.length) return plan;
+
+    // 1. Archive (les lignes déjà archivées pour ces dates sont remplacées : relancer ne crée pas de doublon)
+    const dates = {};
+    plan.archiver.forEach(function (s) { dates[s.iso] = true; });
+    const lignes = lireSaisons_().filter(function (l) { return !dates[l.cle]; });
+    plan.archiver.forEach(function (s) {
+      s.lignes.forEach(function (l) { lignes.push({ saison: s.saison, cle: s.iso, nom: l.nom, rang: l.rang, recs: l.recs, pts: l.pts }); });
+    });
+    ecrireSaisons_(lignes);
+    SpreadsheetApp.flush();
+
+    // 2. Retrait du championnat, de droite à gauche. S'il ne reste aucune soirée, le premier bloc est
+    //    seulement vidé (il garde sa mise en forme, que les soirées suivantes recopient).
+    const sh = feuille_(CFG.champ);
+    const last = derniereLigneJoueur_(sh);
+    const toutes = plan.archiver.length === plan.soirees.length;
+    const garder = toutes ? Math.min.apply(null, plan.archiver.map(function (s) { return s.col; })) : null;
+    plan.archiver.map(function (s) { return s.col; }).sort(function (a, b) { return b - a; }).forEach(function (c) {
+      if (c === garder) {
+        sh.getRange(1, c).setValue('');
+        if (last >= 3) sh.getRange(3, c, last - 2, 3).clearContent();
+        return;
+      }
+      try { sh.getRange(1, c, 1, 3).breakApart(); } catch (e) { /* pas fusionné */ }
+      sh.deleteColumns(c, 3);
+    });
+
+    // 3. Points et totaux recalculés, championnat retrié, onglet Records recalculé
+    refreshFormules_(sh);
+    SpreadsheetApp.flush();
+    const n = derniereLigneJoueur_(sh) - 2;
+    if (n > 0) sh.getRange(3, 1, n, sh.getLastColumn()).sort([{ column: 2, ascending: false }, { column: 1, ascending: true }]);
+    refreshFormules_(sh);
+    installerOngletRecords_();
+    SpreadsheetApp.flush();
+    return plan;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Menu « Nouvelle saison » : résumé, double confirmation, archivage. */
+function nouvelleSaison() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const courante = saisonCourante_();
+  const fr = function (iso) { const d = iso.split('-'); return Number(d[2]) + '/' + Number(d[1]) + '/' + d[0]; };
+  const rappelPublication = function () {
+    if (props.getProperty('saisonsPubliees')) return '';
+    props.setProperty('saisonsPubliees', 'rappel-fait');
+    return '\n\nÀ faire une seule fois : publie l\'onglet « ' + CFG.saisons + ' » en CSV (Fichier > Partager > Publier sur le Web, ' +
+      'choisis l\'onglet « ' + CFG.saisons + ' » et le format CSV), puis envoie le lien pour qu\'il soit ajouté au site (bilan des saisons passées).';
+  };
+  let plan;
+  try { plan = planSaison_(courante); } catch (e) { ui.alert(e.message); return; }
+  const nouvelOnglet = !ss_().getSheetByName(CFG.saisons);
+
+  if (!plan.archiver.length) {
+    feuilleSaisons_(true);
+    ui.alert('Nouvelle saison',
+      'La saison ' + courante + ' est en cours jusqu\'au 30 juin ' + courante.slice(5) + '. Rien à archiver : ' +
+      (plan.soirees.length > 1 ? 'les ' + plan.soirees.length + ' soirées du championnat sont de cette saison.' : plan.soirees.length ? 'la seule soirée du championnat est de cette saison.' : 'le championnat est vide.') +
+      '\n\nÀ lancer à partir du 1er juillet : les soirées de la saison terminée seront archivées et le championnat repartira à zéro.' +
+      (nouvelOnglet ? '\n\nL\'onglet « ' + CFG.saisons + ' » vient d\'être créé (vide).' : '') + rappelPublication(),
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  const noms = Object.keys(plan.saisons).sort();
+  const cible = noms[noms.length - 1];
+  const resume = noms.map(function (k) {
+    const x = plan.saisons[k];
+    return 'Saison ' + k + ' : ' + x.soirees + ' soirée(s) du ' + fr(x.debut) + ' au ' + fr(x.fin) + ', ' + x.joueurs + ' joueur(s), ' +
+      (x.champions.length > 1 ? 'champions ex æquo : ' : 'champion : ') + x.champions.join(', ') + ' (' + x.max + ' points).';
+  }).join('\n');
+  const restent = plan.soirees.length - plan.archiver.length;
+  const ok = ui.alert('Nouvelle saison',
+    'À archiver :\n' + resume + '\n\n' +
+    'Ces soirées vont dans l\'onglet « ' + CFG.saisons + ' » puis quittent le championnat, qui repart à zéro pour ' + courante +
+    (restent ? ' (les ' + restent + ' soirée(s) déjà jouée(s) de ' + courante + ' sont gardées)' : '') + '. ' +
+    'Les joueurs restent dans la liste ; records et matchs gardent tout l\'historique.\n\n' +
+    'Conseillé avant de continuer : Fichier > Historique des versions > Nommer la version actuelle (« Fin de saison ' + cible + ' »).\n\nContinuer ?',
+    ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  const rep = ui.prompt('Nouvelle saison', 'Pour confirmer, tape la saison à clôturer : ' + cible, ui.ButtonSet.OK_CANCEL);
+  if (rep.getSelectedButton() !== ui.Button.OK) return;
+  if (rep.getResponseText().replace(/\s/g, '') !== cible) { ui.alert('Saisie différente de « ' + cible + ' » : rien n\'a été modifié.'); return; }
+
+  try {
+    const fait = nouvelleSaison_(courante);
+    const nbLignes = fait.archiver.reduce(function (t, s) { return t + s.lignes.length; }, 0);
+    ui.alert('Nouvelle saison',
+      'Saison ' + noms.join(', ') + ' archivée : ' + fait.archiver.length + ' soirée(s), ' + nbLignes + ' ligne(s) dans « ' + CFG.saisons + ' ».\n' +
+      'Le championnat repart à zéro pour ' + courante + '. Le site sera à jour d\'ici 5 minutes, avec le bilan de la saison passée.' + rappelPublication(),
+      ui.ButtonSet.OK);
+  } catch (e) {
+    ui.alert('Nouvelle saison impossible : ' + e.message + '\n\nRien n\'est perdu : en cas de doute, Fichier > Historique des versions.');
+  }
 }
 
 /* ============================ OUTILS ============================ */
@@ -2639,6 +3044,10 @@ function dernieresVenues_() {
       if (x !== '' && x !== null && s.iso > v) v = s.iso;
     });
     out[nom] = v;
+  });
+  // Saisons archivées (menu « Nouvelle saison ») : un joueur venu en juin reste un habitué en juillet
+  lireSaisons_().forEach(function (l) {
+    if (out[l.nom] !== undefined && l.cle > out[l.nom]) out[l.nom] = l.cle;
   });
   return out;
 }
