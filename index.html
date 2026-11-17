@@ -383,27 +383,32 @@ td.pct{ width:40%; min-width:150px; }
 .mur-close{ position:absolute; top:.65rem; right:.8rem; width:2.6rem; height:2.6rem; display:grid; place-items:center; border:0; border-radius:50%; background:var(--slate-3); color:var(--chalk); font:700 1.5rem/1 var(--body); transition:background .2s; }
 .mur-close:hover{ background:var(--red); }
 .mur-legende{ flex-basis:100%; margin:0; color:var(--chalk-dim); font-size:.9rem; }
-.mur-grid{ display:flex; flex-wrap:wrap; justify-content:center; align-content:flex-start; gap:1.5em 2.2em; padding:2.2em 1em 3em; font-size:18px; }
-@media (max-width:640px){ .mur-grid{ font-size:11.5px; gap:1.2em .6em; padding:1.6em .3em 2.5em; } .mur-head{ padding-right:3.8rem; } .mur-head h2{ font-size:1.5rem; } }
+.mur-grid{ display:flex; flex-wrap:wrap; justify-content:center; align-content:flex-start; gap:2em 2.6em; padding:2.2em 1em 3em; font-size:18px; }
+@media (max-width:640px){ .mur-grid{ font-size:clamp(10px, 4.2vw, 15px); gap:1.6em .6em; padding:1.6em .3em 2.5em; } .mur-head{ padding-right:3.8rem; } .mur-head h2{ font-size:1.5rem; } }
 
-/* Une affiche : cadre blanc façon photo d'identité judiciaire, bande large en haut pour l'épingle */
-.mug{ position:relative; width:13.4em; height:15.2em; margin:0; }
-.mug-cadre{ position:absolute; left:2em; top:.3em; width:9.4em; box-sizing:border-box; padding:2.9em .7em .7em; background:#fbfaf6; transform:rotate(var(--r, 0deg)); transform-origin:50% 1em; z-index:5;
-  box-shadow:0 .15em .25em rgba(0,0,0,.25), .35em .7em 1.2em rgba(30,20,10,.35); }
-.mug-img{ display:block; width:8em; height:8em; overflow:hidden; background:#cfd3d4; }
+/* Une affiche : photo dans un cadre polaroid (cadrephoto.webp, fenêtre transparente), épinglée au mur.
+   Fenêtre de la photo dans le cadre : 20 à 273 px sur 294 de large, 23 à 278 px sur 351 de haut. */
+.mug{ position:relative; width:19.6em; padding:.4em 0 .6em; margin:0; }
+.mug-cadre{ position:relative; width:18.6em; aspect-ratio:294 / 351; margin:0 auto; transform:rotate(var(--r, 0deg)); transform-origin:50% 1em;
+  filter:drop-shadow(0 .15em .2em rgba(0,0,0,.3)) drop-shadow(.35em .7em .9em rgba(30,20,10,.4)); }
+.mug-cadre.sans-cadre{ background:#f3eedf; }
+.mug-polaroid{ position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; }
+.mug-img{ position:absolute; left:6.3%; top:6.1%; width:87.3%; height:73.4%; overflow:hidden; background:#cfd3d4; z-index:1; }
 .mug-img img, .mug-img svg{ display:block; width:100%; height:100%; object-fit:cover; }
 .mug.passe .mug-img img, .mug.passe .mug-img svg{ filter:grayscale(1) contrast(1.08) brightness(.97); }
-.mug-pin{ position:absolute; left:50%; top:.7em; width:1.15em; height:1.15em; margin-left:-.575em; border-radius:50%; z-index:2;
+.mug-pin{ position:absolute; left:50%; top:.15em; width:1.3em; height:1.3em; margin-left:-.65em; border-radius:50%; z-index:5;
   background:radial-gradient(circle at 35% 30%, #ff9c90 0 12%, #d4453b 30%, #8e231c 100%); box-shadow:.18em .3em .25em rgba(0,0,0,.4); }
-.mug-etoiles{ position:absolute; left:4.7em; top:6.9em; width:0; height:0; z-index:3; pointer-events:none; }
-.mug-etoiles svg{ position:absolute; width:var(--t, 1.45em); height:var(--t, 1.45em); transform:translate(-50%,-50%); overflow:visible; }
+/* Étoiles côte à côte dans la bande blanche du bas (79 % à 100 % de la hauteur du cadre) */
+.mug-etoiles{ position:absolute; left:7%; right:7%; top:79.6%; height:1.9em; z-index:3; display:flex; flex-wrap:wrap; justify-content:center; align-content:center; gap:.08em .12em; pointer-events:none; }
+.mug-etoiles img, .mug-etoiles svg{ display:block; width:var(--t, 1.75em); height:var(--t, 1.75em); object-fit:contain; filter:drop-shadow(0 .05em .06em rgba(60,35,0,.45)); }
 .mug-etoiles path{ fill:#f2c14e; stroke:#5a3f05; stroke-width:1.4; stroke-linejoin:round; paint-order:stroke; }
-.mug-nom{ position:absolute; left:50%; top:10.3em; transform:translateX(-50%) rotate(calc(var(--r, 0deg) * -.6)); max-width:10.2em; z-index:4;
-  padding:.15em .7em .05em; background:rgba(236,226,196,.92); box-shadow:0 .1em .2em rgba(0,0,0,.25);
-  font:400 1.25em/1.2 "Permanent Marker", var(--display); color:#1b2224; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Étiquette du nom, collée sur la bande blanche du cadre, sous les étoiles */
+.mug-nom{ position:absolute; left:50%; bottom:.22em; transform:translateX(-50%) rotate(calc(var(--r, 0deg) * -1.6)); max-width:13.4em; z-index:4;
+  padding:.15em .8em .05em; background:rgba(236,226,196,.95); box-shadow:0 .1em .2em rgba(0,0,0,.28);
+  font:400 1.3em/1.2 "Permanent Marker", var(--display); color:#1b2224; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .mug-nom .player-link{ color:inherit; border-bottom:0; font:inherit; }
 .mug-nom .player-link:hover{ color:#a92f27; }
-.mug-quand{ position:absolute; left:.8em; top:1.05em; font:400 .78em/1 "Permanent Marker", var(--display); color:#5d6669; }
+.mug-quand{ position:absolute; left:1.1em; top:.25em; z-index:3; font:400 .82em/1 "Permanent Marker", var(--display); color:#5d6669; }
 .mur-vide{ align-self:center; margin-top:3em; max-width:17em; padding:2.4em 1.6em 1.6em; position:relative; background:#fbfaf6; rotate:-2deg; text-align:center;
   font:400 1.35em/1.3 "Permanent Marker", var(--display); color:#1b2224; box-shadow:.35em .7em 1.2em rgba(30,20,10,.35); }
 .mur-vide .mug-pin{ top:.6em; }
@@ -751,7 +756,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       <div class="mur-head">
         <h2 id="murTitre">Le mur</h2>
         <div class="mur-tabs" id="murTabs" role="group" aria-label="Score parfait affiché"></div>
-        <p class="mur-legende">Une étoile par score parfait. Six mois sans le refaire, et la photo passe en noir et blanc.</p>
+        <p class="mur-legende">Une étoile par score parfait.</p>
         <button type="button" class="mur-close" aria-label="Fermer le mur">&times;</button>
       </div>
       <div class="mur-grid" id="murGrid"></div>
@@ -1346,16 +1351,19 @@ const PORTRAITS = {};
       '<text x="50" y="45" text-anchor="middle" font-family="Big Shoulders Display, Arial Narrow, sans-serif" font-weight="900" font-size="18" fill="#c9cfd0">?</text>';
     return s;
   }
+  /* Étoiles côte à côte dans la bande blanche du cadre ; plus petites au-delà de 7, sur deux rangs au-delà de 14 */
   function etoiles(n){
     const box = el("span", "mug-etoiles"); box.setAttribute("aria-hidden", "true");
-    const R = 6, t = n > 16 ? .95 : n > 10 ? 1.15 : 1.45;
-    box.style.setProperty("--t", t + "em");
+    const parRang = n > 14 ? Math.ceil(n / 2) : n;
+    box.style.setProperty("--t", Math.min(1.75, 14.5 / parRang, n > 14 ? .9 : 9).toFixed(2) + "em");
     for(let i = 0; i < n; i++){
-      const a = (-45 + 360 * i / n) * Math.PI / 180;
-      const s = document.createElementNS(SVGNS, "svg"); s.setAttribute("viewBox", "0 0 24 24");
-      s.style.left = (R * Math.cos(a)).toFixed(3) + "em"; s.style.top = (R * Math.sin(a)).toFixed(3) + "em";
-      const p = document.createElementNS(SVGNS, "path"); p.setAttribute("d", ETOILE); s.appendChild(p);
-      box.appendChild(s);
+      const im = document.createElement("img"); im.src = "etoile.webp"; im.alt = ""; im.decoding = "async";
+      im.addEventListener("error", () => {
+        const s = document.createElementNS(SVGNS, "svg"); s.setAttribute("viewBox", "0 0 24 24");
+        const p = document.createElementNS(SVGNS, "path"); p.setAttribute("d", ETOILE); s.appendChild(p);
+        im.replaceWith(s);
+      }, { once:true });
+      box.appendChild(im);
     }
     return box;
   }
@@ -1386,9 +1394,11 @@ const PORTRAITS = {};
         img.appendChild(im);
       } else img.appendChild(silhouette());
       const dd = n => String(n).padStart(2, "0");
-      cadre.append(el("span", "mug-pin"), el("span", "mug-quand", dd(x.last.getDate()) + "." + dd(x.last.getMonth() + 1) + "." + String(x.last.getFullYear()).slice(2)), img, etoiles(n));
-      const nom = el("figcaption", "mug-nom"); nom.appendChild(playerLink(x.name));
-      fig.append(cadre, nom);
+      const pola = document.createElement("img"); pola.className = "mug-polaroid"; pola.src = "cadrephoto.webp"; pola.alt = ""; pola.decoding = "async";
+      pola.addEventListener("error", () => { pola.remove(); cadre.classList.add("sans-cadre"); }, { once:true });
+      const nom = el("span", "mug-nom"); nom.appendChild(playerLink(x.name));
+      cadre.append(img, pola, el("span", "mug-pin"), el("span", "mug-quand", dd(x.last.getDate()) + "." + dd(x.last.getMonth() + 1) + "." + String(x.last.getFullYear()).slice(2)), etoiles(n), nom);
+      fig.append(cadre);
       const quand = x.dates.slice().sort((a, b) => a - b).map(d => shortDate(d) + " " + d.getFullYear()).join(", ");
       const info = x.name + " : " + nomScore + (n > 1 ? " " + n + " fois (" + quand + ")" : " le " + quand) + (passe ? ". Pas refait depuis plus de " + MUR_MOIS_NB + " mois." : ".");
       fig.title = info;
