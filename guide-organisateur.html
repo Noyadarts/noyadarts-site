@@ -121,6 +121,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
     <li><a href="#joueurs">Joueurs et réglages</a></li>
     <li><a href="#imprevus">Imprévus</a></li>
     <li><a href="#sheet">Le Google Sheet</a></li>
+    <li><a href="#saison">Nouvelle saison</a></li>
   </ul>
 
   <section id="acces">
@@ -173,6 +174,8 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
     <p>En mode gestion, chaque match de l'arbre affiche un menu « 2 legs gagnants » à côté de son nom. Choisis une autre valeur pour jouer par exemple la finale en 3 legs. Le changement vaut pour toute la phase : les deux demi-finales ensemble, les deux quarts ensemble, la petite finale et la finale séparément. Il n'est possible que tant qu'aucun match de la phase n'a de score : sinon, efface d'abord ce score. Le menu disparaît une fois la phase commencée, et les legs choisis restent affichés quand ils diffèrent d'un match à l'autre. Dans l'onglet « Tournoi » du Google Sheet, les menus des legs suivent le changement.</p>
     <h3>Records du soir</h3>
     <p>Dans « Records du soir » (bandeau du haut), clique sur un record pour le noter, le corriger ou l'effacer : score et joueur. Un seul par catégorie, le meilleur de la soirée, sauf pour les <strong>scores parfaits</strong> : chaque 180 et chaque 170 en sortie compte, même s'il y en a plusieurs le même soir, même pour le même joueur. Note-les un par un (bouton <span class="ui">Ajouter ce 180</span>) ; la fenêtre les liste avec un bouton <span class="ui">Retirer</span> pour corriger une erreur, et <span class="ui">Tout effacer</span> vide la catégorie. Les minimums sont vérifiés (50 de moyenne, 100 pour une volée, 60 pour une sortie). Ils ne comptent au championnat qu'à la validation de la soirée.</p>
+    <h3>Célébrations</h3>
+    <p>Dès qu'un <strong>score parfait</strong> (180, 170 en sortie, 6 darter) ou un <strong>nouveau record du soir</strong> est noté, la page l'annonce en grand avec des confettis, sur tous les écrans qui suivent le tournoi, projecteur compris, dans les 15 secondes. Un clic ou Échap la ferme. Corriger un record à la baisse ne déclenche rien, et rien n'est fêté à l'ouverture de la page.</p>
   </section>
 
   <section id="finale">
@@ -224,11 +227,25 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
       <li><strong>Saisir une soirée</strong> : enregistrer une soirée jouée sans la page (papier), ou corriger le classement d'une soirée passée.</li>
       <li><strong>Retirer une soirée</strong> enregistrée par erreur (points, records et matchs effacés d'un coup).</li>
       <li><strong>Vérifier le fichier</strong> et <strong>Réparer le fichier</strong> : à lancer après toute modification faite à la main.</li>
-      <li><strong>Mettre à jour les photos</strong>, après avoir déposé des photos dans le dossier Drive du club.</li>
+      <li><strong>Photos</strong> : une fois la <strong>mise à jour automatique</strong> activée (menu « Mise à jour automatique des photos », avec le compte du club), les dossiers Drive sont relus toutes les heures, et une photo déposée apparaît sur le site dans l'heure. <strong>Mettre à jour les photos</strong> reste disponible pour voir le résultat tout de suite, par exemple pour vérifier un portrait du wall of fame. Le menu de la mise à jour automatique montre le compte rendu du dernier passage et permet de la désactiver.</li>
+      <li><strong>Nouvelle saison</strong>, une fois par an (voir plus bas).</li>
       <li><strong>Code du club (page web)</strong> : changer le code.</li>
       <li>Le <strong>barème des points</strong>, dans l'onglet « Paramètres points championnat ».</li>
     </ul>
     <div class="encart rouge"><p>Pour éviter l'erreur « PERMISSION_DENIED », ouvre le Google Sheet dans une fenêtre de navigation privée, connectée au seul compte du club.</p></div>
+  </section>
+
+  <section id="saison">
+    <h2>Nouvelle saison</h2>
+    <p>La saison va du 1er juillet au 30 juin. Pour clore la saison terminée et repartir à zéro, une seule commande, <strong>uniquement dans le Google Sheet</strong> (exprès : impossible de la lancer par erreur depuis la page du tournoi) : menu « 🎯 Noya'Darts » &gt; « Nouvelle saison ».</p>
+    <ol class="etapes">
+      <li><strong>Quand</strong> : à partir du 1er juillet, idéalement avant le premier jeudi de la saison. Les soirées de la nouvelle saison déjà enregistrées sont gardées. Avant le 1er juillet, la commande ne fait rien et le dit.</li>
+      <li><strong>Avant</strong> : par sécurité, nomme une version du fichier (Fichier &gt; Historique des versions &gt; Nommer la version actuelle, par exemple « Fin de saison 2026-2027 »).</li>
+      <li><strong>Résumé</strong> : la fenêtre affiche la saison à clore, son nombre de soirées et son champion. Clique sur <span class="ui">Oui</span>.</li>
+      <li><strong>Confirmation</strong> : tape la saison (par exemple <span class="ui">2026-2027</span>) puis <span class="ui">OK</span>. Toute autre saisie annule.</li>
+    </ol>
+    <p>Ce qui se passe : les soirées de la saison terminée sont recopiées dans l'onglet « Saisons BD » (une ligne par joueur et par soirée), puis retirées du championnat, qui repart à zéro. Les joueurs restent dans la liste ; records et matchs gardent tout l'historique (wall of fame, % de victoires, fiches). Sur le site, quelques minutes plus tard : classement vide jusqu'au premier jeudi, <strong>bilan de la saison passée</strong> (podium, distinctions, records, classement final) et « Ses saisons passées » dans chaque fiche joueur.</p>
+    <div class="encart"><p>Une soirée d'une saison archivée ne peut plus être saisie ni corrigée par « Saisir une soirée ». Pour une correction, modifie la ligne à la main dans « Saisons BD », puis lance « Vérifier le fichier ». « Retirer une soirée » fonctionne toujours, archives comprises.</p></div>
     <a class="haut" href="#">Haut de la page</a>
   </section>
 </main>

@@ -592,6 +592,73 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc-faces summary{ padding:.6rem 0; color:var(--sisal); font-weight:600; }
 .pc-faces summary:hover{ color:var(--chalk); }
 .pc-faces[open] summary{ margin-bottom:.2rem; }
+/* Comparateur, courbe de progression, bilan de saison */
+.pc-cmp{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin:-.8rem 0 1.6rem; color:var(--chalk-dim); font-size:.95rem; }
+.pc-cmp select, .pc select{ font:600 .95rem/1.2 var(--body); color:var(--chalk); background:var(--slate); border:2px solid var(--slate-3); border-radius:999px; padding:.4rem .9rem; max-width:100%; }
+.pc-cmp select:hover{ border-color:var(--sisal); }
+.pc-name.duel{ font-size:clamp(1.8rem,7vw,2.5rem); }
+.pc-name .vs{ display:block; font:500 .95rem/1.6 var(--body); color:var(--chalk-dim); }
+.pc-nav{ display:flex; flex-wrap:wrap; gap:.5rem; margin:0 0 1.6rem; }
+.pc-navbtn{ font:600 .9rem/1 var(--body); color:var(--chalk); background:transparent; border:0; border-radius:999px; padding:.5rem .9rem; box-shadow:inset 0 0 0 2px var(--slate-3); }
+.pc-navbtn:hover{ box-shadow:inset 0 0 0 2px var(--sisal); }
+.cmp-score{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; margin:.4rem 0 .2rem; font-weight:600; color:var(--chalk-dim); }
+.cmp-score span:last-child{ text-align:right; }
+.cmp-score .mene{ color:var(--chalk); }
+.cmp-score b{ font-family:var(--display); font-weight:900; font-size:2.6rem; line-height:1; color:var(--sisal); }
+.cmp-sous{ text-align:center; }
+.cmp-duels{ list-style:none; margin:0 0 1.6rem; padding:0; font-size:.92rem; }
+.cmp-duels li{ display:grid; grid-template-columns:auto 1fr auto; gap:.7rem; padding:.4rem 0; border-top:1px solid var(--slate-3); color:var(--chalk-dim); }
+.cmp-duels li > *{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cmp-duels b{ color:var(--chalk); font-weight:600; }
+.bilan-parfaits{ margin:.4rem 0 1.8rem; }
+.bilan .pc-name{ font-size:clamp(1.6rem,6.5vw,3rem); white-space:nowrap; }
+.pc table.cmp td.num, .pc table.cmp th.num{ text-align:right; }
+.pc table.cmp td.mieux{ color:var(--sisal); font-weight:700; }
+.pc table.cmp td.none{ color:var(--chalk-dim); font-size:.88rem; }
+.pc table.cmp tr.cmp-titre td{ padding-top:1rem; color:var(--chalk-dim); font-size:.82rem; font-weight:600; border-bottom-color:var(--slate-3); }
+.pc table.cmp .dots{ display:inline-flex; gap:.2rem; }
+.pc table.cmp .f{ width:1.3rem; height:1.3rem; border-radius:50%; display:inline-grid; place-items:center; font:800 .78rem/1 var(--display); }
+.pc table.cmp .f.v{ background:var(--green); color:var(--slate); }
+.pc table.cmp .f.d{ background:var(--red); color:var(--chalk); }
+.pc-graph{ margin:.4rem 0 .4rem; }
+.pc-graph svg{ display:block; width:100%; height:auto; overflow:visible; }
+.pc-graph .g-grille{ stroke:var(--slate-3); stroke-dasharray:3 4; }
+.pc-graph .g-axe{ fill:var(--chalk-dim); font:500 12px var(--body); }
+.pc-graph .g-ligne{ fill:none; stroke:var(--sisal); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+.pc-graph .g-pt{ fill:var(--chalk); stroke:var(--slate-2); stroke-width:2; }
+.pc-graph .g-pt.v{ fill:var(--red); }
+.pc-graph .g-pt.podium{ fill:var(--green); }
+.pc-graph .g-pt.absent{ fill:var(--slate-2); stroke:var(--chalk-dim); stroke-width:1.5; }
+.pc-graph .g-barre{ fill:var(--slate-3); }
+.pc-graph .g-barre.v{ fill:var(--red-deep); }
+.bilan-cta{ margin:-1.4rem 0 2.2rem; }
+.bilan-btn{ font:800 1.25rem/1 var(--display); color:var(--chalk); background:var(--red); border:0; border-radius:999px; padding:.7rem 1.3rem; transition:background .2s; }
+.bilan-btn:hover{ background:var(--red-deep); }
+.lien-bilan{ font:inherit; color:var(--sisal); background:none; border:0; padding:0; border-bottom:2px dashed var(--slate-3); }
+.lien-bilan:hover{ color:var(--chalk); }
+.pcard.bilan{ width:min(720px, 100% - 1.6rem); }
+.bilan-tabs{ display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 .8rem; }
+.bilan-tabs:empty{ display:none; }
+.bilan-tabs button{ font:800 1.05rem/1 var(--display); color:var(--chalk-dim); background:transparent; border:0; border-radius:999px; padding:.45rem .85rem; box-shadow:inset 0 0 0 2px var(--slate-3); }
+.bilan-tabs button[aria-pressed="true"]{ color:var(--chalk); background:var(--red); box-shadow:none; }
+.podium{ display:grid; grid-template-columns:repeat(3,1fr); align-items:end; gap:.6rem; margin:0 0 1.6rem; text-align:center; }
+.podium .marche{ border-radius:12px 12px 0 0; background:var(--slate); padding:.9rem .6rem .8rem; border-top:4px solid var(--green); }
+.podium .m1{ order:2; padding-top:1.6rem; padding-bottom:1.8rem; border-top-color:var(--red); }
+.podium .m2{ order:1; padding-bottom:1.1rem; }
+.podium .m3{ order:3; }
+.podium .place{ display:block; color:var(--chalk-dim); font-size:.85rem; }
+.podium .qui{ margin:.2rem 0 .25rem; font-family:var(--display); font-weight:900; font-size:1.5rem; line-height:1.05; color:var(--chalk); overflow-wrap:anywhere; }
+.podium .m1 .qui{ font-size:1.9rem; }
+.podium .pts{ color:var(--sisal); font-weight:600; font-size:.9rem; }
+.bilan-chiffres{ margin-bottom:1.8rem; }
+.prix{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:.9rem 1rem; margin:.6rem 0 1.8rem; }
+.prix > div{ border-top:3px solid var(--sisal); padding-top:.45rem; }
+.prix h4{ margin:0; font-size:.85rem; font-weight:500; color:var(--chalk-dim); }
+.prix .who{ margin:.15rem 0 .1rem; font-family:var(--display); font-weight:800; font-size:1.35rem; line-height:1.1; color:var(--chalk); }
+.prix .why{ margin:0; color:var(--chalk-dim); font-size:.88rem; }
+@media (max-width:480px){
+  .podium .qui{ font-size:1.2rem; } .podium .m1 .qui{ font-size:1.45rem; }
+}
 @media (max-width:480px){
   .pc{ padding:1.3rem 1.1rem 1.5rem; }
   .pc-recs .rec{ grid-template-columns:auto 1fr; }
@@ -699,6 +766,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
     <div class="wrap">
       <h2>Classement et records</h2>
       <p class="section-intro">Les résultats des tournois du jeudi et les meilleures performances du club.</p>
+      <p class="bilan-cta"><button type="button" class="bilan-btn" id="bilanBtn" aria-haspopup="dialog" hidden>Bilan de la saison</button></p>
 
       <h3 class="subhead">Records</h3>
       <div class="periods" id="records"></div>
@@ -748,6 +816,15 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       <h2 class="pc-name" id="pcName"></h2>
       <p class="pc-sub" id="pcSub"></p>
       <div id="pcBody"></div>
+    </div>
+  </dialog>
+
+  <dialog class="pcard bilan" id="bilan" aria-labelledby="bilanTitre">
+    <div class="pc">
+      <button type="button" class="pc-close" aria-label="Fermer le bilan">&times;</button>
+      <h2 class="pc-name" id="bilanTitre">Bilan de la saison</h2>
+      <div class="bilan-tabs" id="bilanTabs" role="group" aria-label="Saison affichée"></div>
+      <div id="bilanBody"></div>
     </div>
   </dialog>
 
@@ -827,7 +904,9 @@ const SHEET_CSV = {
   annonces: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=81073882&single=true&output=csv",
   // Onglet "Matchs BD" (rempli à la validation de chaque soirée) : lien CSV à coller ici.
   // Tant qu'il est vide, les fiches joueurs n'affichent pas les statistiques de matchs.
-  matchs: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=802764285&single=true&output=csv"
+  matchs: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=802764285&single=true&output=csv",
+  // Onglet "Saisons BD" (saisons terminées, archivées par le menu « Nouvelle saison »), publié le 17 novembre 2026
+  saisons: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTbdvznq69fn1KXmzEy9-w_EwA57AdaH_TeD1816HOtPjQh6ehur2902fXQsOgjw4MFrE2MlevTwnyV/pub?gid=1566436709&single=true&output=csv"
 };
 
 /* Annonces ajoutées à la main (en plus de l'onglet "Annonces") :
@@ -990,6 +1069,23 @@ const PORTRAITS = {};
     })).filter(m => m.date && m.j1 && m.j2 && m.winner);
   }
 
+  /* Saisons : du 1er juillet au 30 juin, « 2026-2027 » */
+  const saisonDe = d => { const y0 = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; return y0 + "-" + (y0 + 1); };
+  const ordinal = n => n === 1 ? "1er" : n + "e";
+
+  /* Onglet « Saisons BD » : saisons archivées par le menu « Nouvelle saison », une ligne par joueur et par soirée */
+  function readSaisons(text){
+    const rows = parseCSV(text);
+    const h = rows.findIndex(r => r.map(norm).includes("saison"));
+    if(h < 0) throw new Error("En-tête des saisons introuvable");
+    const head = rows[h].map(norm), i = n => head.indexOf(n);
+    const [iS, iD, iN, iR, iK, iP] = ["saison", "date", "nom", "classement", "records", "points"].map(i);
+    return rows.slice(h + 1)
+      .map(r => ({ date:parseDate(r[iD]), name:r[iN], rank:num(r[iR]), recs:num(r[iK]) || 0, pts:num(r[iP]) || 0, saison:r[iS] || "" }))
+      .filter(x => x.date && x.name && x.rank != null)
+      .map(x => { if(!/^\d{4}-\d{4}$/.test(x.saison)) x.saison = saisonDe(x.date); return x; });
+  }
+
   /* Phases regroupées pour les statistiques ("Poule A", "Quart de finale 1", "Demi-finale 1"...) */
   const PHASES = [
     { titre:"Poules", test:t => t.startsWith("poule") },
@@ -1042,7 +1138,32 @@ const PORTRAITS = {};
   /* ---- Fiches joueurs ---- */
   let current = { champ:{ nights:[], players:[] }, recs:[] };
   let matchs = [], matchsLoaded = false;
-  const findPlayer = name => current.champ.players.find(p => norm(p.name) === norm(name));
+  /* Saisons archivées ; matchs et saisons sont chargés à la demande (voir besoinMatchs, besoinSaisons) */
+  let saisonsRows = [], saisonsLoaded = false, promMatchs = null, promSaisons = null;
+  let cmpPair = null; // [a, b] quand la fenêtre de la fiche montre une comparaison
+  /* Joueur connu ailleurs que dans le championnat en cours (saisons archivées, records, matchs) */
+  function nomConnu(name){
+    const k = norm(name);
+    const x = saisonsRows.find(r => norm(r.name) === k) || current.recs.find(r => norm(r.name) === k);
+    if(x) return x.name;
+    const m = matchs.find(m => norm(m.j1) === k || norm(m.j2) === k);
+    return m ? (norm(m.j1) === k ? m.j1 : m.j2) : null;
+  }
+  /* Joueur du championnat, ou fiche « hors saison » pour un joueur connu qui n'a pas encore joué cette saison */
+  const findPlayer = name => {
+    const p = current.champ.players.find(p => norm(p.name) === norm(name));
+    if(p) return p;
+    const n = nomConnu(name);
+    return n ? { name:n, points:0, res:current.champ.nights.map(() => ({ rank:null, recs:0, pts:null })), soirees:0, victoires:0, records:0, rank:null, horsSaison:true } : null;
+  };
+  /* Tous les noms connus, pour le comparateur */
+  function tousLesNoms(){
+    const m = new Map();
+    current.champ.players.forEach(p => m.set(norm(p.name), p.name));
+    saisonsRows.concat(current.recs).forEach(r => { if(!m.has(norm(r.name))) m.set(norm(r.name), r.name); });
+    matchs.forEach(x => [x.j1, x.j2].forEach(n => { if(!m.has(norm(n))) m.set(norm(n), n); }));
+    return [...m.values()].sort((a, b) => a.localeCompare(b, "fr"));
+  }
   const pc = document.getElementById("playerCard");
   const PLACE = { 1:"Vainqueur", 2:"Finaliste", 3:"3e", 4:"4e", 5:"Participation" };
   let pcOpenName = null;
@@ -1190,8 +1311,10 @@ const PORTRAITS = {};
     const champ = current.champ;
     pcOpenName = p.name;
     document.getElementById("pcName").textContent = p.name;
+    cmpPair = null;
+    document.getElementById("pcName").classList.remove("duel");
     const exaequo = champ.players.filter(x => x.rank === p.rank).length > 1;
-    document.getElementById("pcSub").textContent = (p.rank === 1 ? "1er" : p.rank + "e") + (exaequo ? " ex æquo" : "")
+    document.getElementById("pcSub").textContent = p.rank == null ? "Pas encore de soirée cette saison." : (p.rank === 1 ? "1er" : p.rank + "e") + (exaequo ? " ex æquo" : "")
       + " du championnat, " + fmtNum(p.points) + (p.points > 1 ? " points" : " point")
       + (typeof p.move === "number" && p.move !== 0 && champ.lastNight
         ? " (" + (p.move > 0 ? "+" : "\u2212") + Math.abs(p.move) + (Math.abs(p.move) > 1 ? " places" : " place") + " au jeudi " + shortDate(champ.lastNight) + ")" : "");
@@ -1203,6 +1326,8 @@ const PORTRAITS = {};
      ["Podiums", p.res.filter(x => x.rank != null && x.rank <= 3).length], ["Records", p.records]]
       .forEach(([t, v]) => { const d = el("div"); d.append(el("dt", null, t), el("dd", null, String(v))); stats.appendChild(d); });
     body.appendChild(stats);
+    comparerAvec(body, p);
+    progression(body, p);
 
     /* Records personnels, d'après "Records BD" */
     const mine = current.recs.filter(r => norm(r.name) === norm(p.name));
@@ -1253,10 +1378,12 @@ const PORTRAITS = {};
       });
       t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
     }
+    sesSaisons(body, p);
   }
 
   function openPlayer(name){
     const p = findPlayer(name); if(!p) return false;
+    besoinMatchs(); besoinSaisons();
     fillPlayer(p);
     try { history.replaceState(null, "", "#joueur-" + slug(p.name)); } catch(e){}
     if(!pc.open){
@@ -1267,9 +1394,9 @@ const PORTRAITS = {};
     return true;
   }
   function onPlayerClosed(){
-    document.documentElement.classList.remove("modal-open");
-    pcOpenName = null;
-    if(/^#joueur-/.test(location.hash)){ try { history.replaceState(null, "", location.pathname + location.search); } catch(e){} }
+    if(!document.getElementById("bilan").open) document.documentElement.classList.remove("modal-open");
+    pcOpenName = null; cmpPair = null;
+    if(/^#(joueur|comparer)-/.test(location.hash)){ try { history.replaceState(null, "", location.pathname + location.search); } catch(e){} }
   }
   function closePlayer(){
     if(typeof pc.close === "function"){ if(pc.open) pc.close(); }
@@ -1279,18 +1406,23 @@ const PORTRAITS = {};
   pc.querySelector(".pc-close").addEventListener("click", closePlayer);
   pc.addEventListener("click", e => { if(e.target === pc) closePlayer(); });
 
-  /* Lien direct vers une fiche : .../#joueur-bob-le-fou */
-  const playerFromHash = () => {
-    const m = location.hash.match(/^#joueur-([a-z0-9-]+)$/);
-    return m ? current.champ.players.find(p => slug(p.name) === m[1]) : null;
-  };
+  /* Liens directs : .../#joueur-bob-le-fou, .../#comparer-nico--bob-le-fou, .../#bilan-2026-2027 */
+  const nomDuSlug = s => tousLesNoms().find(n => slug(n) === s) || null;
+  function suivreHash(){
+    let m = location.hash.match(/^#joueur-([a-z0-9-]+)$/);
+    if(m){ const n = nomDuSlug(m[1]); return n ? openPlayer(n) : false; }
+    m = location.hash.match(/^#comparer-([a-z0-9-]+?)--([a-z0-9-]+)$/);
+    if(m){ const a = nomDuSlug(m[1]), b = nomDuSlug(m[2]); return a && b ? openCompare(a, b) : false; }
+    m = location.hash.match(/^#bilan(?:-(\d{4}-\d{4}))?$/);
+    if(m){ ouvrirBilan(m[1] || null); return true; }
+    return false;
+  }
   let hashDone = false;
   function openFromHash(){
     if(hashDone) return;
-    const p = playerFromHash();
-    if(p){ hashDone = true; openPlayer(p.name); }
+    if(suivreHash()) hashDone = true;
   }
-  window.addEventListener("hashchange", () => { const p = playerFromHash(); if(p) openPlayer(p.name); });
+  window.addEventListener("hashchange", suivreHash);
 
   let nightsOpen = false;
   const NIGHTS_VISIBLE = 6;
@@ -1561,7 +1693,13 @@ const PORTRAITS = {};
     document.getElementById("champ-title").textContent = champ.title;
     const wrap = document.getElementById("ranking"); wrap.textContent = "";
     if(!champ.players.length){
-      wrap.appendChild(el("p", "empty", "Le classement sera publié après les prochains tournois du jeudi."));
+      const vide = el("p", "empty", "Le classement sera publié après les prochains tournois du jeudi.");
+      if(recs.length || saisonsRows.length){
+        const b = el("button", "lien-bilan", "Voir le bilan de la saison passée"); b.type = "button";
+        b.addEventListener("click", () => ouvrirBilan(null));
+        vide.append(" ", b);
+      }
+      wrap.appendChild(vide);
     } else {
       const max = champ.players[0].points || 1;
       const t = el("table"), thead = el("thead"), hr = el("tr");
@@ -1638,12 +1776,398 @@ const PORTRAITS = {};
       maj(); nb.after(more);
     }
 
-    if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); }
+    rafraichirVues();
 
     const last = champ.nights.length ? champ.nights[champ.nights.length - 1].date : null;
     document.getElementById("updated").textContent = last
       ? "Résultats à jour au jeudi " + longDate(last) + (live ? "." : " (dernière sauvegarde du site).")
       : "";
+  }
+
+  /* ---- Courbe de progression : place au championnat après chaque jeudi joué de la saison ---- */
+  function classementsParJeudi(){
+    const champ = current.champ, cumul = {};
+    return champ.nights.map((n, i) => i).filter(i => champ.players.some(p => p.res[i].rank != null)).map(i => {
+      champ.players.forEach(p => { const r = p.res[i]; if(r.rank != null) cumul[p.name] = (cumul[p.name] || 0) + (r.pts || 0); });
+      const rangs = {}; let rk = 0, pv = null;
+      Object.entries(cumul).sort((a, b) => b[1] - a[1]).forEach(([n, pts], j) => { if(pts !== pv){ rk = j + 1; pv = pts; } rangs[n] = rk; });
+      return { i, date:champ.nights[i].date, rangs };
+    });
+  }
+  function progression(body, p){
+    const etapes = classementsParJeudi().map(e => ({ date:e.date, rang:e.rangs[p.name] || null, r:p.res[e.i] }));
+    if(etapes.filter(x => x.r.rank != null).length < 2) return;
+    const pts = etapes.slice(etapes.findIndex(x => x.rang != null));
+    /* Plus étroit sur téléphone, pour garder des étiquettes lisibles */
+    const W = window.innerWidth < 560 ? 360 : 520, L = 40, R = 14, T = 14, HR = 104, B0 = T + HR + 26, HB = 40;
+    const n = pts.length, pas = n > 1 ? (W - L - R) / (n - 1) : 0;
+    const maxR = Math.max(2, ...pts.map(x => x.rang));
+    const maxP = Math.max(1, ...pts.map(x => x.r.pts || 0));
+    const X = k => L + k * pas, Y = r => T + (r - 1) / (maxR - 1) * HR;
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (B0 + HB + 22)); svg.setAttribute("role", "img");
+    const add = (tag, attrs, parent, txt) => { const e = document.createElementNS(SVGNS, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if(txt != null) e.textContent = txt; (parent || svg).appendChild(e); return e; };
+    [1, maxR].forEach(r => { add("line", { x1:L, x2:W - R, y1:Y(r), y2:Y(r), class:"g-grille" }); add("text", { x:L - 8, y:Y(r) + 4, class:"g-axe", "text-anchor":"end" }, null, ordinal(r)); });
+    add("text", { x:L - 8, y:B0 + HB, class:"g-axe", "text-anchor":"end" }, null, "pts");
+    const larg = Math.max(4, Math.min(18, pas * .45 || 18));
+    pts.forEach((x, k) => {
+      const v = x.r.pts || 0, h = v / maxP * HB;
+      if(v) add("rect", { x:X(k) - larg / 2, y:B0 + HB - h, width:larg, height:h, rx:2, class:"g-barre" + (x.r.rank === 1 ? " v" : "") });
+    });
+    add("polyline", { points:pts.map((x, k) => X(k) + "," + Y(x.rang)).join(" "), class:"g-ligne" });
+    pts.forEach((x, k) => {
+      const joue = x.r.rank != null;
+      const c = add("circle", { cx:X(k), cy:Y(x.rang), r:joue ? 5.5 : 4, class:"g-pt" + (!joue ? " absent" : x.r.rank === 1 ? " v" : x.r.rank <= 3 ? " podium" : "") });
+      add("title", {}, c, "Jeudi " + shortDate(x.date) + " : " + ordinal(x.rang) + " au classement" +
+        (joue ? ", " + (PLACE[x.r.rank] || x.r.rank).toLowerCase() + " (+" + fmtNum(x.r.pts || 0) + " points)" : ", absent"));
+    });
+    const lbl = [0, n - 1]; if(n > 4) lbl.splice(1, 0, Math.round((n - 1) / 2));
+    [...new Set(lbl)].forEach(k => add("text", { x:X(k), y:B0 + HB + 18, class:"g-axe", "text-anchor":k === 0 && n > 1 ? "start" : k === n - 1 && n > 1 ? "end" : "middle" }, null, shortDate(pts[k].date)));
+    const meilleur = pts.reduce((b, x) => x.rang < b.rang ? x : b, pts[0]);
+    const resume = "Actuellement " + ordinal(pts[n - 1].rang) + " au classement. Meilleure place : " + ordinal(meilleur.rang) + " (après le jeudi " + shortDate(meilleur.date) + ").";
+    svg.setAttribute("aria-label", "Place au championnat après chaque jeudi. " + resume);
+    body.appendChild(el("h3", "pc-h", "Sa saison"));
+    const g = el("div", "pc-graph"); g.appendChild(svg); body.appendChild(g);
+    body.appendChild(el("p", "pc-note", resume + " En bas, les points marqués chaque jeudi."));
+  }
+
+  /* ---- Saisons : championnat en cours + saisons archivées (« Saisons BD ») ---- */
+  function calculerSaisons(){
+    const champ = current.champ, lignes = [], dansChamp = new Set();
+    champ.nights.forEach((n, i) => champ.players.forEach(p => {
+      const r = p.res[i];
+      if(r.rank != null){ dansChamp.add(key(n.date)); lignes.push({ date:n.date, name:p.name, rank:r.rank, recs:r.recs || 0, pts:r.pts || 0, saison:saisonDe(n.date), champ:true }); }
+    }));
+    saisonsRows.forEach(r => { if(!dansChamp.has(key(r.date))) lignes.push(r); });
+    const par = {};
+    lignes.forEach(l => { const s = par[l.saison] = par[l.saison] || { label:l.saison, lignes:[], courante:false }; s.lignes.push(l); if(l.champ) s.courante = true; });
+    return Object.values(par).sort((a, b) => a.label.localeCompare(b.label)).map(s => {
+      const nights = [...new Map(s.lignes.map(l => [key(l.date), l.date])).values()].sort((a, b) => a - b);
+      const pj = {};
+      s.lignes.forEach(l => {
+        const x = pj[norm(l.name)] = pj[norm(l.name)] || { name:l.name, points:0, soirees:0, victoires:0, finales:0, podiums:0, records:0 };
+        x.points += l.pts; x.soirees++; x.records += l.recs || 0;
+        if(l.rank === 1) x.victoires++; if(l.rank <= 2) x.finales++; if(l.rank <= 3) x.podiums++;
+      });
+      const players = Object.values(pj).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "fr"));
+      let rk = 0, pv = null; players.forEach((x, i) => { if(x.points !== pv){ rk = i + 1; pv = x.points; } x.rank = rk; });
+      const y0 = Number(s.label.slice(0, 4));
+      return { label:s.label, courante:s.courante, nights, players, debut:new Date(y0, 6, 1), fin:new Date(y0 + 1, 6, 1) };
+    });
+  }
+  /* Saisons passées d'un joueur, dans sa fiche */
+  function sesSaisons(body, p){
+    const lignes = calculerSaisons().filter(s => !s.courante)
+      .map(s => ({ s, j:s.players.find(x => norm(x.name) === norm(p.name)) })).filter(x => x.j).reverse();
+    if(!lignes.length) return;
+    body.appendChild(el("h3", "pc-h", "Ses saisons passées"));
+    const wrap = el("div", "table-scroll"), t = el("table"), hr = el("tr"), tb = el("tbody");
+    [["Saison"], ["Classement"], ["Points", "num"], ["Soirées", "num"], ["Victoires", "num"]].forEach(([txt, c]) => hr.appendChild(el("th", c, txt)));
+    const th = el("thead"); th.appendChild(hr); t.appendChild(th);
+    lignes.forEach(({ s, j }) => {
+      const tr = el("tr"), td = el("td"), b = el("button", "player-link", s.label); b.type = "button";
+      b.title = "Bilan de la saison " + s.label;
+      b.addEventListener("click", () => { closePlayer(); ouvrirBilan(s.label); });
+      td.appendChild(b);
+      const ex = s.players.filter(x => x.rank === j.rank).length > 1;
+      tr.append(td, el("td", j.rank <= 3 ? "place-" + j.rank : null, ordinal(j.rank) + (ex ? " ex æquo" : "") + " sur " + s.players.length),
+        el("td", "num", fmtNum(j.points)), el("td", "num", String(j.soirees)), el("td", "num", String(j.victoires)));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
+    body.appendChild(el("p", "pc-note", ""));
+  }
+
+  /* ---- Comparateur entre deux joueurs (même fenêtre que la fiche) ---- */
+  function comparerAvec(body, p){
+    const autres = tousLesNoms().filter(n => norm(n) !== norm(p.name));
+    if(!autres.length) return;
+    const lab = el("label", "pc-cmp", "Comparer avec ");
+    const sel = el("select");
+    sel.appendChild(new Option("un autre joueur", ""));
+    autres.forEach(n => sel.appendChild(new Option(n, n)));
+    sel.addEventListener("change", () => { if(sel.value) openCompare(p.name, sel.value); });
+    lab.appendChild(sel); body.appendChild(lab);
+  }
+  function openCompare(a, b){
+    if(!findPlayer(a) || !findPlayer(b) || norm(a) === norm(b)) return false;
+    besoinMatchs(); besoinSaisons();
+    fillCompare(a, b);
+    try { history.replaceState(null, "", "#comparer-" + slug(findPlayer(a).name) + "--" + slug(findPlayer(b).name)); } catch(e){}
+    if(!pc.open){
+      document.documentElement.classList.add("modal-open");
+      if(typeof pc.showModal === "function") pc.showModal(); else pc.setAttribute("open", "");
+    }
+    pc.scrollTop = 0;
+    return true;
+  }
+  function statsJoueur(P){
+    const me = norm(P.name), mine = current.recs.filter(r => norm(r.name) === me);
+    const ms = matchs.filter(m => norm(m.j1) === me || norm(m.j2) === me).sort((a, b) => b.date - a.date || b.ord - a.ord);
+    let lp = 0, lc = 0;
+    ms.forEach(m => { const pour = norm(m.j1) === me ? m.l1 : m.l2, contre = norm(m.j1) === me ? m.l2 : m.l1; if(pour != null && contre != null){ lp += pour; lc += contre; } });
+    return {
+      rang:P.rank, points:P.points, soirees:P.soirees, victoires:P.victoires, records:P.records,
+      podiums:P.res.filter(x => x.rank != null && x.rank <= 3).length,
+      best:TYPES.map(t => { const b = best(mine.filter(r => norm(r.type) === t.k)); return b ? b.score : null; }),
+      fame:FAME.map(f => mine.filter(r => norm(r.type) === f.type && f.test(r.score)).length),
+      n:ms.length, v:ms.filter(m => norm(m.winner) === me).length, lp, lc, ms
+    };
+  }
+  function pastilles(name, ms){
+    const me = norm(name), dots = el("span", "dots");
+    ms.slice(0, FORME).reverse().forEach(m => {
+      const g = norm(m.winner) === me, adv = norm(m.j1) === me ? m.j2 : m.j1;
+      const d = el("span", "f " + (g ? "v" : "d"), g ? "V" : "D");
+      d.title = (g ? "Victoire" : "Défaite") + " contre " + adv + ", " + shortDate(m.date);
+      dots.appendChild(d);
+    });
+    return dots;
+  }
+  function fillCompare(na, nb){
+    const A = findPlayer(na), B = findPlayer(nb);
+    if(!A || !B) return false;
+    cmpPair = [A.name, B.name]; pcOpenName = null;
+    const h = document.getElementById("pcName"); h.textContent = ""; h.classList.add("duel");
+    h.append(A.name, el("span", "vs", "contre"), B.name);
+    document.getElementById("pcSub").textContent = "Saison en cours, records et matchs de tout l'historique.";
+    const body = document.getElementById("pcBody"); body.textContent = "";
+    const nav = el("div", "pc-nav");
+    [[A.name, () => openPlayer(A.name)], [B.name, () => openPlayer(B.name)]].forEach(([n, f]) => { const b = el("button", "pc-navbtn", "Fiche de " + n); b.type = "button"; b.addEventListener("click", f); nav.appendChild(b); });
+    const sw = el("button", "pc-navbtn", "Inverser"); sw.type = "button"; sw.addEventListener("click", () => openCompare(B.name, A.name)); nav.appendChild(sw);
+    body.appendChild(nav);
+
+    /* Face-à-face */
+    const a = norm(A.name), b = norm(B.name);
+    const duels = matchs.filter(m => (norm(m.j1) === a && norm(m.j2) === b) || (norm(m.j1) === b && norm(m.j2) === a)).sort((x, y) => y.date - x.date || y.ord - x.ord);
+    body.appendChild(el("h3", "pc-h", "Leurs face-à-face"));
+    if(!duels.length){
+      body.appendChild(el("p", "pc-note", matchsLoaded ? "Jamais affrontés dans un match archivé." : "Chargement des matchs..."));
+    } else {
+      const va = duels.filter(m => norm(m.winner) === a).length, vb = duels.length - va;
+      let la = 0, lb = 0;
+      duels.forEach(m => { const x = norm(m.j1) === a ? [m.l1, m.l2] : [m.l2, m.l1]; if(x[0] != null && x[1] != null){ la += x[0]; lb += x[1]; } });
+      const sc = el("p", "cmp-score");
+      sc.append(el("span", va > vb ? "mene" : null, A.name), el("b", null, va + " - " + vb), el("span", vb > va ? "mene" : null, B.name));
+      body.appendChild(sc);
+      body.appendChild(el("p", "pc-legs cmp-sous", duels.length + (duels.length > 1 ? " matchs" : " match") + (la + lb ? ", legs " + la + " - " + lb : "") + "."));
+      const ul = el("ul", "cmp-duels");
+      duels.slice(0, 8).forEach(m => {
+        const x = norm(m.j1) === a ? [m.l1, m.l2] : [m.l2, m.l1];
+        const li = el("li"); li.append(el("span", "quand", shortDate(m.date) + " " + m.date.getFullYear()), el("span", null, m.phase || ""));
+        li.appendChild(el("b", null, (norm(m.winner) === a ? A.name : B.name) + (x[0] != null && x[1] != null ? " " + Math.max(x[0], x[1]) + "-" + Math.min(x[0], x[1]) : "")));
+        ul.appendChild(li);
+      });
+      body.appendChild(ul);
+      if(duels.length > 8) body.appendChild(el("p", "pc-note", "Les 8 plus récents sur " + duels.length + "."));
+    }
+
+    /* Tableau côte à côte : la meilleure valeur est surlignée */
+    const sa = statsJoueur(A), sb = statsJoueur(B);
+    const pctM = s => s.n ? Math.round(s.v / s.n * 100) : null, pctL = s => s.lp + s.lc ? Math.round(s.lp / (s.lp + s.lc) * 100) : null;
+    const lignes = [
+      ["Saison en cours"],
+      ["Classement", sa.rang, sb.rang, "min", v => ordinal(v)],
+      ["Points", sa.points, sb.points, "max", fmtNum],
+      ["Soirées", sa.soirees, sb.soirees, "max"],
+      ["Soirées gagnées", sa.victoires, sb.victoires, "max"],
+      ["Podiums", sa.podiums, sb.podiums, "max"],
+      ["Records de soirée", sa.records, sb.records, "max"],
+      ["Meilleurs records"],
+      ...TYPES.map((t, i) => [t.titre, sa.best[i], sb.best[i], "max", fmtNum]),
+      ["Wall of fame"],
+      ...FAME.map((f, i) => [f.titre + (f.sous ? " " + f.sous : ""), sa.fame[i], sb.fame[i], "max", v => v ? "\u00d7" + v : "0"]),
+      ["Matchs archivés"],
+      ["Victoires", pctM(sa), pctM(sb), "max", v => v + "\u00a0%"],
+      ["Matchs joués", sa.n, sb.n, "max"],
+      ["Legs gagnés", pctL(sa), pctL(sb), "max", v => v + "\u00a0%"]
+    ];
+    const wrap = el("div", "table-scroll"), t = el("table", "cmp"), hr = el("tr"), tb = el("tbody");
+    hr.append(el("th"), el("th", "num", A.name), el("th", "num", B.name));
+    const th = el("thead"); th.appendChild(hr); t.appendChild(th);
+    lignes.forEach(([lib, va, vb, sens, f]) => {
+      const tr = el("tr");
+      if(va === undefined){ tr.className = "cmp-titre"; const td = el("td", null, lib); td.colSpan = 3; tr.appendChild(td); tb.appendChild(tr); return; }
+      const fmt = v => v == null ? "aucun" : (f ? f(v) : String(v));
+      const ok = va != null && vb != null && va !== vb;
+      const mieuxA = ok && (sens === "min" ? va < vb : va > vb), mieuxB = ok && !mieuxA;
+      tr.append(el("td", null, lib), el("td", "num" + (mieuxA ? " mieux" : "") + (va == null ? " none" : ""), fmt(va)), el("td", "num" + (mieuxB ? " mieux" : "") + (vb == null ? " none" : ""), fmt(vb)));
+      tb.appendChild(tr);
+    });
+    if(sa.n || sb.n){
+      const tr = el("tr"), td1 = el("td", "num"), td2 = el("td", "num");
+      td1.appendChild(pastilles(A.name, sa.ms)); td2.appendChild(pastilles(B.name, sb.ms));
+      tr.append(el("td", null, "Derniers matchs"), td1, td2); tb.appendChild(tr);
+    }
+    t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
+    body.appendChild(el("p", "pc-note", "Classement et soirées : saison en cours. Records, wall of fame et matchs : tout l'historique du club."));
+    return true;
+  }
+
+  /* ---- Bilan de saison ---- */
+  const bilanDlg = document.getElementById("bilan"), bilanBtn = document.getElementById("bilanBtn");
+  let bilanLabel = null;
+  /* Saison montrée par défaut : la saison en cours si elle a commencé, sinon la dernière terminée */
+  const saisonParDefaut = saisons => saisons.filter(x => x.courante).pop() || saisons[saisons.length - 1];
+  function majBoutonBilan(){
+    const saisons = calculerSaisons();
+    if(!saisons.length){
+      /* Début de saison : les saisons archivées ne sont lues qu'à l'ouverture du bilan */
+      bilanBtn.hidden = !(SHEET_CSV.saisons && !saisonsLoaded);
+      bilanBtn.textContent = "Bilan de la saison passée";
+      return;
+    }
+    const s = saisonParDefaut(saisons);
+    bilanBtn.hidden = false;
+    bilanBtn.textContent = "Bilan de la saison " + s.label;
+  }
+  function ouvrirBilan(label){
+    besoinSaisons(); besoinMatchs();
+    bilanLabel = label;
+    renderBilan();
+    try { history.replaceState(null, "", "#bilan" + (label ? "-" + label : "")); } catch(e){}
+    if(!bilanDlg.open){
+      document.documentElement.classList.add("modal-open");
+      if(typeof bilanDlg.showModal === "function") bilanDlg.showModal(); else bilanDlg.setAttribute("open", "");
+    }
+    bilanDlg.scrollTop = 0;
+  }
+  function fermerBilan(){
+    if(typeof bilanDlg.close === "function"){ if(bilanDlg.open) bilanDlg.close(); }
+    else { bilanDlg.removeAttribute("open"); onBilanClosed(); }
+  }
+  function onBilanClosed(){
+    if(!pc.open) document.documentElement.classList.remove("modal-open");
+    if(/^#bilan/.test(location.hash)){ try { history.replaceState(null, "", location.pathname + location.search); } catch(e){} }
+  }
+  bilanDlg.addEventListener("close", onBilanClosed);
+  bilanDlg.querySelector(".pc-close").addEventListener("click", fermerBilan);
+  bilanDlg.addEventListener("click", e => { if(e.target === bilanDlg) fermerBilan(); });
+  bilanBtn.addEventListener("click", () => ouvrirBilan(null));
+
+  function noms(parent, list){ list.forEach((n, i) => { if(i) parent.append(", "); parent.append(playerLink(n)); }); return parent; }
+  function renderBilan(){
+    const saisons = calculerSaisons();
+    const body = document.getElementById("bilanBody"), tabs = document.getElementById("bilanTabs");
+    body.textContent = ""; tabs.textContent = "";
+    if(!saisons.length){
+      document.getElementById("bilanTitre").textContent = "Bilan de la saison";
+      body.appendChild(el("p", "pc-note", saisonsLoaded ? "Pas encore de soirée jouée." : "Chargement..."));
+      return;
+    }
+    const s = saisons.find(x => x.label === bilanLabel) || saisonParDefaut(saisons);
+    if(saisons.length > 1){
+      saisons.slice().reverse().forEach(x => {
+        const b = el("button", null, x.label); b.type = "button"; b.setAttribute("aria-pressed", String(x === s));
+        b.addEventListener("click", () => { bilanLabel = x.label; renderBilan(); try { history.replaceState(null, "", "#bilan-" + x.label); } catch(e){} bilanDlg.scrollTop = 0; });
+        tabs.appendChild(b);
+      });
+    }
+    const first = s.nights[0], last = s.nights[s.nights.length - 1];
+    const enCours = s.courante && new Date() < s.fin;
+    document.getElementById("bilanTitre").textContent = "Saison " + s.label;
+    const jour = d => dayMonth(d) + " " + d.getFullYear();
+    body.appendChild(el("p", "pc-sub", enCours ? "Saison en cours : bilan provisoire au jeudi " + jour(last) + "." : "Du jeudi " + jour(first) + " au jeudi " + jour(last) + "."));
+
+    /* Podium */
+    const podium = el("div", "podium");
+    [1, 2, 3].forEach(r => {
+      const l = s.players.filter(x => x.rank === r);
+      if(!l.length) return;
+      const d = el("div", "marche m" + r);
+      d.append(el("span", "place", ordinal(r) + (l.length > 1 ? " ex æquo" : "")), noms(el("p", "qui"), l.map(x => x.name)), el("span", "pts", fmtNum(l[0].points) + " points"));
+      podium.appendChild(d);
+    });
+    body.appendChild(podium);
+
+    /* Chiffres de la saison */
+    const recs = current.recs.filter(r => r.date >= s.debut && r.date < s.fin);
+    const ms = matchs.filter(m => m.date >= s.debut && m.date < s.fin);
+    const parfaits = FAME.map(f => ({ f, l:recs.filter(r => norm(r.type) === f.type && f.test(r.score)) }));
+    const nbParfaits = parfaits.reduce((t, x) => t + x.l.length, 0);
+    const chiffres = el("dl", "pc-stats bilan-chiffres");
+    [["Jeudis", s.nights.length], ["Joueurs", s.players.length], ["Matchs", ms.length || (matchsLoaded ? 0 : "...")], ["Scores parfaits", nbParfaits]]
+      .forEach(([t, v]) => { const d = el("div"); d.append(el("dt", null, t), el("dd", null, String(v))); chiffres.appendChild(d); });
+    body.appendChild(chiffres);
+
+    /* Distinctions */
+    body.appendChild(el("h3", "pc-h", "Distinctions"));
+    const prix = el("div", "prix");
+    const ajouter = (titre, gagnants, pourquoi) => {
+      if(!gagnants.length) return;
+      const d = el("div"); d.append(el("h4", null, titre), noms(el("p", "who"), gagnants), el("p", "why", pourquoi));
+      prix.appendChild(d);
+    };
+    [["Le plus assidu", x => x.soirees, v => v + " jeudis sur " + s.nights.length],
+     ["Le roi du jeudi", x => x.victoires, v => v + (v > 1 ? " soirées gagnées" : " soirée gagnée")],
+     ["Abonné aux finales", x => x.finales, v => v + (v > 1 ? " finales jouées" : " finale jouée")],
+     ["Chasseur de records", x => x.records, v => v + (v > 1 ? " records de soirée" : " record de soirée")]
+    ].forEach(([titre, val, txt]) => {
+      const max = Math.max(...s.players.map(val));
+      if(max > 0) ajouter(titre, s.players.filter(x => val(x) === max).map(x => x.name), txt(max));
+    });
+    if(ms.length){
+      const st = {};
+      ms.forEach(m => [m.j1, m.j2].forEach(j => { const k = norm(j); const x = st[k] = st[k] || { name:j, n:0, v:0 }; x.n++; if(norm(m.winner) === k) x.v++; }));
+      const cl = Object.values(st).filter(x => x.n >= MIN_MATCHS_PCT);
+      if(cl.length){
+        const top = Math.max(...cl.map(x => x.v / x.n));
+        const g = cl.filter(x => x.v / x.n === top);
+        ajouter("Le plus redoutable", g.map(x => findPlayer(x.name) ? findPlayer(x.name).name : x.name),
+          Math.round(top * 100) + "\u00a0% de victoires en matchs" + (g.length === 1 ? " (" + g[0].v + " sur " + g[0].n + ")" : "") + ", " + MIN_MATCHS_PCT + " matchs au moins");
+      }
+    }
+    body.appendChild(prix);
+
+    /* Records de la saison */
+    body.appendChild(el("h3", "pc-h", "Records de la saison"));
+    const dl = el("dl", "pc-recs");
+    TYPES.forEach(t => {
+      const top = best(recs.filter(r => norm(r.type) === t.k));
+      const row = el("div", "rec"); row.appendChild(el("dt", null, t.titre));
+      if(top){
+        row.appendChild(el("dd", "val", fmtNum(top.score)));
+        const w = appendNames(el("dd", "when"), holders(recs, top)); w.append(", le " + jour(top.date)); row.appendChild(w);
+      } else row.appendChild(el("dd", "none", "Pas de record"));
+      dl.appendChild(row);
+    });
+    body.appendChild(dl);
+    const pf = parfaits.filter(x => x.l.length);
+    const pP = el("p", "pc-fame bilan-parfaits");
+    if(pf.length){
+      pf.forEach((x, i) => {
+        if(i) pP.append(" ; ");
+        pP.append(x.f.titre + (x.f.sous ? " " + x.f.sous : "") + (x.l.length > 1 ? " \u00d7" + x.l.length : "") + " : ");
+        appendNames(pP, x.l.map(r => r.name));
+      });
+      pP.append(".");
+    } else pP.textContent = "Aucun score parfait cette saison.";
+    body.appendChild(pP);
+
+    /* Classement final (ou provisoire) */
+    body.appendChild(el("h3", "pc-h", enCours ? "Classement provisoire" : "Classement final"));
+    const wrap = el("div", "table-scroll"), t = el("table"), hr = el("tr"), tb = el("tbody");
+    [["Rang"], ["Joueur"], ["Points", "num"], ["Soirées", "num"], ["Victoires", "num"]].forEach(([txt, c]) => hr.appendChild(el("th", c, txt)));
+    const th = el("thead"); th.appendChild(hr); t.appendChild(th);
+    s.players.forEach(x => {
+      const tr = el("tr"), td = el("td");
+      td.appendChild(playerLink(x.name));
+      tr.append(el("td", x.rank <= 3 ? "place-" + x.rank : null, String(x.rank)), td, el("td", "num", fmtNum(x.points)), el("td", "num", String(x.soirees)), el("td", "num", String(x.victoires || "")));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
+    if(!SHEET_CSV.saisons && saisons.length === 1) body.appendChild(el("p", "pc-note", "Les saisons passées apparaîtront ici une fois archivées."));
+  }
+
+  /* Données arrivées ou rechargées : vues ouvertes remises à jour */
+  function rafraichirVues(){
+    renderWinrate();
+    if(pc.open){
+      if(cmpPair) fillCompare(cmpPair[0], cmpPair[1]);
+      else if(pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); }
+    }
+    if(bilanDlg.open) renderBilan();
+    majBoutonBilan();
   }
 
   /* ---- Prochain rendez-vous ---- */
@@ -1721,6 +2245,10 @@ const PORTRAITS = {};
     try { show(cA && cB ? cA : SNAPSHOT_CHAMPIONNAT, cA && cB ? cB : SNAPSHOT_RECORDS, false); }
     catch(e){ console.error(e); try { show(SNAPSHOT_CHAMPIONNAT, SNAPSHOT_RECORDS, false); } catch(e2){ console.error(e2); } }
   }
+  /* Versions gardées dans le navigateur : matchs et saisons archivées (rien n'est demandé au Google Sheet ici) */
+  if(SHEET_CSV.matchs){ const cM = cacheGet("matchs"); if(cM){ try { matchs = readMatchs(cM); matchsLoaded = true; } catch(e){ console.warn(e); } } }
+  if(SHEET_CSV.saisons){ const cS = cacheGet("saisons"); if(cS){ try { saisonsRows = readSaisons(cS); saisonsLoaded = true; } catch(e){ console.warn(e); } } }
+  else saisonsLoaded = true;
   showSaved();
   openFromHash();
 
@@ -1735,22 +2263,37 @@ const PORTRAITS = {};
       .finally(() => { openFromHash(); hashDone = true; });
   } else hashDone = true;
 
-  /* ---- Matchs (statistiques des fiches joueurs) ---- */
+  /* ---- Matchs et saisons archivées : chargés à la demande ----
+     La version gardée dans le navigateur s'affiche tout de suite ; la version fraîche n'est demandée au
+     Google Sheet qu'au premier besoin (fiche joueur, onglet % de victoires, bilan, comparateur). */
   function showMatchs(text, live){
     let ok = true;
     try { matchs = readMatchs(text); } catch(e){ console.warn(e); ok = false; }
     if(live) matchsLoaded = true; // chargement terminé même si le contenu est illisible (on garde la version en cache)
-    renderWinrate();
-    if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); }
+    rafraichirVues();
     return ok;
   }
-  if(SHEET_CSV.matchs){
-    const cM = cacheGet("matchs");
-    if(cM && showMatchs(cM, false)) matchsLoaded = true;
-    fetchCSV(SHEET_CSV.matchs)
+  function besoinMatchs(){
+    if(!SHEET_CSV.matchs || promMatchs) return;
+    promMatchs = fetchCSV(SHEET_CSV.matchs)
       .then(t => { if(showMatchs(t, true)) cacheSet("matchs", t); })
-      .catch(err => { console.warn("Matchs du Google Sheet indisponibles.", err); matchsLoaded = true; renderWinrate(); if(pc.open && pcOpenName){ const p = findPlayer(pcOpenName); if(p) fillPlayer(p); } });
+      .catch(err => { console.warn("Matchs du Google Sheet indisponibles.", err); matchsLoaded = true; rafraichirVues(); });
   }
+  function showSaisons(text, live){
+    let ok = true;
+    try { saisonsRows = readSaisons(text); } catch(e){ console.warn(e); ok = false; }
+    if(live) saisonsLoaded = true;
+    rafraichirVues();
+    return ok;
+  }
+  function besoinSaisons(){
+    if(!SHEET_CSV.saisons){ saisonsLoaded = true; return; }
+    if(promSaisons) return;
+    promSaisons = fetchCSV(SHEET_CSV.saisons)
+      .then(t => { if(showSaisons(t, true)) cacheSet("saisons", t); })
+      .catch(err => { console.warn("Saisons du Google Sheet indisponibles.", err); saisonsLoaded = true; rafraichirVues(); });
+  }
+  document.getElementById("tab-pct").addEventListener("click", besoinMatchs);
 })();
 
 /* ====== Photos ====== */
@@ -1759,9 +2302,12 @@ const PORTRAITS = {};
 
   // Une photo Google Drive (partagée "tous les utilisateurs disposant du lien") ;
   // deux adresses d'aperçu sont essayées, la photo est retirée si aucune ne répond.
+  // Vignette en 600 px (légère), photo agrandie en 1600 px chargée seulement à l'ouverture.
   const drive = id => ({
-    src: "https://drive.google.com/thumbnail?id=" + id + "&sz=w1600",
-    secours: "https://lh3.googleusercontent.com/d/" + id + "=w1600"
+    src: "https://drive.google.com/thumbnail?id=" + id + "&sz=w600",
+    secours: "https://lh3.googleusercontent.com/d/" + id + "=w600",
+    grand: "https://drive.google.com/thumbnail?id=" + id + "&sz=w1600",
+    grandSecours: "https://lh3.googleusercontent.com/d/" + id + "=w1600"
   });
 
   function afficher(liste){
@@ -1776,8 +2322,9 @@ const PORTRAITS = {};
     }
     liste.forEach(ph => {
       const f = document.createElement("figure");
-      const img = document.createElement("img"); img.src = ph.src; img.alt = ph.legende || "Soirée Noya'Darts"; img.loading = "lazy";
+      const img = document.createElement("img"); img.loading = "lazy"; img.decoding = "async"; img.src = ph.src; img.alt = ph.legende || "Soirée Noya'Darts";
       img.referrerPolicy = "no-referrer";
+      if(ph.grand){ img.dataset.grand = ph.grand; img.dataset.grandSecours = ph.grandSecours; }
       img.onerror = () => {
         if(ph.secours && img.src !== ph.secours){ img.src = ph.secours; }
         else { f.remove(); if(!g.querySelector("img")) afficher([]); }
@@ -1797,12 +2344,19 @@ const PORTRAITS = {};
   const lbCount = document.getElementById("lbCount");
   let liste = [], pos = 0;
 
+  /* Grande version si elle existe (photos Drive), sinon la vignette ; la suivante est préchargée */
+  lbImg.referrerPolicy = "no-referrer";
+  const versions = im => [im.dataset.grand, im.dataset.grandSecours, im.currentSrc || im.src].filter(Boolean);
+  let essais = [];
+  lbImg.addEventListener("error", () => { if(essais.length) lbImg.src = essais.shift(); });
   function montrer(i){
     pos = (i + liste.length) % liste.length;
     const im = liste[pos];
-    lbImg.src = im.currentSrc || im.src;
+    essais = versions(im);
+    lbImg.src = essais.shift();
     lbImg.alt = im.alt;
     lbCount.textContent = (pos + 1) + " / " + liste.length;
+    if(liste.length > 1){ const suiv = liste[(pos + 1) % liste.length]; const pre = new Image(); pre.referrerPolicy = "no-referrer"; pre.src = versions(suiv)[0]; }
   }
   function ouvrir(img){
     // Photos réellement affichées (celles qui n'ont pas pu se charger ont été retirées)

@@ -276,6 +276,24 @@ a.btn{ text-decoration:none; display:inline-block; }
 }
 .toast.err{ background:var(--red); color:var(--chalk); }
 .toast[hidden]{ display:none; }
+
+/* Célébration : score parfait ou nouveau record du soir, sur tous les écrans qui suivent le tournoi */
+.fete{ position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:1.5rem; text-align:center; cursor:pointer;
+  background:radial-gradient(circle at 50% 45%, rgba(27,34,36,.96), rgba(10,14,15,.99) 70%); }
+.fete[hidden]{ display:none; }
+.fete canvas{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.fete-in{ position:relative; display:grid; gap:.3rem; justify-items:center; }
+.fete small{ font:800 clamp(1.3rem,3.5vw,2.4rem)/1 var(--display); color:var(--sisal); }
+.fete strong{ font:900 clamp(6rem,24vw,17rem)/.85 var(--display); color:var(--chalk); text-shadow:0 .04em 0 var(--red-deep), 0 0 .3em rgba(212,69,59,.45); }
+.fete.record strong{ font-size:clamp(4.5rem,17vw,12rem); text-shadow:0 .04em 0 #1f6b45, 0 0 .3em rgba(52,165,107,.4); }
+.fete .sous{ font:800 clamp(1.4rem,4vw,2.8rem)/1 var(--display); color:var(--chalk-dim); }
+.fete .nom{ margin-top:.6rem; font:900 clamp(2.2rem,7vw,5rem)/1 var(--display); color:var(--chalk); background:var(--red); padding:.15em .5em .1em; border-radius:.2em; }
+.fete.record .nom{ background:var(--green); color:var(--slate); }
+@media (prefers-reduced-motion:no-preference){
+  .fete:not([hidden]) strong{ animation:feteBoum .7s cubic-bezier(.2,1.6,.4,1) both; }
+  .fete:not([hidden]) .nom{ animation:feteBoum .6s .25s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes feteBoum{ from{ transform:scale(.3); opacity:0; } to{ transform:none; opacity:1; } }
+}
 .charge{ opacity:.55; pointer-events:none; }
 
 @media (prefers-reduced-motion: reduce){ .panneau{ transition:none; } }
@@ -406,6 +424,11 @@ a.btn{ text-decoration:none; display:inline-block; }
 
 <div class="toast" id="toast" hidden></div>
 
+<div class="fete" id="fete" hidden role="status" aria-live="assertive">
+  <canvas id="feteCanvas" aria-hidden="true"></canvas>
+  <div class="fete-in"><small id="feteSur"></small><strong id="feteTitre"></strong><span class="sous" id="feteSous"></span><span class="nom" id="feteNom"></span></div>
+</div>
+
 <script>
 /* Adresse de l'application Web du Google Sheet (Déployer > Gérer les déploiements, URL qui finit par /exec). */
 const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1FegismopNkmSIbM2rdMkyiMtWo58iwRw4TJHLZ8NXVMXIH/exec";
@@ -443,6 +466,7 @@ async function lire(){
   const d = await r.json();
   if(!d.ok) throw new Error(d.erreur || "Lecture impossible.");
   memoriser(d);
+  guetterRecords(d);
   return d;
 }
 async function agir(action, donnees){
@@ -455,7 +479,7 @@ async function agir(action, donnees){
       if(d.codeFaux){ oublierCode(); }
       throw new Error(d.erreur || "Action impossible.");
     }
-    DATA = d; memoriser(d); afficher();
+    DATA = d; memoriser(d); afficher(); guetterRecords(d);
     return d.resultat;
   } finally { OCCUPE--; }
 }
@@ -786,9 +810,90 @@ $("scoreOk").onclick = () => {
   fermerScore(); envoyerScore(r);
 };
 document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && !$("fete").hidden){ fermerFete(); return; }
   if(e.key === "Escape"){ if(!$("fondBarrage").hidden) fermerBarrage(); else if(!$("fondTirage").hidden) fermerTirage(); else if(!$("fondAffiches").hidden) fermerAffiches(); else if(!$("fondRecord").hidden) fermerRecord(); else if(!$("fondScore").hidden) fermerScore(); else if(!$("fondCode").hidden) $("fondCode").hidden = true; else fermerPanneau(); }
   if(e.key === "Enter" && !$("fondScore").hidden) $("scoreOk").click();
 });
+
+/* ---------------- Célébrations ----------------
+   Chaque écran compare les records du soir reçus du Google Sheet avec ceux qu'il avait déjà vus :
+   un score parfait (180, 170, 6 darter) ou un record du soir battu déclenche l'animation, même sur le
+   projecteur qui n'a rien saisi. Rien n'est fêté à l'ouverture de la page (premier état reçu). */
+let RECS_VUS = null;
+const FETES = [];
+let FETE_T = null;
+function guetterRecords(d){
+  const T = d && d.tournoi;
+  if(!T){ RECS_VUS = null; return; }
+  const recs = (T.records || []).map(r => ({ type:r.type, score:Number(r.score), nom:r.nom }));
+  if(RECS_VUS && RECS_VUS.date === T.date){
+    const cle = r => r.type + "|" + r.score + "|" + r.nom, avant = {};
+    RECS_VUS.recs.forEach(r => { avant[cle(r)] = (avant[cle(r)] || 0) + 1; });
+    recs.forEach(r => {
+      if(avant[cle(r)]){ avant[cle(r)]--; return; }
+      const t = (d.types || []).find(x => x.nom === r.type) || {};
+      const parfait = (t.parfait && r.score === t.parfait) || (r.type === "Moyenne Leg" && r.score >= 150.5);
+      const anciens = RECS_VUS.recs.filter(x => x.type === r.type);
+      const battu = !anciens.length || anciens.every(x => r.score > x.score || (r.score === x.score && x.nom !== r.nom));
+      if(parfait || battu) FETES.push({ r, parfait });
+    });
+    if(FETES.length && $("fete").hidden) feteSuivante();
+  }
+  RECS_VUS = { date:T.date, recs };
+}
+function feteSuivante(){
+  const f = FETES.shift();
+  if(!f){ $("fete").hidden = true; arreterConfettis(); return; }
+  const r = f.r, fete = $("fete");
+  fete.className = "fete" + (f.parfait ? "" : " record");
+  const court = (COURT[r.type] || r.type).toLowerCase();
+  if(f.parfait){
+    $("feteSur").textContent = "Score parfait !";
+    const six = r.type === "Moyenne Leg";
+    $("feteTitre").textContent = six ? "6" : String(r.score);
+    $("feteSous").textContent = six ? "darter" : r.score === 170 ? "big fish" : "";
+  } else {
+    $("feteSur").textContent = "Nouveau record du soir";
+    $("feteTitre").textContent = String(r.score).replace(".", ",");
+    $("feteSous").textContent = court;
+  }
+  $("feteNom").textContent = r.nom;
+  fete.hidden = false;
+  confettis(f.parfait ? 260 : 110);
+  clearTimeout(FETE_T);
+  FETE_T = setTimeout(feteSuivante, f.parfait ? 6500 : 4500);
+}
+function fermerFete(){ clearTimeout(FETE_T); FETES.length = 0; feteSuivante(); }
+$("fete").addEventListener("click", fermerFete);
+
+/* Confettis aux couleurs de la cible (rien si l'animation est réduite dans le système) */
+let CONF = null;
+function confettis(n){
+  arreterConfettis();
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = $("feteCanvas"), g = cv.getContext("2d"), dpr = window.devicePixelRatio || 1;
+  const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr;
+  const couleurs = ["#d4453b", "#34a56b", "#e3d4ae", "#eceae2", "#1b2224"];
+  const parts = [];
+  for(let i = 0; i < n; i++){
+    const gauche = i % 2 === 0;
+    parts.push({ x:gauche ? -10 : W + 10, y:H * (.55 + Math.random() * .4),
+      vx:(gauche ? 1 : -1) * (6 + Math.random() * 12) * dpr, vy:-(10 + Math.random() * 14) * dpr,
+      t:(5 + Math.random() * 7) * dpr, a:Math.random() * 6, va:(Math.random() - .5) * .4, c:couleurs[i % couleurs.length] });
+  }
+  const etape = () => {
+    g.clearRect(0, 0, W, H);
+    let vivants = 0;
+    parts.forEach(p => {
+      p.vy += .35 * dpr; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.a += p.va;
+      if(p.y < H + 20){ vivants++;
+        g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = p.c; g.fillRect(-p.t / 2, -p.t / 4, p.t, p.t / 2); g.restore(); }
+    });
+    CONF = vivants ? requestAnimationFrame(etape) : null;
+  };
+  CONF = requestAnimationFrame(etape);
+}
+function arreterConfettis(){ if(CONF) cancelAnimationFrame(CONF); CONF = null; const cv = $("feteCanvas"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height); }
 
 /* ---------------- Fenêtre de record ---------------- */
 let RECORD = null;
