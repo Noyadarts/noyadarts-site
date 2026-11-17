@@ -1784,51 +1784,58 @@ const PORTRAITS = {};
       : "";
   }
 
-  /* ---- Courbe de progression : place au championnat après chaque jeudi joué de la saison ---- */
-  function classementsParJeudi(){
-    const champ = current.champ, cumul = {};
-    return champ.nights.map((n, i) => i).filter(i => champ.players.some(p => p.res[i].rank != null)).map(i => {
-      champ.players.forEach(p => { const r = p.res[i]; if(r.rank != null) cumul[p.name] = (cumul[p.name] || 0) + (r.pts || 0); });
-      const rangs = {}; let rk = 0, pv = null;
-      Object.entries(cumul).sort((a, b) => b[1] - a[1]).forEach(([n, pts], j) => { if(pts !== pv){ rk = j + 1; pv = pts; } rangs[n] = rk; });
-      return { i, date:champ.nights[i].date, rangs };
-    });
-  }
+  /* ---- Courbe de progression : % de victoires en matchs (« Matchs BD »), cumulé depuis le début de la saison,
+     après chaque jeudi où le joueur a des matchs archivés. En bas, les points marqués au championnat ce jeudi-là. ---- */
   function progression(body, p){
-    const etapes = classementsParJeudi().map(e => ({ date:e.date, rang:e.rangs[p.name] || null, r:p.res[e.i] }));
-    if(etapes.filter(x => x.r.rank != null).length < 2) return;
-    const pts = etapes.slice(etapes.findIndex(x => x.rang != null));
+    const champ = current.champ;
+    if(!champ.nights.length || !matchs.length) return;
+    const saison = saisonDe(champ.nights[champ.nights.length - 1].date), me = norm(p.name);
+    const parJeudi = new Map();
+    matchs.filter(m => (norm(m.j1) === me || norm(m.j2) === me) && saisonDe(m.date) === saison)
+      .sort((a, b) => a.date - b.date || a.ord - b.ord)
+      .forEach(m => {
+        const k = key(m.date), x = parJeudi.get(k) || { date:m.date, v:0, d:0 };
+        if(norm(m.winner) === me) x.v++; else x.d++;
+        parJeudi.set(k, x);
+      });
+    if(parJeudi.size < 2) return;
+    const idx = {}; champ.nights.forEach((n, i) => { idx[key(n.date)] = i; });
+    let cv = 0, cn = 0;
+    const pts = [...parJeudi.values()].map(x => {
+      cv += x.v; cn += x.v + x.d;
+      const i = idx[key(x.date)], r = i != null ? p.res[i] : null;
+      return { date:x.date, v:x.v, d:x.d, cv, cn, pct:cv / cn * 100, rank:r && r.rank != null ? r.rank : null, pts:r ? r.pts || 0 : 0 };
+    });
     /* Plus étroit sur téléphone, pour garder des étiquettes lisibles */
-    const W = window.innerWidth < 560 ? 360 : 520, L = 40, R = 14, T = 14, HR = 104, B0 = T + HR + 26, HB = 40;
+    const W = window.innerWidth < 560 ? 360 : 520, L = 44, R = 14, T = 14, HR = 104, B0 = T + HR + 26, HB = 40;
     const n = pts.length, pas = n > 1 ? (W - L - R) / (n - 1) : 0;
-    const maxR = Math.max(2, ...pts.map(x => x.rang));
-    const maxP = Math.max(1, ...pts.map(x => x.r.pts || 0));
-    const X = k => L + k * pas, Y = r => T + (r - 1) / (maxR - 1) * HR;
+    const maxP = Math.max(1, ...pts.map(x => x.pts));
+    const X = k => L + k * pas, Y = v => T + (1 - v / 100) * HR;
+    const enPct = v => Math.round(v) + "\u00a0%";
     const svg = document.createElementNS(SVGNS, "svg");
     svg.setAttribute("viewBox", "0 0 " + W + " " + (B0 + HB + 22)); svg.setAttribute("role", "img");
     const add = (tag, attrs, parent, txt) => { const e = document.createElementNS(SVGNS, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if(txt != null) e.textContent = txt; (parent || svg).appendChild(e); return e; };
-    [1, maxR].forEach(r => { add("line", { x1:L, x2:W - R, y1:Y(r), y2:Y(r), class:"g-grille" }); add("text", { x:L - 8, y:Y(r) + 4, class:"g-axe", "text-anchor":"end" }, null, ordinal(r)); });
+    [0, 50, 100].forEach(v => { add("line", { x1:L, x2:W - R, y1:Y(v), y2:Y(v), class:"g-grille" }); add("text", { x:L - 8, y:Y(v) + 4, class:"g-axe", "text-anchor":"end" }, null, enPct(v)); });
     add("text", { x:L - 8, y:B0 + HB, class:"g-axe", "text-anchor":"end" }, null, "pts");
     const larg = Math.max(4, Math.min(18, pas * .45 || 18));
     pts.forEach((x, k) => {
-      const v = x.r.pts || 0, h = v / maxP * HB;
-      if(v) add("rect", { x:X(k) - larg / 2, y:B0 + HB - h, width:larg, height:h, rx:2, class:"g-barre" + (x.r.rank === 1 ? " v" : "") });
+      const h = x.pts / maxP * HB;
+      if(x.pts) add("rect", { x:X(k) - larg / 2, y:B0 + HB - h, width:larg, height:h, rx:2, class:"g-barre" + (x.rank === 1 ? " v" : "") });
     });
-    add("polyline", { points:pts.map((x, k) => X(k) + "," + Y(x.rang)).join(" "), class:"g-ligne" });
+    add("polyline", { points:pts.map((x, k) => X(k) + "," + Y(x.pct)).join(" "), class:"g-ligne" });
     pts.forEach((x, k) => {
-      const joue = x.r.rank != null;
-      const c = add("circle", { cx:X(k), cy:Y(x.rang), r:joue ? 5.5 : 4, class:"g-pt" + (!joue ? " absent" : x.r.rank === 1 ? " v" : x.r.rank <= 3 ? " podium" : "") });
-      add("title", {}, c, "Jeudi " + shortDate(x.date) + " : " + ordinal(x.rang) + " au classement" +
-        (joue ? ", " + (PLACE[x.r.rank] || x.r.rank).toLowerCase() + " (+" + fmtNum(x.r.pts || 0) + " points)" : ", absent"));
+      const c = add("circle", { cx:X(k), cy:Y(x.pct), r:5.5, class:"g-pt" + (x.rank === 1 ? " v" : x.rank != null && x.rank <= 3 ? " podium" : "") });
+      add("title", {}, c, "Jeudi " + shortDate(x.date) + " : " + x.v + " V, " + x.d + " D ce soir ; " + enPct(x.pct) + " de victoires sur la saison (" + x.cv + " sur " + x.cn + ")" +
+        (x.rank != null ? ", " + (PLACE[x.rank] || x.rank).toLowerCase() + " (+" + fmtNum(x.pts) + (x.pts > 1 ? " points)" : " point)") : ""));
     });
     const lbl = [0, n - 1]; if(n > 4) lbl.splice(1, 0, Math.round((n - 1) / 2));
-    [...new Set(lbl)].forEach(k => add("text", { x:X(k), y:B0 + HB + 18, class:"g-axe", "text-anchor":k === 0 && n > 1 ? "start" : k === n - 1 && n > 1 ? "end" : "middle" }, null, shortDate(pts[k].date)));
-    const meilleur = pts.reduce((b, x) => x.rang < b.rang ? x : b, pts[0]);
-    const resume = "Actuellement " + ordinal(pts[n - 1].rang) + " au classement. Meilleure place : " + ordinal(meilleur.rang) + " (après le jeudi " + shortDate(meilleur.date) + ").";
-    svg.setAttribute("aria-label", "Place au championnat après chaque jeudi. " + resume);
+    [...new Set(lbl)].forEach(k => add("text", { x:X(k), y:B0 + HB + 18, class:"g-axe", "text-anchor":k === 0 ? "start" : k === n - 1 ? "end" : "middle" }, null, shortDate(pts[k].date)));
+    const fin = pts[n - 1];
+    const resume = "Actuellement " + enPct(fin.pct) + " de victoires sur la saison (" + fin.cv + (fin.cv > 1 ? " matchs gagnés sur " : " match gagné sur ") + fin.cn + ").";
+    svg.setAttribute("aria-label", "Pourcentage de victoires en matchs, cumulé depuis le début de la saison, après chaque jeudi. " + resume);
     body.appendChild(el("h3", "pc-h", "Sa saison"));
     const g = el("div", "pc-graph"); g.appendChild(svg); body.appendChild(g);
-    body.appendChild(el("p", "pc-note", resume + " En bas, les points marqués chaque jeudi."));
+    body.appendChild(el("p", "pc-note", resume + " La courbe suit son pourcentage de victoires en matchs depuis le début de la saison ; en bas, les points marqués chaque jeudi."));
   }
 
   /* ---- Saisons : championnat en cours + saisons archivées (« Saisons BD ») ---- */
