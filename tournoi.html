@@ -168,6 +168,9 @@ table.classement{ border-collapse:collapse; }
 .joueur{ display:flex; align-items:center; gap:.5rem; padding:.25rem .4rem; border-radius:6px; }
 .joueur + .joueur{ margin-top:3px; }
 .joueur b{ flex:1; font-family:var(--display); font-weight:800; font-size:1.55rem; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Liens vers les fiches joueurs du site (hors mode gestion) */
+a.fiche{ color:inherit; text-decoration:none; }
+a.fiche:hover, a.fiche:focus-visible{ text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:2px; }
 .joueur.attente b{ color:var(--chalk-dim); font-weight:600; font-size:1.2rem; font-style:italic; }
 .joueur.gagne{ background:var(--win); }
 .joueur.gagne b{ color:var(--chalk); }
@@ -441,6 +444,10 @@ let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tou
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+/* Fiche d'un joueur sur le site : même règle que les liens directs de index.html (#joueur-bob-le-fou) */
+const ficheUrl = nom => "./#joueur-" + String(nom).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim()
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const lienFiche = nom => '<a class="fiche" href="' + esc(ficheUrl(nom)) + '" target="_blank" rel="noopener" title="Voir sa fiche">' + esc(nom) + "</a>";
 const dateFr = iso => { if(!iso) return ""; const [a,m,j] = iso.split("-").map(Number);
   return new Date(Date.UTC(a,m-1,j)).toLocaleDateString("fr-FR",{ weekday:"long", day:"numeric", month:"long", timeZone:"UTC" }); };
 const legsTxt = n => n + " leg" + (n>1?"s":"") + " gagnant" + (n>1?"s":"");
@@ -600,7 +607,7 @@ function blocPoule(T,p){
       (s.egalite ? ' title="Égalité parfaite : à départager par un barrage en 1 leg"' : "") + ">" + s.rang + (s.egalite ? "=" : "") + "</td>" +
       '<td class="g nom' + (admin ? " clic" : "") + '" data-pause="' + esc(s.nom) + '"' +
       (admin ? ' title="' + (pz ? "Clique quand il revient" : "Clique pour le mettre en pause") + '"' : "") + ">" +
-      esc(s.nom) + (pz ? "<em>en pause</em>" : "") + "</td>" +
+      (admin ? esc(s.nom) : lienFiche(s.nom)) + (pz ? "<em>en pause</em>" : "") + "</td>" +
       "<td>" + s.J + "</td><td>" + s.V + "</td><td>" + s.D + "</td><td>" + (s.diff > 0 ? "+" : "") + s.diff + "</td></tr>";
   });
   h += "</tbody></table></div><div class=\"listes\">";
@@ -650,7 +657,8 @@ function blocMatch(T, id, finale){
       score = '<select data-f="' + id + '" data-cote="' + autre + '" aria-label="Legs gagnés par ' + esc(nom) + '"><option value=""></option>' +
         Array.from({length:L+1},(_,k)=>'<option' + (legs === k ? " selected" : "") + ">" + k + "</option>").join("") + "</select>";
     } else score = '<span class="legs">' + (legs === "" ? "" : legs) + "</span>";
-    return '<div class="joueur ' + cls + '"><b>' + esc(nom) + "</b>" + score + "</div>";
+    const vrai = !estAdmin() && T.classements.some(cl => cl.some(x => x.nom === nom));
+    return '<div class="joueur ' + cls + '"><b>' + (vrai ? lienFiche(nom) : esc(nom)) + "</b>" + score + "</div>";
   };
   const etat = f.etat === "✔" || f.etat === "En attente" || f.etat === "À jouer" ? "" : f.etat;
   /* Legs du match : modifiables (toute la phase) tant qu'aucun match de la phase n'a de score */
