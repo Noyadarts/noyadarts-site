@@ -774,7 +774,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 
       <h3 class="subhead" id="fame-title">Wall of fame</h3>
       <div class="fame" id="fame"></div>
-      <p class="points-rule">Les scores parfaits depuis la création du club. Chaque 180 et chaque 170 compte, même s'il y en a plusieurs le même soir.</p>
+      <p class="points-rule">Les scores parfaits depuis la création du club. Chaque 180, chaque 170 et chaque 6 darter compte, même s'il y en a plusieurs le même soir.</p>
 
       <div class="tabs" role="tablist" aria-label="Classements">
         <button type="button" role="tab" class="tab" id="tab-champ" aria-selected="true" aria-controls="panel-champ"><span id="champ-title">Championnat annuel</span></button>
@@ -782,7 +782,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       </div>
       <div role="tabpanel" id="panel-champ" aria-labelledby="tab-champ">
         <div class="table-scroll" id="ranking"></div>
-        <p class="points-rule">Barème de chaque jeudi : 10 points pour le vainqueur, 7 pour le finaliste, 5 pour le 3e, 3 pour le 4e, 1 point de participation, et 1 point bonus par record de la soirée (chaque 180 et chaque 170 en sortie compte, même à plusieurs le même soir). Les flèches à côté des noms montrent les places gagnées ou perdues au dernier jeudi. <a href="regles.html#championnat">Les règles en détail</a></p>
+        <p class="points-rule">Barème de chaque jeudi : 10 points pour le vainqueur, 7 pour le finaliste, 5 pour le 3e, 3 pour le 4e, 1 point de participation, et 1 point bonus par record de la soirée (chaque 180, chaque 170 en sortie et chaque 6 darter compte, même à plusieurs le même soir). Les flèches à côté des noms montrent les places gagnées ou perdues au dernier jeudi. <a href="regles.html#championnat">Les règles en détail</a></p>
       </div>
       <div role="tabpanel" id="panel-pct" aria-labelledby="tab-pct" hidden>
         <div class="table-scroll" id="winrate"></div>
@@ -1128,8 +1128,9 @@ const PORTRAITS = {};
     });
     return parent;
   }
-  /* Tous les détenteurs d'un record : même type, même soir, même score */
-  const holders = (recs, top) => recs.filter(r => norm(r.type) === norm(top.type) && key(r.date) === key(top.date) && r.score === top.score).map(r => r.name);
+  /* Recordman : même type, même soir, même score. Plusieurs scores parfaits ce soir-là : chacun a eu son point,
+     mais le recordman affiché est le dernier noté (dernière ligne de « Records BD » pour ce soir-là). */
+  const holders = (recs, top) => recs.filter(r => norm(r.type) === norm(top.type) && key(r.date) === key(top.date) && r.score === top.score).map(r => r.name).slice(-1);
 
   const best = list => list.reduce((b, r) => (!b || r.score > b.score || (r.score === b.score && r.date > b.date)) ? r : b, null);
   const dayMonth = d => d.getDate() + (d.getDate() === 1 ? "er" : "") + " " + MOIS[d.getMonth()];
@@ -1749,7 +1750,7 @@ const PORTRAITS = {};
           const l = list.filter(r => norm(r.type) === t.k);
           [...new Set(l.map(r => r.score))].forEach(sc => {
             const li = el("li"); li.append(t.court + " ", el("strong", null, fmtNum(sc)), " par ");
-            appendNames(li, l.filter(r => r.score === sc).map(r => r.name)); ul.appendChild(li);
+            appendNames(li, l.filter(r => r.score === sc).map(r => r.name).slice(-1)); ul.appendChild(li);
           });
         });
         card.appendChild(ul);
