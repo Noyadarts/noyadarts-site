@@ -52,20 +52,31 @@ const CFG = {
 };
 
 const TYPES = [
-  { nom: 'Moyenne Leg', min: 50, max: 167,
+  { nom: 'Moyenne Leg', min: 50, max: 167, parfait: 150.5, lib: '6 darter',
     tropBas: "On ne prend qu'au dessus de 50 MPR en record de moyenne / leg, en vrai tu n'as rien fait d'exceptionnel...",
     tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire plus que 150 de moyenne au 301 ou 167 au 501 ?!?!" },
-  { nom: 'Meilleure Volée', min: 100, max: 180, parfait: 180,
+  { nom: 'Meilleure Volée', min: 100, max: 180, parfait: 180, lib: '180',
     tropBas: "On ne prend qu'au dessus de 100 points en record de volée, en vrai tu n'as rien fait d'exceptionnel...",
     tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire plus que 180 en une seule volée ?!?!" },
-  { nom: 'Meilleure Sortie', min: 60, max: 170, parfait: 170,
+  { nom: 'Meilleure Sortie', min: 60, max: 170, parfait: 170, lib: '170',
     tropBas: "On ne prend qu'au dessus de 60 points en record de sortie, en vrai tu n'as rien fait d'exceptionnel...",
     tropHaut: "Genre... Tu peux m'expliquer comment tu as pu faire une sortie à plus de 170 ?!?!" },
 ];
-// Score parfait (180, et 170 en sortie : le « big fish ») : plusieurs joueurs peuvent le faire le même soir,
-// et un joueur peut le faire plusieurs fois. Chaque score parfait est un record (1 point bonus chacun).
+// Score parfait (180, 170 en sortie : le « big fish », 6 darter : 150,5 de moyenne sur le leg au 301) :
+// plusieurs joueurs peuvent le faire le même soir, et un joueur peut le faire plusieurs fois.
+// Chaque score parfait est un record (1 point bonus chacun). Le recordman affiché est le dernier à l'avoir fait.
 
-/** Noms des détenteurs d'un record, « Nico ×2, Bob » si plusieurs scores parfaits le même soir. */
+/** Score parfait pour ce type ? (6 darter : 150,5 ou plus, comme le wall of fame du site) */
+function estParfait_(t, v) {
+  return !!(t && t.parfait) && Number(v) >= t.parfait;
+}
+
+/** Types envoyés aux fenêtres et à la page web. */
+function typesPublics_() {
+  return TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max, parfait: t.parfait || null, lib: t.lib || null }; });
+}
+
+/** Noms des auteurs de scores parfaits d'un même soir, « Nico ×2, Bob » (messages seulement). */
 function nomsRecord_(noms) {
   const ordre = [], nb = {};
   noms.forEach(function (n) { if (!nb[n]) { nb[n] = 0; ordre.push(n); } nb[n]++; });
@@ -74,7 +85,7 @@ function nomsRecord_(noms) {
 
 /**
  * Contrôle les records d'une soirée : [{ type, score, nom }] (lignes vides ignorées).
- * Un seul record par type, sauf les scores parfaits (180, 170) : autant de lignes que de scores parfaits.
+ * Un seul record par type, sauf les scores parfaits (180, 170, 6 darter) : autant de lignes que de scores parfaits.
  * estPresent(nom) dit si le joueur a joué ce soir-là.
  */
 function validerRecords_(liste, estPresent) {
@@ -97,8 +108,8 @@ function validerRecords_(liste, estPresent) {
     const l = recs.filter(function (r) { return r.type === t.nom; });
     if (l.length < 2) return;
     if (!t.parfait) throw new Error('Un seul record « ' + t.nom + ' » par soirée.');
-    if (l.some(function (r) { return r.score !== t.parfait; })) {
-      throw new Error('Plusieurs records « ' + t.nom + ' » le même soir : seulement pour des ' + t.parfait + ' (chacun compte).');
+    if (l.some(function (r) { return !estParfait_(t, r.score); })) {
+      throw new Error('Plusieurs records « ' + t.nom + ' » le même soir : seulement pour des ' + t.lib + ' (chacun compte).');
     }
   });
   return recs;
@@ -241,16 +252,16 @@ function installerOngletRecords_() {
     .filter(function (d, i, a) { return d && a.indexOf(d) === i; })
     .sort().reverse(); // de la plus récente à la plus ancienne
 
-  // Record d'un type pour une soirée (scores parfaits : tous les détenteurs, « Nico ×2, Bob »)
+  // Record d'un type pour une soirée (scores parfaits à plusieurs : le recordman est le dernier noté)
   const regrouper = function (l) {
-    return l.length ? { cle: l[0].cle, score: l[0].score, nom: nomsRecord_(l.map(function (x) { return x.nom; })) } : undefined;
+    return l.length ? { cle: l[0].cle, score: l[0].score, nom: l[l.length - 1].nom } : undefined;
   };
   const duSoir = function (iso, type) {
     const l = recs.filter(function (x) { return x.cle === iso && x.type === type; });
     return regrouper(l.filter(function (x) { return Number(x.score) === Number(l[0] && l[0].score); }));
   };
   // Meilleur record d'un type sur une période ; à égalité, le plus récent l'emporte
-  // (et tous ses détenteurs de ce soir-là s'il s'agit de scores parfaits)
+  // (scores parfaits à plusieurs ce soir-là : le dernier noté)
   const meilleur = function (type, depuis) {
     const l = recs.filter(function (x) { return x.type === type && (!depuis || x.cle >= depuis); })
       .sort(function (a, b) { return (Number(b.score) || 0) - (Number(a.score) || 0) || (a.cle < b.cle ? 1 : a.cle > b.cle ? -1 : 0); });
@@ -298,7 +309,7 @@ function installerOngletRecords_() {
 function donneesSaisie() {
   return {
     joueurs: lireJoueurs_(),
-    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max, parfait: t.parfait || null }; }),
+    types: typesPublics_(),
     rangs: RANGS,
     dateDefaut: dernierJeudi_(),
   };
@@ -1597,7 +1608,7 @@ function etatPage_() {
     habitues: CFG.habitues,
     seuils: seuilsTournoi_(),
     legsMax: TOURNOI.legsMax,
-    types: TYPES.map(function (t) { return { nom: t.nom, min: t.min, max: t.max, parfait: t.parfait || null }; }),
+    types: typesPublics_(),
     tournoi: tournoiPage_(),
     annonces: annoncesPage_(),
   };
@@ -1801,7 +1812,8 @@ function renommerDansTournoi_(ancien, nouveau) {
  * Record noté en cours de soirée (bandeau de la page) : un par type, gardé avec le tournoi.
  * Il ne compte au championnat qu'à la validation de la soirée. Score vide = effacer.
  * Mêmes contrôles que la saisie d'une soirée (minimums, maximums, joueur présent).
- * Score parfait (180, 170) : il s'ajoute aux scores parfaits déjà notés (chacun compte).
+ * Score parfait (180, 170, 6 darter) : il s'ajoute aux scores parfaits déjà notés (chacun compte),
+ * et son auteur devient le recordman du soir (le dernier à l'avoir fait).
  * retirer = n° (à partir de 0) d'un des détenteurs de ce type à retirer, sans toucher aux autres.
  */
 function noterRecord_(type, score, nom, retirer) {
@@ -1831,13 +1843,14 @@ function noterRecord_(type, score, nom, retirer) {
       if (v > t.max) throw new Error(t.tropHaut);
       if (!nom) throw new Error('Qui a fait le record « ' + t.nom + ' » ?');
       if ([].concat.apply([], etat.poules).indexOf(nom) < 0) throw new Error(nom + " ne joue pas ce soir, son record ne peut pas compter.");
-      if (t.parfait && v === t.parfait) {
+      if (estParfait_(t, v)) {
         // Score parfait : s'ajoute aux autres scores parfaits du soir (les records plus faibles sont battus)
-        const parfaits = duType.filter(function (r) { return r.score === t.parfait; });
+        const parfaits = duType.filter(function (r) { return estParfait_(t, r.score); });
         parfaits.forEach(function (r) { recs.push(r); });
         recs.push({ type: t.nom, score: v, nom: nom });
         const tous = parfaits.map(function (r) { return r.nom; }).concat([nom]);
-        msg = t.parfait + ' de ' + nom + ' noté' + (tous.length > 1 ? ' : ' + tous.length + ' ce soir (' + nomsRecord_(tous) + '), chacun compte.' : '.');
+        msg = t.lib + ' de ' + nom + ' noté' + (tous.length > 1 ? ' : ' + tous.length + ' ce soir (' + nomsRecord_(tous) + '), chacun prend son point, ' +
+          nom + ' est le recordman du soir.' : '.');
       } else {
         recs.push({ type: t.nom, score: v, nom: nom });
         msg = 'Record « ' + t.nom + ' » : ' + String(v).replace('.', ',') + ' par ' + nom + '.';
@@ -3215,7 +3228,7 @@ const HTML_SAISIE = `<!DOCTYPE html>
   <fieldset>
     <legend>Records de la soirée</legend>
     <p class="aide">Laisse vide s'il n'y a pas de record. Minimums : 50 de moyenne, 100 pour une volée, 60 pour une sortie.
-    Chaque 180 et chaque 170 en sortie compte : une ligne par score parfait, même pour le même joueur.</p>
+    Chaque 180, chaque 170 en sortie et chaque 6 darter compte : une ligne par score parfait, même pour le même joueur, dans l'ordre où ils ont été faits (le dernier est le recordman).</p>
     <div id="records"></div>
   </fieldset>
 
@@ -3290,7 +3303,7 @@ function ligneRecord(t, r, avant){
   return div;
 }
 
-/* Scores parfaits (180, 170) : une ligne par score parfait, bouton pour en ajouter un autre */
+/* Scores parfaits (180, 170, 6 darter) : une ligne par score parfait, bouton pour en ajouter un autre */
 function dessinerRecords(recs){
   var box = $('records'); box.innerHTML = '';
   TYPES.forEach(function(t){
@@ -3299,7 +3312,7 @@ function dessinerRecords(recs){
     l.forEach(function(r){ ligneRecord(t, r); });
     if (t.parfait){
       var b = document.createElement('div'); b.className = 'plus';
-      b.innerHTML = '<button class="btn2" type="button">+ un autre ' + t.parfait + '</button>';
+      b.innerHTML = '<button class="btn2" type="button">+ un autre ' + (t.lib || t.parfait) + '</button>';
       b.querySelector('button').onclick = function(){ ligneRecord(t, { score: t.parfait }, b); maj(); };
       box.appendChild(b);
     }
