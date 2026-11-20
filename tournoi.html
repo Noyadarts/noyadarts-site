@@ -293,6 +293,11 @@ a.btn{ text-decoration:none; display:inline-block; }
 .fete .sous{ font:800 clamp(1.4rem,4vw,2.8rem)/1 var(--display); color:var(--chalk-dim); }
 .fete .nom{ margin-top:.6rem; font:900 clamp(2.2rem,7vw,5rem)/1 var(--display); color:var(--chalk); background:var(--red); padding:.15em .5em .1em; border-radius:.2em; }
 .fete.record .nom{ background:var(--green); color:var(--slate); }
+/* Vainqueur de la soirée : trophée, nom en grand sur fond doré, podium dessous */
+.fete.vainqueur strong{ font-size:clamp(5rem,20vw,13rem); line-height:1.1; text-shadow:0 0 .35em rgba(227,212,174,.55); }
+.fete.vainqueur .nom{ font-size:clamp(3rem,10vw,7.5rem); background:linear-gradient(180deg,#f3d27a,#c99a2e); color:var(--slate); box-shadow:0 0 .6em rgba(243,210,122,.45); }
+.fete.vainqueur .sous{ order:5; margin-top:.9rem; font-size:clamp(1.1rem,2.8vw,2rem); color:var(--sisal); }
+.envoi{ opacity:.8; pointer-events:none; }
 @media (prefers-reduced-motion:no-preference){
   .fete:not([hidden]) strong{ animation:feteBoum .7s cubic-bezier(.2,1.6,.4,1) both; }
   .fete:not([hidden]) .nom{ animation:feteBoum .6s .25s cubic-bezier(.2,1.6,.4,1) both; }
@@ -314,7 +319,7 @@ a.btn{ text-decoration:none; display:inline-block; }
   <div class="actions">
     <a class="btn ghost small" href="regles.html" title="Les règles du tournoi et du championnat">Règles</a>
     <button class="btn ghost small" id="btnPlein" type="button" title="Plein écran (pour le projecteur)">Plein écran</button>
-    <button class="btn ghost small" id="btnSon" type="button" aria-pressed="true" title="Son des célébrations (180, 140) sur cet écran">🔊 Son</button>
+    <button class="btn ghost small" id="btnSon" type="button" aria-pressed="true" title="Son des célébrations (180, 140, vainqueur) sur cet écran">🔊 Son</button>
     <button class="btn small" id="btnGerer" type="button">Gérer</button>
   </div>
 </div>
@@ -432,6 +437,7 @@ a.btn{ text-decoration:none; display:inline-block; }
 <!-- Sons des célébrations : fichiers à la racine du dépôt -->
 <audio id="son180" src="darts-180.mp3" preload="auto"></audio>
 <audio id="son140" src="140.mp3" preload="auto"></audio>
+<audio id="sonVainqueur" src="vainqueur.mp3" preload="auto"></audio>
 
 <div class="fete" id="fete" hidden role="status" aria-live="assertive">
   <canvas id="feteCanvas" aria-hidden="true"></canvas>
@@ -443,7 +449,10 @@ a.btn{ text-decoration:none; display:inline-block; }
 const API_URL = "https://script.google.com/macros/s/AKfycbxDHtI5zddLSzh1x_kfS1FegismopNkmSIbM2rdMkyiMtWo58iwRw4TJHLZ8NXVMXIH/exec";
 
 const LETTRES = "ABC";
-const RAFRAICHIR_MS = 15000;
+const RAFRAICHIR_MS = 15000;   // relecture complète avec un script d'avant le 20 novembre 2026 (sans « ping »)
+const PING_MS = 4000;          // « quoi de neuf ? » léger : versions, records du soir, vainqueur
+const RELIRE_MS = 60000;       // relecture complète de sécurité, même si rien n'a changé
+let V_VU = null, LU_A = 0, PING_EN_COURS = false, ANCIEN_SCRIPT = false;
 let DATA = null, CODE = "", OCCUPE = 0, ONGLET = "nouveau";
 let VAL = { date: null, records: null };   // records affichés dans « Valider la soirée »
 let NV = { presents: {}, affect: {}, nb: null, legs: {}, legsF: 2, date: "", tous: false, grosse: false };   // brouillon « Nouveau tournoi »
@@ -478,6 +487,7 @@ async function lire(){
   const r = await fetch(API_URL, { cache:"no-store" });
   const d = await r.json();
   if(!d.ok) throw new Error(d.erreur || "Lecture impossible.");
+  V_VU = d.v || null; LU_A = Date.now();
   memoriser(d);
   guetterRecords(d);
   return d;
@@ -492,14 +502,36 @@ async function agir(action, donnees){
       if(d.codeFaux){ oublierCode(); }
       throw new Error(d.erreur || "Action impossible.");
     }
-    DATA = d; memoriser(d); afficher(); guetterRecords(d);
+    DATA = d; V_VU = d.v || null; LU_A = Date.now(); memoriser(d); afficher(); guetterRecords(d);
     return d.resultat;
   } finally { OCCUPE--; }
 }
+function fenetreOuverte(){ return !$("fondScore").hidden || !$("fondRecord").hidden || !$("fondAffiches").hidden || !$("fondBarrage").hidden || !$("fondTirage").hidden; }
 async function rafraichir(){
-  if(!API_URL || OCCUPE || !$("fondScore").hidden || !$("fondRecord").hidden || !$("fondAffiches").hidden || !$("fondBarrage").hidden || !$("fondTirage").hidden || document.hidden) return;
+  if(!API_URL || OCCUPE || fenetreOuverte() || document.hidden) return;
   try { DATA = await lire(); afficher(); }
   catch(e){ $("statut").textContent = "Connexion au Google Sheet impossible pour l'instant, nouvel essai dans quelques secondes."; }
+}
+/* Toutes les 4 secondes, la page demande au script ce qui a changé (réponse légère, sans ouvrir le Google Sheet).
+   Records du soir et vainqueur arrivent avec la réponse : la célébration part tout de suite, même fenêtre ouverte.
+   La page ne relit tout que si quelque chose a changé (ou au bout d'une minute, par sécurité). */
+async function ping(){
+  if(!API_URL || PING_EN_COURS || OCCUPE || document.hidden) return;
+  if(ANCIEN_SCRIPT){ if(Date.now() - LU_A >= RAFRAICHIR_MS) rafraichir(); return; }
+  PING_EN_COURS = true;
+  try {
+    const r = await fetch(API_URL + "?ping=1", { cache:"no-store" });
+    const p = await r.json();
+    if(!p.ok) return;
+    if(!p.ping){ // script d'avant cette version : il renvoie tout, on s'en sert et on revient au rythme d'avant
+      ANCIEN_SCRIPT = true;
+      if(!OCCUPE && !fenetreOuverte()){ DATA = p; LU_A = Date.now(); memoriser(p); guetterRecords(p); afficher(); }
+      return;
+    }
+    if(p.flash) guetterFlash(p.flash);
+    if(p.v !== V_VU || Date.now() - LU_A >= RELIRE_MS) await rafraichir();
+  } catch(e){ /* réseau : on réessaie au prochain tour */ }
+  finally { PING_EN_COURS = false; }
 }
 
 let toastT = null;
@@ -775,10 +807,31 @@ async function scoreArbre(id){
 }
 
 async function envoyerScore(req){
-  $("main").classList.add("charge");
+  /* Le score s'affiche tout de suite (classements et suite du tableau à la réponse du Google Sheet) */
+  const avant = DATA, vus = RECS_VUS, efface = req.a === "" && req.b === "";
+  try {
+    const D = JSON.parse(JSON.stringify(DATA)), T = D.tournoi;
+    if(req.finale){
+      const f = T.finale.find(x => x.id === req.finale);
+      Object.assign(f, { a:req.a, b:req.b, joue:!efface, gagnant:"", perdant:"" });
+      if(!efface){ f.gagnant = req.a > req.b ? f.j1 : f.j2; f.perdant = req.a > req.b ? f.j2 : f.j1; f.etat = "✔"; }
+      if(req.finale === "F" && !efface){
+        const podium = (T.podium || []).slice(); podium[0] = f.gagnant; podium[1] = f.perdant;
+        guetter(T.date, RECS_VUS ? RECS_VUS.recs : (T.records || []), f.gagnant, podium);
+      }
+    } else {
+      const m = T.matchs[req.match];
+      Object.assign(m, { a:req.a, b:req.b, etat: efface ? "" : "✔" });
+    }
+    DATA = D; afficher();
+  } catch(e){ DATA = avant; }
+  $("main").classList.add("envoi");
   try { await agir("score", req); toast("Score enregistré."); }
-  catch(e){ toast(e.message, true); afficher(); }
-  finally { $("main").classList.remove("charge"); }
+  catch(e){
+    DATA = avant; RECS_VUS = vus; if(!$("fete").hidden) fermerFete();
+    toast(e.message, true); afficher();
+  }
+  finally { $("main").classList.remove("envoi"); }
 }
 
 /* ---------------- Fenêtre de score ---------------- */
@@ -833,35 +886,71 @@ document.addEventListener("keydown", e => {
 });
 
 /* ---------------- Célébrations ----------------
-   Chaque écran compare les records du soir reçus du Google Sheet avec ceux qu'il avait déjà vus :
-   un score parfait (180, 170, 6 darter) ou un record du soir battu déclenche l'animation, même sur le
-   projecteur qui n'a rien saisi. Rien n'est fêté à l'ouverture de la page (premier état reçu). */
+   Chaque écran compare les records du soir et le vainqueur reçus du Google Sheet avec ce qu'il avait déjà vu :
+   un score parfait (180, 170, 6 darter), un record du soir battu ou le vainqueur de la finale déclenchent
+   l'animation, même sur le projecteur qui n'a rien saisi. Rien n'est fêté à l'ouverture de la page (premier état reçu).
+   L'écran qui note le record ou le score de la finale fête tout de suite, sans attendre la réponse du Google Sheet. */
 let RECS_VUS = null;
 const FETES = [];
 let FETE_T = null;
 function guetterRecords(d){
   const T = d && d.tournoi;
   if(!T){ RECS_VUS = null; return; }
-  const recs = (T.records || []).map(r => ({ type:r.type, score:Number(r.score), nom:r.nom }));
-  if(RECS_VUS && RECS_VUS.date === T.date){
+  const F = (T.finale || []).find(f => f.id === "F");
+  guetter(T.date, T.records || [], (F && F.gagnant) || "", T.podium || []);
+}
+function guetterFlash(f){ if(f && f.date) guetter(f.date, f.records || [], f.vainqueur || "", f.podium || []); }
+function guetter(date, records, vainqueur, podium){
+  const recs = records.map(r => ({ type:r.type, score:Number(r.score), nom:r.nom }));
+  const types = (DATA && DATA.types) || [];
+  const avantFetes = FETES.length;
+  if(RECS_VUS && RECS_VUS.date === date){
     const cle = r => r.type + "|" + r.score + "|" + r.nom, avant = {};
     RECS_VUS.recs.forEach(r => { avant[cle(r)] = (avant[cle(r)] || 0) + 1; });
     recs.forEach(r => {
       if(avant[cle(r)]){ avant[cle(r)]--; return; }
-      const t = (d.types || []).find(x => x.nom === r.type) || {};
+      const t = types.find(x => x.nom === r.type) || {};
       const parfait = estParfait(t, r.score) || (r.type === "Moyenne Leg" && r.score >= 150.5);
       const anciens = RECS_VUS.recs.filter(x => x.type === r.type);
       const battu = !anciens.length || anciens.every(x => r.score > x.score || (r.score === x.score && x.nom !== r.nom));
       if(parfait || battu) FETES.push({ r, parfait });
     });
-    if(FETES.length && $("fete").hidden) feteSuivante();
+    if(vainqueur && vainqueur !== RECS_VUS.vainqueur) FETES.push({ vainqueur, podium: podium.slice() });
   }
-  RECS_VUS = { date:T.date, recs };
+  RECS_VUS = { date, recs, vainqueur };
+  if(FETES.length > avantFetes && $("fete").hidden) feteSuivante();
+}
+/* Record noté sur cet écran : la liste des records du soir telle que le Google Sheet va la renvoyer */
+function recordsApres(T, type, v, nom){
+  const t = DATA.types.find(x => x.nom === type) || {};
+  const recs = RECS_VUS ? RECS_VUS.recs : (T.records || []);
+  const autres = recs.filter(r => r.type !== type), duType = recs.filter(r => r.type === type);
+  const neuf = { type, score:v, nom };
+  return estParfait(t, v) ? autres.concat(duType.filter(r => estParfait(t, r.score)), [neuf]) : autres.concat([neuf]);
 }
 function feteSuivante(){
   const f = FETES.shift();
   if(!f){ $("fete").hidden = true; arreterConfettis(); return; }
-  const r = f.r, fete = $("fete");
+  const fete = $("fete");
+  if(f.vainqueur){
+    fete.className = "fete vainqueur";
+    $("feteSur").textContent = "Vainqueur de la soirée";
+    $("feteTitre").textContent = "🏆";
+    $("feteNom").textContent = f.vainqueur;
+    const places = ["2e", "3e", "4e"];
+    $("feteSous").textContent = f.podium.slice(1).map((n,i) => n ? places[i] + " " + n : "").filter(Boolean).join("   ·   ");
+    fete.hidden = false;
+    confettis(320);
+    clearTimeout(FETE_T); clearTimeout(RELANCE_T);
+    RELANCE_T = setTimeout(() => { if(!$("fete").hidden && fete.classList.contains("vainqueur")) confettis(320); }, 3500);
+    jouerSon("sonVainqueur");
+    /* La célébration dure 10 secondes, ou le temps du son s'il est plus long (20 secondes au plus) ;
+       le son s'arrête avec elle */
+    const duree = $("sonVainqueur").duration, ms = SON && isFinite(duree) ? Math.min(Math.max(duree * 1000, 10000), 20000) : 10000;
+    FETE_T = setTimeout(() => { arreterSon("sonVainqueur"); feteSuivante(); }, ms);
+    return;
+  }
+  const r = f.r;
   fete.className = "fete" + (f.parfait ? "" : " record");
   const court = (COURT[r.type] || r.type).toLowerCase();
   if(f.parfait){
@@ -881,11 +970,13 @@ function feteSuivante(){
   clearTimeout(FETE_T);
   FETE_T = setTimeout(feteSuivante, f.parfait ? 6500 : 4500);
 }
-function fermerFete(){ clearTimeout(FETE_T); FETES.length = 0; couperSons(); feteSuivante(); }
+let RELANCE_T = null;
+function fermerFete(){ clearTimeout(FETE_T); clearTimeout(RELANCE_T); FETES.length = 0; couperSons(); feteSuivante(); }
 function estParfait(t, v){ return !!(t && t.parfait) && Number(v) >= t.parfait; }
 function libParfait(t){ return t.lib || String(t.parfait); }
 
-/* Sons des célébrations : un 180, ou un record de volée de 140 exactement.
+/* Sons des célébrations : un 180, un record de volée de 140 exactement, et le vainqueur de la soirée.
+   Un fichier absent du dépôt (vainqueur.mp3 par exemple) laisse simplement la célébration muette.
    Le navigateur n'accepte le son qu'après un premier clic (ou une touche) sur la page : le premier geste
    « débloque » les sons, et le bouton 🔊 coupe ou rétablit le son sur cet écran (retenu dans le navigateur). */
 let SON = true, SON_PRET = false, SON_AVERTI = false;
@@ -895,13 +986,15 @@ function majBoutonSon(){
   b.textContent = SON ? "🔊 Son" : "🔇 Son coupé";
   b.setAttribute("aria-pressed", SON ? "true" : "false");
 }
-function couperSons(){ ["son180", "son140"].forEach(id => { const a = $(id); try { a.pause(); a.currentTime = 0; } catch(e){} }); }
+const SONS = ["son180", "son140", "sonVainqueur"];
+function arreterSon(id){ const a = $(id); try { a.pause(); a.currentTime = 0; } catch(e){} }
+function couperSons(){ SONS.forEach(arreterSon); }
 function debloquerSons(){
   if(SON_PRET) return;
   SON_PRET = true;
-  ["son180", "son140"].forEach(id => {
+  SONS.forEach(id => {
     const a = $(id);
-    if(!a.paused) return;
+    if(!a.paused || a.error) return; // fichier absent : rien à débloquer
     a.muted = true;
     const p = a.play();
     const fin = () => { a.pause(); a.currentTime = 0; a.muted = false; };
@@ -915,7 +1008,7 @@ function jouerSon(id){
   a.muted = false;
   const p = a.play();
   if(p && p.catch) p.catch(() => {
-    if(SON_AVERTI) return;
+    if(a.error || SON_AVERTI) return; // fichier absent : célébration muette, sans message
     SON_AVERTI = true;
     toast("Son bloqué par le navigateur : clique une fois sur la page pour l'activer.");
   });
@@ -983,8 +1076,22 @@ function ouvrirRecord(type){
 }
 function fermerRecord(){ $("fondRecord").hidden = true; RECORD = null; }
 async function envoyerRecord(score, nom, retirer){
+  /* Record valable noté sur cet écran : la fête part tout de suite, le Google Sheet confirme ensuite
+     (en cas de refus, l'animation s'arrête et le message s'affiche) */
+  const vus = RECS_VUS, T = DATA && DATA.tournoi, t = DATA && DATA.types.find(x => x.nom === RECORD);
+  const v = Number(String(score || "").trim().replace(",", "."));
+  const anticipe = T && t && nom && (retirer === undefined || retirer === null) && String(score || "").trim() !== "" && !isNaN(v) && v >= t.min && v <= t.max;
+  if(anticipe){
+    const F = (T.finale || []).find(f => f.id === "F");
+    guetter(T.date, recordsApres(T, RECORD, v, nom), RECS_VUS ? RECS_VUS.vainqueur : ((F && F.gagnant) || ""), T.podium || []);
+  }
+  $("recOk").disabled = true;
   try { const msg = await agir("record", { type: RECORD, score, nom, retirer }); VAL.date = null; fermerRecord(); toast(msg); }
-  catch(e){ note($("recMsg"), esc(e.message), "err"); }
+  catch(e){
+    if(anticipe){ RECS_VUS = vus; if(!$("fete").hidden) fermerFete(); }
+    note($("recMsg"), esc(e.message), "err");
+  }
+  finally { $("recOk").disabled = false; }
 }
 $("formRecord").onsubmit = e => { e.preventDefault(); envoyerRecord($("recScore").value.trim(), $("recNom").value); };
 $("recEffacer").onclick = () => envoyerRecord("", "");
@@ -1427,7 +1534,7 @@ if(!API_URL){
     try { afficher(); $("statut").textContent += " (mise à jour en cours...)"; } catch(e){ DATA = null; }
   }
   rafraichir();
-  setInterval(rafraichir, RAFRAICHIR_MS);
+  setInterval(ping, PING_MS);
   document.addEventListener("visibilitychange", () => { if(!document.hidden) rafraichir(); });
 }
 </script>
