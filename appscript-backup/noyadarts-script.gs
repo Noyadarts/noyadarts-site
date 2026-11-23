@@ -142,7 +142,7 @@ function onOpen() {
     .addItem('Supprimer un joueur', 'ouvrirSuppression')
     .addSeparator()
     .addItem('Lancer un tournoi', 'ouvrirTournoi')
-    .addItem('Mettre à jour le tournoi', 'majTournoi')
+    .addItem('Copier le tournoi dans l\'onglet', 'majTournoi')
     .addItem('Valider le tournoi', 'validerTournoi')
     .addItem('Réglages du tournoi', 'reglagesTournoi')
     .addItem('Code du club (page web)', 'definirCode')
@@ -406,8 +406,7 @@ function renommerJoueur(ancien, nouveau, forcer) {
   if (!ancien) throw new Error('Choisis le joueur à renommer.');
   if (!nouveau) throw new Error("T'es bidon mec, il faut taper le nouveau nom avant de valider...");
   if (nouveau === ancien) throw new Error("C'est déjà son nom, il n'y a rien à changer.");
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const sh = feuille_(CFG.champ);
     const r = ligneJoueur_(sh, ancien);
@@ -480,8 +479,7 @@ function renommerJoueur(ancien, nouveau, forcer) {
 /** Supprime un joueur : sa ligne du championnat et ses records dans "Records BD". */
 function supprimerJoueur(nom) {
   invaliderEtat_();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const sh = feuille_(CFG.champ);
     const r = ligneJoueur_(sh, nom);
@@ -509,8 +507,7 @@ function supprimerJoueur(nom) {
  */
 function enregistrerSoiree(p) {
   invaliderEtat_();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) throw new Error('Choisis la date de la soirée.');
     const saison = saisonDe_(p.date);
@@ -546,9 +543,11 @@ function enregistrerSoiree(p) {
     // Records BD
     ecrireRecordsBD_(p.date, recs);
 
-    // Matchs BD : résultats de tous les matchs du tournoi de cette date (s'il est dans l'onglet « Tournoi »)
+    // Matchs BD : résultats de tous les matchs du tournoi de cette date (s'il est en mémoire),
+    // puis copie du tournoi dans l'onglet « Tournoi », faite un peu plus tard pour ne pas ralentir
     let nbMatchs = null, erreurMatchs = '';
     try { nbMatchs = archiverMatchs_(p.date); } catch (e) { erreurMatchs = e.message; }
+    if (nbMatchs !== null) planifierCopieOnglet_();
 
     // Tri du championnat par points (puis formules remises au propre)
     refreshFormules_(sh);
@@ -603,10 +602,12 @@ function trierBlocPoule_(sh, a1) {
  * Tournoi du jeudi : poules (chacun contre chacun), puis demi-finales, petite finale et finale.
  * Option « Grosse soirée » (3 poules) : les 2 premiers de chaque poule sont qualifiés (6 joueurs).
  * Les deux meilleurs 1ers vont directement en demi-finale, les quatre autres jouent les quarts.
- * L'état du tournoi (date et composition des poules) est rangé dans l'onglet « Tournoi » lui-même
- * (métadonnée invisible) : la mise à jour automatique à chaque score tapé fonctionne sans autorisation
- * supplémentaire. Le moteur (planTournoi_, calculTournoi_...) ne dépend pas du Google Sheet :
- * il servira aussi à la future page web du site.
+ * Depuis le 20 novembre 2026, tout le tournoi en cours (poules, scores, départages, barrages, records du soir,
+ * annonces, pauses, affiches) est rangé dans les propriétés du document (voir « État du tournoi ») :
+ * la page du tournoi lit et écrit là, sans ouvrir aucun onglet, ce qui est bien plus rapide.
+ * L'onglet « Tournoi » n'est plus qu'une copie à consulter, écrite après la validation de la soirée
+ * (ou par le menu « Copier le tournoi dans l'onglet ») : le modifier ne change rien au tournoi.
+ * Le moteur (planTournoi_, calculTournoi_...) ne dépend pas du Google Sheet.
  */
 
 const TOURNOI = {
@@ -632,10 +633,13 @@ function ouvrirTournoi() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Lancer un tournoi');
 }
 
+/** Menu « Copier le tournoi dans l'onglet » : copie à consulter du tournoi en cours (page du tournoi = référence). */
 function majTournoi() {
   try {
-    const r = majTournoi_();
-    ss_().toast(r.statut, "Noya'Darts", 5);
+    const lu = lireTournoi_();
+    nettoyer_(lu);
+    ecrireOngletTournoi_(lu);
+    ss_().toast(lu.res.statut, "Noya'Darts", 5);
   } catch (e) {
     SpreadsheetApp.getUi().alert(e.message);
   }
@@ -644,14 +648,15 @@ function majTournoi() {
 /** Ouvre la fenêtre « Saisir une soirée » avec le classement du tournoi déjà rempli. */
 function validerTournoi() {
   const ui = SpreadsheetApp.getUi();
-  let r;
-  try { r = majTournoi_(); } catch (e) { ui.alert(e.message); return; }
+  let lu;
+  try { lu = lireTournoi_(); nettoyer_(lu); } catch (e) { ui.alert(e.message); return; }
+  const r = lu.res;
   if (!r.rangs) {
     ui.alert("Le tournoi n'est pas terminé : il manque le score de la finale" +
       (r.avecPetiteFinale ? ' ou de la petite finale' : '') + '.');
     return;
   }
-  const pre = JSON.stringify({ date: r.date, rangs: r.rangs, records: (lireEtatTournoi_() || {}).records || [] }).replace(/</g, '\\u003c');
+  const pre = JSON.stringify({ date: r.date, rangs: r.rangs, records: lu.etat.records || [] }).replace(/</g, '\\u003c');
   const html = HtmlService.createHtmlOutput(
     HTML_SAISIE.replace('var DEPUIS_TOURNOI = null;', 'var DEPUIS_TOURNOI = ' + pre + ';')
   ).setWidth(660).setHeight(720);
@@ -710,8 +715,7 @@ const LIBELLES_PHASES = { Q: 'Quarts de finale', D: 'Demi-finales', PF: 'Petite 
  * Refusé si un match de cette phase a déjà un score (l'effacer d'abord).
  */
 function legsPhase_(req) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const lu = lireTournoi_();
     const ph = String(req.phase || '');
@@ -729,9 +733,7 @@ function legsPhase_(req) {
     const etat = lu.etat;
     etat.legsPhases = etat.legsPhases || {};
     etat.legsPhases[ph] = n;
-    ecrireEtatTournoi_(etat);
-    menusFinale_(lu.sh, etat, lu.plan);
-    majTournoi_(lu); // recalcule avec les nouveaux legs, sans relire l'onglet
+    sauverTournoi_(lu);
     return LIBELLES_PHASES[ph] + ' en ' + n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : '') + '.';
   } finally {
     lock.releaseLock();
@@ -749,30 +751,17 @@ function infosFinale_(etat, plan) {
     libelles: plan.finale.matchs.map(function (m, i) { return LIBELLES_FINALE[m.id] + (pareil ? '' : ' (' + legs[i] + ')'); }),
   };
 }
-/** Menu déroulant des legs gagnés (0 à n). */
-function menuLegs_(n) {
-  const choix = [];
-  for (let k = 0; k <= n; k++) choix.push(String(k));
-  return SpreadsheetApp.newDataValidation().requireValueInList(choix, true).setAllowInvalid(false)
-    .setHelpText('Legs gagnés par ce joueur (' + n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : '') + ')').build();
-}
-
-/** Menus des legs et titres de la phase finale dans l'onglet « Tournoi » (après un changement de legs en cours de soirée). */
-function menusFinale_(sh, etat, plan) {
-  const inf = infosFinale_(etat, plan);
-  sh.getRange(plan.finale.titre, TOURNOI.colD).setValue(inf.titre);
-  plan.finale.matchs.forEach(function (m, i) {
-    sh.getRange(m.r1, m.col + 2, 2, 1).setDataValidation(menuLegs_(inf.legs[i]));
-  });
-}
-
-/** Mise à jour automatique : chaque modification dans l'onglet « Tournoi » recalcule tout. */
+/**
+ * Toute saisie à la main dans le Google Sheet peut changer ce qu'affiche la page (joueurs, championnat...) :
+ * on oublie la réponse gardée en cache. L'onglet « Tournoi » n'est qu'une copie : on le rappelle.
+ */
 function onEdit(e) {
   try {
-    invaliderEtat_(); // toute saisie dans le Google Sheet peut changer ce qu'affiche la page
-    if (!e || !e.range || e.range.getSheet().getName() !== TOURNOI.onglet) return;
-    majTournoi_();
-  } catch (err) { /* silencieux : le menu « Mettre à jour le tournoi » affiche l'erreur */ }
+    invaliderEtat_();
+    if (e && e.range && e.range.getSheet().getName() === TOURNOI.onglet) {
+      e.source.toast("Cet onglet n'est qu'une copie : le tournoi se gère sur la page du tournoi. Ta modification ne compte pas.", "Noya'Darts", 8);
+    }
+  } catch (err) { /* sans gravité */ }
 }
 
 /* ---------- Fonctions appelées par la fenêtre « Lancer un tournoi » ---------- */
@@ -785,12 +774,11 @@ function donneesTournoi() {
 }
 
 /**
- * Crée l'onglet « Tournoi » à partir des poules choisies : p = { date, poules: [[noms], ...], remplacer }.
- * Si un tournoi est déjà dans l'onglet et que remplacer est faux, renvoie { confirmer: message } sans rien changer.
+ * Lance un tournoi à partir des poules choisies : p = { date, poules: [[noms], ...], remplacer }.
+ * Si un tournoi est déjà en mémoire et que remplacer est faux, renvoie { confirmer: message } sans rien changer.
  */
 function lancerTournoi(p) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) throw new Error('Choisis la date du tournoi.');
     const poules = (p.poules || []).map(function (l) { return l.map(function (n) { return String(n).trim(); }).filter(String); })
@@ -800,8 +788,8 @@ function lancerTournoi(p) {
     const ancien = lireEtatTournoi_();
     if (ancien && !p.remplacer) {
       const enregistre = !!colonneSoiree_(feuille_(CFG.champ), ancien.date, false);
-      return { confirmer: "L'onglet « Tournoi » contient déjà le tournoi du " + dateFr_(ancien.date) +
-        (enregistre ? ' (soirée enregistrée au championnat).' : ", qui n'est pas encore enregistré au championnat.") +
+      return { confirmer: 'Le tournoi du ' + dateFr_(ancien.date) + ' est encore en mémoire' +
+        (enregistre ? ' (soirée enregistrée au championnat).' : " et n'est pas encore enregistré au championnat.") +
         ' Le remplacer par le nouveau ?' };
     }
     const okLegs = function (v) { v = Number(v); return Number.isInteger(v) && v >= 1 && v <= TOURNOI.legsMax; };
@@ -810,7 +798,7 @@ function lancerTournoi(p) {
     if (!legs.every(okLegs) || !okLegs(legsFinale)) throw new Error('Legs gagnants : un nombre de 1 à ' + TOURNOI.legsMax + '.');
     const etat = { date: p.date, poules: poules, legs: legs, legsFinale: legsFinale };
     if (p.grosse && poules.length === 3) etat.grosse = true;
-    ecrireTournoi_(etat);
+    sauverTournoi_(lireTournoi_(etat));
     const n = poules.reduce(function (t, l) { return t + l.length; }, 0);
     return { message: 'Tournoi lancé : ' + n + ' joueurs, ' + poules.length + ' poule(s), ' +
       planTournoi_(etat).matchs.length + ' matchs de poule' +
@@ -982,7 +970,7 @@ function resoudreBarrages_(etat, cl, p, nq) {
       else {
         out.attente = true;
         out.messages.push('⚔️ Égalité parfaite en poule ' + L + ' : barrage en 1 leg entre ' + noms[0] + ' et ' + noms[1] +
-          ' (page du tournoi, ou 1 pour le gagnant et 2 pour l\'autre dans la colonne « Départage » de l\'onglet).');
+          ' (à noter sur la page du tournoi).');
       }
       return;
     }
@@ -990,7 +978,7 @@ function resoudreBarrages_(etat, cl, p, nq) {
     const repechable = eg.length === 3 && nq - d === 2 && suivant && !(cl[f + 2] && cl[f + 2].cle === suivant.cle);
     if (!repechable) {
       out.messages.push('⚠️ Égalité parfaite en poule ' + L + ' (' + noms.join(', ') + ') : pas de barrage automatique dans ce cas. ' +
-        'Indique l\'ordre à la main (clic sur leur rang dans la page du tournoi, ou colonne « Départage » de l\'onglet) ou choisis les affiches de la phase finale à la main.');
+        'Indique l\'ordre à la main (clic sur leur rang dans la page du tournoi) ou choisis les affiches de la phase finale à la main.');
       return;
     }
     const tous = noms.concat([suivant.nom]);
@@ -1208,36 +1196,164 @@ function calculTournoi_(etat, plan, scoresPoules, cellsFinale, departage) {
   };
 }
 
-/* ---------- Onglet « Tournoi » ---------- */
+/* ---------- État du tournoi (propriétés du document) ---------- */
+/*
+ * Tout le tournoi en cours tient dans un objet etat, rangé en JSON dans les propriétés du document,
+ * découpé en morceaux (une propriété ne peut pas dépasser 9 Ko) : tournoi.n = nombre de morceaux,
+ * tournoi.0, tournoi.1... Lecture et écriture en un seul appel, sans ouvrir d'onglet.
+ *   etat.date, etat.poules, etat.legs, etat.legsFinale, etat.legsPhases, etat.grosse : réglages du lancement
+ *   etat.scores    : [[legs J1, legs J2], ...] dans l'ordre de planTournoi_(etat).matchs ('' = pas joué)
+ *   etat.finale    : { D1: { j1, j2, a, b }, ... } score de chaque match de phase finale, avec les joueurs
+ *                    du moment (si les joueurs changent, le score devient faux et il est effacé)
+ *   etat.departage : { nom: 1, 2... } ordre choisi à la main en cas d'égalité parfaite
+ *   etat.barrages, etat.records, etat.annonces, etat.pauses, etat.forcage : comme avant
+ * Un tournoi lancé avec l'ancienne version (rangé dans l'onglet « Tournoi ») est repris automatiquement.
+ */
+const ETAT_TOURNOI = { cle: 'tournoi', morceau: 4000 }; // 4 000 caractères : moins de 9 Ko même avec des accents
+let TEXTE_LU_; // état lu pendant cette exécution (undefined : pas encore lu)
 
-/** Réécrit l'état du tournoi (métadonnée de l'onglet), par exemple après un record noté en cours de soirée. */
-function ecrireEtatTournoi_(etat) {
-  invaliderEtat_();
-  DERNIER_LU_ = null; // l'état a changé : la page relira l'onglet
-  const sh = ss_().getSheetByName(TOURNOI.onglet);
-  if (!sh) throw new Error('Onglet « ' + TOURNOI.onglet + ' » introuvable : relance le tournoi.');
-  const m = sh.getDeveloperMetadata().filter(function (x) { return x.getKey() === TOURNOI.meta; })[0];
-  if (m) m.setValue(JSON.stringify(etat)); else sh.addDeveloperMetadata(TOURNOI.meta, JSON.stringify(etat));
+/** Verrou du document. Une fois le verrou pris, l'état est relu (un autre écran a pu le changer entre-temps). */
+function prendreVerrou_() {
+  const lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  TEXTE_LU_ = undefined;
+  DERNIER_LU_ = null;
+  return lock;
 }
 
 function lireEtatTournoi_() {
+  if (TEXTE_LU_ === undefined) {
+    const props = PropertiesService.getDocumentProperties();
+    const p = props.getProperties(), cle = ETAT_TOURNOI.cle;
+    if (p[cle + '.n'] === undefined) {
+      // Première fois avec cette version : reprise du tournoi rangé dans l'onglet par l'ancienne version
+      let ancien = null;
+      try { ancien = importerOngletTournoi_(); } catch (e) { ancien = null; }
+      if (ancien) { ecrireEtatTournoi_(ancien); return JSON.parse(TEXTE_LU_); }
+      props.setProperty(cle + '.n', '0');
+      TEXTE_LU_ = null;
+    } else {
+      const n = Number(p[cle + '.n']) || 0;
+      let t = '';
+      for (let i = 0; i < n; i++) t += p[cle + '.' + i] || '';
+      TEXTE_LU_ = t || null;
+    }
+  }
+  if (!TEXTE_LU_) return null;
+  try { return JSON.parse(TEXTE_LU_); } catch (e) { return null; }
+}
+
+/** Range l'état du tournoi (null : plus de tournoi en cours). */
+function ecrireEtatTournoi_(etat) {
+  const props = PropertiesService.getDocumentProperties(), cle = ETAT_TOURNOI.cle, M = ETAT_TOURNOI.morceau;
+  const texte = etat ? JSON.stringify(etat) : '';
+  const avant = Number(props.getProperty(cle + '.n')) || 0;
+  const morceaux = {};
+  let n = 0;
+  for (let i = 0; i < texte.length; i += M) morceaux[cle + '.' + (n++)] = texte.slice(i, i + M);
+  morceaux[cle + '.n'] = String(n);
+  props.setProperties(morceaux);
+  for (let i = n; i < avant; i++) props.deleteProperty(cle + '.' + i);
+  TEXTE_LU_ = texte || null;
+  DERNIER_LU_ = null; // l'état a changé : il sera recalculé
+  invaliderTournoi_();
+}
+
+/** Complète un état (tournoi lancé avant cette version, ou tout juste créé) : scores, phase finale, départages. */
+function completerEtat_(etat, plan) {
+  const sc = etat.scores || [];
+  etat.scores = plan.matchs.map(function (m, i) { return Array.isArray(sc[i]) ? [sc[i][0], sc[i][1]] : ['', '']; });
+  const fi = etat.finale || {};
+  etat.finale = {};
+  plan.finale.matchs.forEach(function (m) {
+    const c = fi[m.id] || {};
+    etat.finale[m.id] = { j1: c.j1 || '', j2: c.j2 || '', a: c.a === undefined ? '' : c.a, b: c.b === undefined ? '' : c.b };
+  });
+  etat.departage = etat.departage || {};
+}
+
+/** Calcule le tournoi, sans rien écrire. etatDejaLu : état déjà en mémoire (sinon lu dans les propriétés). */
+function lireTournoi_(etatDejaLu) {
+  const etat = etatDejaLu || lireEtatTournoi_();
+  if (!etat) throw new Error('Aucun tournoi en cours : lance-le depuis la page du tournoi (Gérer > Nouveau tournoi).');
+  const plan = planTournoi_(etat);
+  completerEtat_(etat, plan);
+  // cells : les objets de etat.finale eux-mêmes, pour qu'un score noté dans cells soit rangé dans l'état
+  const lu = { etat: etat, plan: plan, scores: etat.scores, departage: etat.departage,
+    cells: plan.finale.matchs.map(function (m) { return etat.finale[m.id]; }) };
+  lu.res = calculTournoi_(etat, plan, lu.scores, lu.cells, lu.departage);
+  return lu;
+}
+
+/**
+ * Met la phase finale d'aplomb dans l'état (en mémoire) : joueurs du moment de chaque match,
+ * et score effacé si ses joueurs ont changé (score de poule corrigé, affiches modifiées...).
+ * Renvoie le premier calcul (avec le message « Score effacé » éventuel).
+ */
+function nettoyer_(lu) {
+  const premier = lu.res;
+  for (let tour = 0; tour < 6; tour++) {
+    let efface = false;
+    lu.res.finale.forEach(function (f, i) {
+      const c = lu.cells[i];
+      if (f.effacer) { c.a = ''; c.b = ''; efface = true; }
+      c.j1 = f.j1; c.j2 = f.j2;
+    });
+    if (!efface) break;
+    lu.res = calculTournoi_(lu.etat, lu.plan, lu.scores, lu.cells, lu.departage);
+  }
+  return premier;
+}
+
+/** Recalcule, met la phase finale d'aplomb et range l'état. Renvoie le calcul (statut, messages). */
+function sauverTournoi_(lu) {
+  const premier = nettoyer_(lu);
+  ecrireEtatTournoi_(lu.etat);
+  DERNIER_LU_ = lu; // déjà calculé : la réponse à la page n'a rien à relire
+  return premier;
+}
+
+/**
+ * Reprise d'un tournoi lancé avec l'ancienne version : état dans la métadonnée de l'onglet « Tournoi »,
+ * scores et départages dans ses cases. Renvoie l'état complet, ou null s'il n'y a rien à reprendre.
+ */
+function importerOngletTournoi_() {
   const sh = ss_().getSheetByName(TOURNOI.onglet);
   if (!sh) return null;
   const m = sh.getDeveloperMetadata().filter(function (x) { return x.getKey() === TOURNOI.meta; })[0];
   if (!m) return null;
-  try { return JSON.parse(m.getValue()); } catch (e) { return null; }
+  const etat = JSON.parse(m.getValue());
+  const plan = planTournoi_(etat), C = TOURNOI.colD;
+  const g = sh.getRange(1, 1, plan.derniereLigne, 17).getValues();
+  const cel = function (r, c) { return g[r - 1][c - 1]; };
+  etat.scores = plan.matchs.map(function (x) { return [cel(x.row, 4), cel(x.row, 5)]; });
+  etat.finale = {};
+  plan.finale.matchs.forEach(function (x) {
+    etat.finale[x.id] = { j1: String(cel(x.r1, x.col)), a: cel(x.r1, x.col + 2), j2: String(cel(x.r2, x.col)), b: cel(x.r2, x.col + 2) };
+  });
+  etat.departage = {};
+  plan.blocs.forEach(function (b) {
+    for (let i = 0; i < b.n; i++) {
+      const nom = String(cel(b.debut + i, C + 1)).trim(), v = cel(b.debut + i, C + 8);
+      if (nom && v !== '' && v !== null) etat.departage[nom] = v;
+    }
+  });
+  m.remove(); // repris une fois pour toutes
+  return etat;
 }
 
+/* ---------- Onglet « Tournoi » : copie à consulter ---------- */
+
 /**
- * Crée (ou recrée) l'onglet « Tournoi ». Toute la mise en page est préparée en mémoire dans des grilles
- * (valeurs, couleurs, gras, tailles, alignements, menus), puis écrite d'un coup : une écriture par propriété
- * au lieu d'une par case, ce qui rend le lancement du tournoi bien plus rapide.
+ * Écrit l'onglet « Tournoi » : copie du tournoi calculé (matchs de poule et scores à gauche, classements,
+ * phase finale et classement de la soirée à droite). Toute la mise en page est préparée en mémoire,
+ * puis écrite d'un coup (une écriture par propriété). Pas de menus : la page du tournoi est la référence.
  */
-function ecrireTournoi_(etat) {
+function ecrireOngletTournoi_(lu) {
+  const etat = lu.etat, plan = lu.plan, res = lu.res;
   const ss = ss_();
   let sh = ss.getSheetByName(TOURNOI.onglet);
   if (!sh) sh = ss.insertSheet(TOURNOI.onglet, 0);
-  const plan = planTournoi_(etat);
   const nbLignes = plan.derniereLigne + 3;
   if (sh.getMaxRows() < nbLignes) sh.insertRowsAfter(sh.getMaxRows(), nbLignes - sh.getMaxRows());
   if (sh.getMaxColumns() < 17) sh.insertColumnsAfter(sh.getMaxColumns(), 17 - sh.getMaxColumns());
@@ -1245,22 +1361,17 @@ function ecrireTournoi_(etat) {
   tout.breakApart();
   sh.clear();
   tout.clearDataValidations();
-  sh.getDeveloperMetadata().forEach(function (m) { if (m.getKey() === TOURNOI.meta) m.remove(); });
-  sh.addDeveloperMetadata(TOURNOI.meta, JSON.stringify(etat));
-  invaliderEtat_();
 
-  const ROUGE = '#d4453b', ARDOISE = '#1b2224', CRAIE = '#eceae2', SAISIE = '#fff6e0';
+  const ROUGE = '#d4453b', ARDOISE = '#1b2224', CRAIE = '#eceae2', VERT = '#e6f4ec';
   const C = TOURNOI.colD, L = TOURNOI.lettres;
   const txtLegs = function (n) { return n + ' leg' + (n > 1 ? 's' : '') + ' gagnant' + (n > 1 ? 's' : ''); };
 
-  // Grilles de la mise en page (lignes 1 à R, colonnes A à Q)
   const R = plan.derniereLigne, NC = 17;
-  const G = { v: [], bg: [], fc: [], fw: [], fs: [], ha: [], dv: [] };
-  const DEFAUT = { v: '', bg: null, fc: '#000000', fw: 'normal', fs: 10, ha: 'left', dv: null };
+  const G = { v: [], bg: [], fc: [], fw: [], fs: [], fst: [], ha: [] };
+  const DEFAUT = { v: '', bg: null, fc: '#000000', fw: 'normal', fs: 10, fst: 'normal', ha: 'left' };
   Object.keys(G).forEach(function (k) {
     for (let r = 0; r < R; r++) { const l = []; for (let c = 0; c < NC; c++) l.push(DEFAUT[k]); G[k].push(l); }
   });
-  // zone(ligne, colonne, nb lignes, nb colonnes, { v, bg, fc, fw, fs, ha, dv }) ; v peut être une grille
   const zone = function (r, c, nr, nc, o) {
     Object.keys(o).forEach(function (k) {
       for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) {
@@ -1272,56 +1383,70 @@ function ecrireTournoi_(etat) {
   const titre = function (r, c, texte, taille) { zone(r, c, 1, 1, { v: texte, fw: 'bold', fc: ROUGE, fs: taille || 12 }); };
 
   titre(1, 1, '🎯 Tournoi du jeudi ' + dateFr_(etat.date), 16);
-  zone(2, 1, 1, 1, { fw: 'bold' }); // statut, écrit par majTournoi_
-  zone(3, 1, 1, 1, { v: 'Choisis dans les menus les legs gagnés par chaque joueur : tout se met à jour seul.', fc: '#888' });
+  zone(2, 1, 1, 1, { v: [res.statut].concat(res.messages).join('   '), fw: 'bold',
+    fc: res.messages.length ? '#a12a22' : (res.termine ? '#1d6b43' : ARDOISE) });
+  zone(3, 1, 1, 1, { v: "Copie pour consultation (" + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'd/M HH:mm') +
+    ") : le tournoi se gère sur la page du tournoi. Modifier cet onglet ne change rien.", fc: '#888' });
   zone(3, C, 1, 1, { v: 'Classements', fc: '#888' });
 
-  // Matchs de poule (un menu des legs à côté de chaque nom)
+  // Matchs de poule
   zone(4, 1, 1, 7, Object.assign({ v: [['Poule', 'N°', 'Joueur 1', 'Legs', 'Legs', 'Joueur 2', 'État']] }, entete));
   if (plan.matchs.length) {
     const r0 = plan.matchs[0].row, nm = plan.matchs.length;
-    zone(r0, 1, nm, 7, { v: plan.matchs.map(function (m) { return ['Poule ' + L[m.poule], m.num, m.j1, '', '', m.j2, '']; }) });
-    zone(r0, 4, nm, 2, { bg: SAISIE, ha: 'center', fw: 'bold' });
+    zone(r0, 1, nm, 7, { v: plan.matchs.map(function (m, i) {
+      return ['Poule ' + L[m.poule], m.num, m.j1, lu.scores[i][0], lu.scores[i][1], m.j2, res.etatsMatchs[i]];
+    }) });
+    zone(r0, 4, nm, 2, { ha: 'center', fw: 'bold' });
     zone(r0, 2, nm, 1, { ha: 'center' });
     zone(r0, 3, nm, 1, { ha: 'right' });
     etat.poules.forEach(function (noms, p) {
       const ms = plan.matchs.filter(function (m) { return m.poule === p; });
-      if (!ms.length) return;
-      zone(ms[0].row, 4, ms.length, 2, { dv: menuLegs_(legsPoule_(etat, p)) });
-      if (p % 2) zone(ms[0].row, 1, ms.length, 3, { bg: '#f3f3f3' }); // une poule sur deux grisée
+      if (ms.length && p % 2) zone(ms[0].row, 1, ms.length, 3, { bg: '#f3f3f3' }); // une poule sur deux grisée
     });
   }
 
   // Classements des poules
-  const menuDep = SpreadsheetApp.newDataValidation().requireNumberBetween(1, 20).setAllowInvalid(false)
-    .setHelpText('Seulement en cas d\'égalité parfaite (si le barrage n\'est pas noté sur la page) : 1 pour le gagnant du barrage, 2 pour le suivant...').build();
   plan.blocs.forEach(function (b) {
     titre(b.titre, C, 'Poule ' + L[b.poule] + ' (' + txtLegs(legsPoule_(etat, b.poule)) + ')');
     zone(b.entete, C, 1, 9, Object.assign({ v: [['Rang', 'Joueur', 'J', 'V', 'D', 'Legs +', 'Legs -', 'Diff', 'Départage']] }, entete));
-    zone(b.debut, C + 8, b.n, 1, { bg: SAISIE, ha: 'center', dv: menuDep });
+    const cl = res.classements[b.poule];
+    zone(b.debut, C, b.n, 9, { v: cl.map(function (x) {
+      return [x.rang + (x.egalite ? ' ⚠️' : ''), x.nom, x.J, x.V, x.D, x.lp, x.lc, x.diff, x.dep];
+    }) });
+    zone(b.debut, C, b.n, 8, { bg: cl.map(function (x) {
+      const q = res.qualifies.indexOf(x.nom) >= 0;
+      return [0, 1, 2, 3, 4, 5, 6, 7].map(function () { return q ? VERT : null; });
+    }) });
     zone(b.debut, C, b.n, 1, { ha: 'center' });
-    zone(b.debut, C + 2, b.n, 6, { ha: 'center' });
+    zone(b.debut, C + 2, b.n, 7, { ha: 'center' });
   });
 
-  // Phase finale en arbre (noms, états et couleurs du moment : écrits ensuite par majTournoi_)
+  // Phase finale en arbre
   const inf = infosFinale_(etat, plan);
   titre(plan.finale.titre, C, inf.titre);
   plan.finale.matchs.forEach(function (m, i) {
-    zone(m.label, m.col, 1, 1, { v: inf.libelles[i], fw: 'bold', fc: m.id === 'F' ? ROUGE : '#555' });
-    zone(m.r1, m.col, 2, 2, { fw: 'bold', bg: CRAIE });
-    zone(m.r1, m.col + 2, 2, 1, { bg: SAISIE, ha: 'center', fw: 'bold', dv: menuLegs_(inf.legs[i]) });
+    const f = res.finale[i], c = lu.cells[i];
+    zone(m.label, m.col, 1, 2, { v: [[inf.libelles[i], f.etat]], fw: 'bold',
+      fc: [[m.id === 'F' ? ROUGE : '#555', f.etat.indexOf('⚠️') === 0 ? '#a12a22' : '#888']] });
+    [[m.r1, f.j1, c.a], [m.r2, f.j2, c.b]].forEach(function (x) {
+      const gagnant = f.joue && x[1] === f.gagnant, perdant = f.joue && x[1] === f.perdant;
+      const attente = f.etat === 'En attente';
+      zone(x[0], m.col, 1, 3, { v: [[x[1], '', x[2]]], fw: 'bold', bg: gagnant ? VERT : CRAIE,
+        fc: perdant || attente ? '#999' : ARDOISE, fst: attente ? 'italic' : 'normal' });
+      zone(x[0], m.col + 2, 1, 1, { ha: 'center' });
+    });
   });
 
   // Classement de la soirée
   titre(plan.final.titre, C, 'Classement de la soirée');
-  zone(plan.final.debut, C, plan.final.n, 1, { v: ['🥇 1er', '🥈 2e', '🥉 3e', '4e'].slice(0, plan.final.n).map(function (x) { return [x]; }) });
+  zone(plan.final.debut, C, plan.final.n, 2, { v: ['🥇 1er', '🥈 2e', '🥉 3e', '4e'].slice(0, plan.final.n)
+    .map(function (x, i) { return [x, res.podium[i] || '']; }) });
   zone(plan.final.debut, C + 1, plan.final.n, 1, { fw: 'bold' });
 
-  // Écriture de toute la mise en page, une propriété à la fois
   sh.getRange(1, 1, R, NC).setValues(G.v).setBackgrounds(G.bg).setFontColors(G.fc).setFontWeights(G.fw)
-    .setFontSizes(G.fs).setHorizontalAlignments(G.ha).setDataValidations(G.dv);
+    .setFontSizes(G.fs).setFontStyles(G.fst).setHorizontalAlignments(G.ha);
 
-  // Ce qui ne s'écrit pas en grille : fusions des noms, cadres des matchs, traits de l'arbre
+  // Fusions des noms, cadres des matchs, traits de l'arbre
   if (plan.finale.matchs.length) {
     plan.finale.matchs.forEach(function (m) { sh.getRange(m.r1, m.col, 2, 2).mergeAcross(); });
     sh.getRangeList(plan.finale.matchs.map(function (m) { return sh.getRange(m.r1, m.col, 2, 3).getA1Notation(); }))
@@ -1330,11 +1455,9 @@ function ecrireTournoi_(etat) {
   if (plan.finale.traits !== null) {
     const q = plan.finale.traits, T = C + 3, st = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
     sh.getRangeList([sh.getRange(q + 2, T).getA1Notation(), sh.getRange(q + 8, T).getA1Notation()])
-      .setBorder(null, null, true, null, null, null, ROUGE, st);  // sorties des demi-finales
-    sh.getRange(q + 3, T, 6, 1).setBorder(null, null, null, true, null, null, ROUGE, st); // trait vertical vers la finale
+      .setBorder(null, null, true, null, null, null, ROUGE, st);
+    sh.getRange(q + 3, T, 6, 1).setBorder(null, null, null, true, null, null, ROUGE, st);
   }
-
-  // Largeurs : A à G (matchs de poule), H (marge), I à Q (classements et arbre) ; colonnes voisines de même largeur ensemble
   const largeurs = [60, 36, 130, 46, 46, 130, 190, 20, 60, 130, 46, 46, 60, 70, 60, 50, 80];
   for (let i = 0; i < largeurs.length;) {
     let j = i; while (j + 1 < largeurs.length && largeurs[j + 1] === largeurs[i]) j++;
@@ -1342,97 +1465,30 @@ function ecrireTournoi_(etat) {
     i = j + 1;
   }
   sh.setFrozenRows(4);
-  try { sh.activate(); } catch (e) { /* lancé depuis la page web : pas d'onglet à afficher */ }
-
-  // Premier calcul sans relire l'onglet : aucun score, aucun départage
-  const vides = { sh: sh, etat: etat, plan: plan, departage: {},
-    scores: plan.matchs.map(function () { return ['', '']; }),
-    cells: plan.finale.matchs.map(function () { return { j1: '', a: '', j2: '', b: '' }; }) };
-  return majTournoi_(vides);
-}
-
-/** Lit l'onglet « Tournoi » et calcule le tournoi, sans rien écrire. */
-function lireTournoi_(etatDejaLu) {
-  const sh = ss_().getSheetByName(TOURNOI.onglet);
-  const etat = etatDejaLu || lireEtatTournoi_();
-  if (!sh || !etat) throw new Error("Aucun tournoi en cours : utilise d'abord le menu 🎯 Noya'Darts > Lancer un tournoi.");
-  const plan = planTournoi_(etat);
-  const C = TOURNOI.colD;
-  const g = sh.getRange(1, 1, plan.derniereLigne, 17).getValues();
-  const cel = function (r, c) { return g[r - 1][c - 1]; };
-  const scores = plan.matchs.map(function (m) { return [cel(m.row, 4), cel(m.row, 5)]; });
-  const cells = plan.finale.matchs.map(function (m) {
-    return { j1: cel(m.r1, m.col), a: cel(m.r1, m.col + 2), j2: cel(m.r2, m.col), b: cel(m.r2, m.col + 2) };
-  });
-  const departage = {};
-  plan.blocs.forEach(function (b) {
-    for (let i = 0; i < b.n; i++) {
-      const nom = String(cel(b.debut + i, C + 1)).trim();
-      if (nom) departage[nom] = cel(b.debut + i, C + 8);
-    }
-  });
-  return { sh: sh, etat: etat, plan: plan, scores: scores, cells: cells, departage: departage,
-    res: calculTournoi_(etat, plan, scores, cells, departage) };
 }
 
 /**
- * Recalcule le tournoi et réécrit classements, arbre de la phase finale et état dans l'onglet.
- * lu (facultatif) : ce qui vient d'être lu par lireTournoi_ et modifié en mémoire (score noté),
- * pour ne pas relire l'onglet. Les écritures sont groupées par blocs (une écriture par propriété).
+ * Copie de l'onglet après la validation de la soirée, faite un peu plus tard par un déclencheur ponctuel
+ * pour ne pas ralentir l'enregistrement. Sans déclencheur possible, rien de grave : menu « Copier le tournoi dans l'onglet ».
  */
-function majTournoi_(lu) {
-  invaliderEtat_();
-  if (lu) lu.res = calculTournoi_(lu.etat, lu.plan, lu.scores, lu.cells, lu.departage);
-  else lu = lireTournoi_();
-  const sh = lu.sh, etat = lu.etat, plan = lu.plan, cells = lu.cells, res = lu.res;
-  const C = TOURNOI.colD;
-
-  if (plan.matchs.length) {
-    sh.getRange(plan.matchs[0].row, 7, plan.matchs.length, 1).setValues(res.etatsMatchs.map(function (x) { return [x]; }));
-  }
-  plan.blocs.forEach(function (b) {
-    const cl = res.classements[b.poule];
-    sh.getRange(b.debut, C, b.n, 9).setValues(cl.map(function (x) {
-      return [x.rang + (x.egalite ? ' ⚠️' : ''), x.nom, x.J, x.V, x.D, x.lp, x.lc, x.diff, x.dep];
-    }));
-    sh.getRange(b.debut, C, b.n, 8).setBackgrounds(cl.map(function (x) {
-      const q = res.qualifies.indexOf(x.nom) >= 0;
-      return [0, 1, 2, 3, 4, 5, 6, 7].map(function () { return q ? '#e6f4ec' : null; });
-    }));
-  });
-
-  // Phase finale : deux blocs de 2 colonnes (I:J et M:N), réécrits d'un coup (noms, état, couleurs).
-  // Les colonnes des scores (K et O) ne sont pas touchées, sauf pour effacer un score devenu faux.
-  const r0 = plan.finale.titre + 1, nb = plan.final.titre - r0;
-  const libs = infosFinale_(etat, plan).libelles;
-  let effaces = false;
-  [C, C + 4].forEach(function (col) {
-    if (nb <= 0) return;
-    const grille = function (x) { const g = []; for (let i = 0; i < nb; i++) g.push([x, x]); return g; };
-    const v = grille(''), fc = grille('#1b2224'), st = grille('normal'), bg = grille(null);
-    plan.finale.matchs.forEach(function (m, i) {
-      if (m.col !== col) return;
-      const f = res.finale[i], c = cells[i], L = m.label - r0;
-      v[L][0] = libs[i]; fc[L][0] = m.id === 'F' ? '#d4453b' : '#555';
-      v[L][1] = f.etat; fc[L][1] = f.etat.indexOf('⚠️') === 0 ? '#a12a22' : '#888';
-      [[m.r1, f.j1, 'a'], [m.r2, f.j2, 'b']].forEach(function (x) {
-        const k = x[0] - r0, gagnant = f.joue && x[1] === f.gagnant, perdant = f.joue && x[1] === f.perdant;
-        v[k][0] = x[1];
-        fc[k][0] = perdant ? '#999' : (f.j1 && f.j2 && f.etat === 'En attente' ? '#999' : '#1b2224');
-        st[k][0] = f.etat === 'En attente' ? 'italic' : 'normal';
-        bg[k][0] = bg[k][1] = gagnant ? '#e6f4ec' : '#eceae2';
-        if (f.effacer) { sh.getRange(x[0], m.col + 2).setValue(''); c[x[2]] = ''; effaces = true; }
-      });
+const COPIE_ONGLET = { fonction: 'copieOngletDifferee', secondes: 20 };
+function planifierCopieOnglet_() {
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === COPIE_ONGLET.fonction) ScriptApp.deleteTrigger(t);
     });
-    sh.getRange(r0, col, nb, 2).setValues(v).setFontColors(fc).setFontStyles(st).setBackgrounds(bg);
-  });
-  sh.getRange(plan.final.debut, C + 1, plan.final.n, 1).setValues(res.podium.map(function (x) { return [x]; }));
-  sh.getRange(2, 1).setValue([res.statut].concat(res.messages).join('   '))
-    .setFontColor(res.messages.length ? '#a12a22' : (res.termine ? '#1d6b43' : '#1b2224'));
-  // Scores effacés : le calcul gardé pour la page tient compte des cases vidées
-  if (effaces) lu.res = calculTournoi_(etat, plan, lu.scores, cells, lu.departage);
-  DERNIER_LU_ = lu;
-  return res;
+    ScriptApp.newTrigger(COPIE_ONGLET.fonction).timeBased().after(COPIE_ONGLET.secondes * 1000).create();
+  } catch (e) { /* sans gravité */ }
+}
+function copieOngletDifferee() {
+  try {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+      if (t.getHandlerFunction() === COPIE_ONGLET.fonction) ScriptApp.deleteTrigger(t);
+    });
+  } catch (e) { /* sans gravité */ }
+  const lu = lireTournoi_();
+  nettoyer_(lu);
+  ecrireOngletTournoi_(lu);
 }
 
 function prochainJeudi_() {
@@ -1477,44 +1533,95 @@ function definirCode() {
 }
 
 /*
- * Performances : la réponse de la page (etatPage_) est gardée en cache (CacheService) et servie
- * telle quelle tant que rien n'a changé. Toute modification (action de la page, menu, saisie dans
- * le Google Sheet) change le numéro de version (invaliderEtat_), et le cache est alors ignoré.
- * Sécurité : le cache expire de toute façon au bout de CACHE_PAGE.secondes.
+ * Performances (20 novembre 2026). La réponse à la page est faite de deux parties :
+ *   - les données du club (joueurs, venues, annonces, réglages, soirées du championnat) : lues dans
+ *     le Google Sheet, puis gardées en cache tant qu'elles ne changent pas (elles ne bougent presque
+ *     jamais pendant un tournoi) ;
+ *   - le tournoi : calculé à partir des propriétés du document, sans ouvrir d'onglet.
+ * Chaque partie a son numéro de version, changé à chaque modification (invaliderEtat_ pour le club,
+ * invaliderTournoi_ pour le tournoi). La réponse complète est gardée en cache pour ce couple de versions.
+ * La page demande toutes les quelques secondes un « ping » (?ping=1) : versions, records du soir et
+ * vainqueur, lus dans le cache seul, sans ouvrir le Google Sheet. Elle ne relit tout que si une version a changé.
  */
-const CACHE_PAGE = { cle: 'etatPage', version: 'etatPageVersion', secondes: 120 };
-let DERNIER_LU_ = null; // dernier tournoi calculé pendant cette exécution (évite de relire l'onglet)
+const CACHE_PAGE = { club: 'etatClub', page: 'etatPage', flash: 'etatFlash', vClub: 'versionClub', vTournoi: 'versionTournoi',
+  secondes: 3600, versions: 21600 };
+let DERNIER_LU_ = null; // dernier tournoi calculé pendant cette exécution (évite de le recalculer)
 
 function cachePage_() { try { return CacheService.getScriptCache(); } catch (e) { return null; } }
-function versionPage_(c) {
-  let v = c.get(CACHE_PAGE.version);
-  if (!v) { v = String(Date.now()) + Math.random(); c.put(CACHE_PAGE.version, v, 21600); }
-  return v;
+function nouvelleVersion_() { return String(Date.now()) + Math.random().toString(36).slice(2, 8); }
+/** Couple de versions « club|tournoi » (créées si le cache les a oubliées). */
+function versionsPage_(c) {
+  const g = c.getAll([CACHE_PAGE.vClub, CACHE_PAGE.vTournoi]);
+  let vc = g[CACHE_PAGE.vClub], vt = g[CACHE_PAGE.vTournoi];
+  if (!vc) { vc = nouvelleVersion_(); c.put(CACHE_PAGE.vClub, vc, CACHE_PAGE.versions); }
+  if (!vt) { vt = nouvelleVersion_(); c.put(CACHE_PAGE.vTournoi, vt, CACHE_PAGE.versions); }
+  return { club: vc, tournoi: vt, page: vc + '|' + vt };
 }
-/** À appeler après toute modification des données lues par la page. */
+/** À appeler après toute modification des données du club lues par la page (joueurs, championnat, annonces, réglages). */
 function invaliderEtat_() {
   const c = cachePage_();
-  if (c) try { c.put(CACHE_PAGE.version, String(Date.now()) + Math.random(), 21600); } catch (e) { /* sans gravité */ }
+  if (c) try { c.put(CACHE_PAGE.vClub, nouvelleVersion_(), CACHE_PAGE.versions); } catch (e) { /* sans gravité */ }
 }
-/** Met en cache l'état de la page s'il correspond encore à la version v (rien n'a changé pendant le calcul). */
-function memoriserEtat_(c, v, texte) {
-  try { if (c.get(CACHE_PAGE.version) === v) c.put(CACHE_PAGE.cle, v + '\n' + texte, CACHE_PAGE.secondes); }
+/** À appeler après toute modification du tournoi (fait par ecrireEtatTournoi_). */
+function invaliderTournoi_() {
+  const c = cachePage_();
+  if (c) try { c.put(CACHE_PAGE.vTournoi, nouvelleVersion_(), CACHE_PAGE.versions); } catch (e) { /* sans gravité */ }
+}
+/** Lit une valeur « version\ntexte » du cache, si elle correspond à la version v. */
+function lireCache_(c, cle, v) {
+  const x = c.get(cle);
+  return x && x.slice(0, v.length + 1) === v + '\n' ? x.slice(v.length + 1) : null;
+}
+/** Range en cache une valeur pour la version v, si elle est toujours d'actualité (rien n'a changé pendant le calcul). */
+function rangerCache_(c, cle, v, texte, secondes, versionActuelle) {
+  try { if (versionActuelle() === v) c.put(cle, v + '\n' + texte, secondes); }
   catch (e) { /* trop gros ou cache indisponible : tant pis, on recalculera */ }
 }
 
-function doGet() {
+function doGet(e) {
   try {
-    const c = cachePage_();
-    if (!c) return json_(etatPage_());
-    const v = versionPage_(c);
-    const enCache = c.get(CACHE_PAGE.cle);
-    if (enCache && enCache.slice(0, v.length + 1) === v + '\n') return jsonTexte_(enCache.slice(v.length + 1));
-    const texte = JSON.stringify(etatPage_());
-    memoriserEtat_(c, v, texte);
-    return jsonTexte_(texte);
+    if (e && e.parameter && e.parameter.ping) return json_(ping_());
+    return jsonTexte_(textePage_());
   }
-  catch (e) { return json_({ ok: false, erreur: e.message }); }
+  catch (err) { return json_({ ok: false, erreur: err.message }); }
 }
+
+/** Réponse légère pour savoir si quelque chose a changé, sans ouvrir le Google Sheet. */
+function ping_() {
+  const c = cachePage_();
+  if (!c) return { ok: true, ping: true, v: '' };
+  const g = c.getAll([CACHE_PAGE.vClub, CACHE_PAGE.vTournoi, CACHE_PAGE.flash]);
+  const v = (g[CACHE_PAGE.vClub] || '') + '|' + (g[CACHE_PAGE.vTournoi] || '');
+  let flash = null;
+  try { const f = JSON.parse(g[CACHE_PAGE.flash] || 'null'); if (f && f.v === v) flash = f; } catch (err) { flash = null; }
+  return { ok: true, ping: true, v: v, flash: flash };
+}
+
+/** Réponse complète (texte JSON), servie depuis le cache si rien n'a changé. */
+function textePage_() {
+  const c = cachePage_();
+  if (!c) return JSON.stringify(etatPage_(null, null));
+  const v = versionsPage_(c);
+  const enCache = lireCache_(c, CACHE_PAGE.page, v.page);
+  if (enCache) return enCache;
+  return construirePage_(c, v);
+}
+
+/** Calcule la réponse complète pour les versions v et la range en cache (avec le « flash » du ping). */
+function construirePage_(c, v) {
+  const o = etatPage_(c, v);
+  const texte = JSON.stringify(o);
+  const actuelle = function () { return versionsPage_(c).page; };
+  rangerCache_(c, CACHE_PAGE.page, v.page, texte, CACHE_PAGE.secondes, actuelle);
+  const T = o.tournoi;
+  const flash = { v: v.page, date: T ? T.date : null, records: T ? T.records : [], podium: T ? T.podium : [],
+    vainqueur: T && T.finale.length ? (T.finale.filter(function (f) { return f.id === 'F'; })[0] || {}).gagnant || '' : '' };
+  try { if (actuelle() === v.page) c.put(CACHE_PAGE.flash, JSON.stringify(flash), CACHE_PAGE.versions); } catch (e) { /* sans gravité */ }
+  return texte;
+}
+
+/** Actions de la page qui changent les données du club (le reste ne touche qu'au tournoi). */
+const ACTIONS_CLUB = ['ajouterJoueur', 'renommer', 'supprimer', 'reglages', 'enregistrer', 'annonce', 'supprimerAnnonce'];
 
 function doPost(e) {
   let req;
@@ -1522,12 +1629,10 @@ function doPost(e) {
   catch (err) { return json_({ ok: false, erreur: 'Requête illisible.' }); }
   try {
     verifierCode_(req.code);
-    const lectureSeule = req.action === 'verifier' || req.action === 'infosJoueur' || req.action === 'chargerSoiree';
     const resultat = actionPage_(req);
-    if (!lectureSeule) invaliderEtat_();
-    const c = cachePage_(), v = c ? versionPage_(c) : null;
-    const texte = JSON.stringify(etatPage_());
-    if (c) memoriserEtat_(c, v, texte); // le prochain affichage (et les autres écrans) en profite
+    if (ACTIONS_CLUB.indexOf(req.action) >= 0) invaliderEtat_();
+    const c = cachePage_();
+    const texte = c ? construirePage_(c, versionsPage_(c)) : JSON.stringify(etatPage_(null, null));
     return jsonTexte_(texte.slice(0, -1) + ',"resultat":' + JSON.stringify(resultat === undefined ? null : resultat) + '}');
   } catch (err) {
     return json_({ ok: false, erreur: err.message, codeFaux: !!err.codeFaux });
@@ -1587,40 +1692,55 @@ function actionPage_(req) {
     case 'enregistrer': {
       const msg = enregistrerSoiree({ date: req.date, rangs: req.rangs, records: req.records });
       // Les records validés deviennent ceux du tournoi (bandeau de la page)
-      const etat = lireEtatTournoi_();
-      if (etat && etat.date === req.date) {
-        etat.records = (req.records || []).filter(function (r) { return String(r.score || '').trim() && r.nom; })
-          .map(function (r) { return { type: r.type, score: Number(String(r.score).replace(',', '.')), nom: r.nom }; });
-        ecrireEtatTournoi_(etat);
-      }
+      const lock = prendreVerrou_();
+      try {
+        const etat = lireEtatTournoi_();
+        if (etat && etat.date === req.date) {
+          etat.records = (req.records || []).filter(function (r) { return String(r.score || '').trim() && r.nom; })
+            .map(function (r) { return { type: r.type, score: Number(String(r.score).replace(',', '.')), nom: r.nom }; });
+          ecrireEtatTournoi_(etat);
+        }
+      } finally { lock.releaseLock(); }
       return msg;
     }
     default: throw new Error('Action inconnue : ' + req.action);
   }
 }
 
-/** Tout ce dont la page a besoin, en une seule réponse. */
-function etatPage_() {
-  return {
-    ok: true,
+/** Données du club lues par la page (gardées en cache pour la version v.club). */
+function clubPage_(c, v) {
+  if (c && v) {
+    const t = lireCache_(c, CACHE_PAGE.club, v.club);
+    if (t) try { return JSON.parse(t); } catch (e) { /* recalcul */ }
+  }
+  const club = {
     joueurs: lireJoueurs_(),
     venues: dernieresVenues_(),
     habitues: CFG.habitues,
     seuils: seuilsTournoi_(),
     legsMax: TOURNOI.legsMax,
     types: typesPublics_(),
-    tournoi: tournoiPage_(),
     annonces: annoncesPage_(),
+    soirees: soireesChampionnat_(),
   };
+  if (c && v) rangerCache_(c, CACHE_PAGE.club, v.club, JSON.stringify(club), CACHE_PAGE.versions,
+    function () { return versionsPage_(c).club; });
+  return club;
 }
 
-function tournoiPage_() {
-  let lu = DERNIER_LU_; // déjà calculé par l'action qui vient d'avoir lieu : rien à relire
+/** Tout ce dont la page a besoin, en une seule réponse. */
+function etatPage_(c, v) {
+  const club = clubPage_(c, v);
+  return Object.assign({ ok: true, v: v ? v.page : '' }, club, { tournoi: tournoiPage_(club.soirees) });
+}
+
+function tournoiPage_(soirees) {
+  let lu = DERNIER_LU_; // déjà calculé par l'action qui vient d'avoir lieu : rien à recalculer
   if (!lu) {
     const etat0 = lireEtatTournoi_();
     if (!etat0) return null;
     lu = lireTournoi_(etat0);
-    if (lu.res.finale.some(function (f) { return f.effacer; })) { majTournoi_(lu); lu = DERNIER_LU_; }
+    nettoyer_(lu); // en mémoire seulement : la prochaine action rangera l'état d'aplomb
   }
   const etat = lu.etat, plan = lu.plan, res = lu.res;
   const v = function (x) { return x === '' || x === null || x === undefined ? '' : Number(x); };
@@ -1649,7 +1769,7 @@ function tournoiPage_() {
     rangs: res.rangs,
     statut: res.statut,
     messages: res.messages,
-    enregistre: !!colonneSoiree_(feuille_(CFG.champ), etat.date, false),
+    enregistre: (soirees || []).indexOf(etat.date) >= 0,
     records: etat.records || [],
     annonces: (etat.annonces || []).filter(function (i) { return plan.matchs[i] && res.etatsMatchs[i] !== '✔'; }),
     pauses: etat.pauses || [],
@@ -1661,43 +1781,48 @@ function tournoiPage_() {
   };
 }
 
+/** Dates des soirées enregistrées au championnat (ligne 1 de « Darters Championship »). */
+function soireesChampionnat_() {
+  const sh = feuille_(CFG.champ);
+  const lastCol = Math.max(sh.getLastColumn(), CFG.col1 + 2);
+  const ligne1 = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const out = [];
+  for (let c = CFG.col1; c <= lastCol; c += 3) { const k = cleDate_(ligne1[c - 1]); if (k) out.push(k); }
+  return out;
+}
+
 /** Score d'un match : req = { match: n° du match de poule } ou { finale: 'Q1'|'Q2'|'D1'|'D2'|'PF'|'F' }, avec a et b (vides pour effacer). */
 function ecrireScore_(req) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const lu = lireTournoi_();
+    nettoyer_(lu);
     const vide = function (x) { return x === '' || x === null || x === undefined; };
     const effacer = vide(req.a) && vide(req.b);
-    let r1, c1, r2, c2, L;
+    let L, i = -1;
     if (req.finale) {
-      const i = lu.plan.finale.matchs.findIndex(function (m) { return m.id === req.finale; });
+      i = lu.plan.finale.matchs.findIndex(function (m) { return m.id === req.finale; });
       if (i < 0) throw new Error('Match introuvable.');
       if (!effacer && lu.res.finale[i].etat === 'En attente') throw new Error('Les joueurs de ce match ne sont pas encore connus.');
-      const m = lu.plan.finale.matchs[i];
-      r1 = m.r1; r2 = m.r2; c1 = c2 = m.col + 2; L = legsFinale_(lu.etat, m.id);
+      L = legsFinale_(lu.etat, req.finale);
     } else {
-      const m = lu.plan.matchs[Number(req.match)];
-      if (!m) throw new Error('Match introuvable.');
-      r1 = r2 = m.row; c1 = 4; c2 = 5; L = legsPoule_(lu.etat, m.poule);
+      if (!lu.plan.matchs[Number(req.match)]) throw new Error('Match introuvable.');
+      L = legsPoule_(lu.etat, lu.plan.matchs[Number(req.match)].poule);
     }
     if (!effacer) {
       const s = lireScore_(req.a, req.b, L);
       if (!s.joue) throw new Error('Score refusé : ' + (s.erreur || 'score incomplet') + '.');
     }
     const a = effacer ? '' : Number(req.a), b = effacer ? '' : Number(req.b);
-    if (r1 === r2) lu.sh.getRange(r1, c1, 1, 2).setValues([[a, b]]);
-    else { lu.sh.getRange(r1, c1).setValue(a); lu.sh.getRange(r2, c2).setValue(b); }
-    // Le score est reporté dans ce qui a été lu : inutile de relire l'onglet pour recalculer
     if (req.finale) {
-      const c = lu.cells[lu.plan.finale.matchs.findIndex(function (m) { return m.id === req.finale; })];
-      c.a = a; c.b = b;
-    } else lu.scores[Number(req.match)] = [a, b];
-    if (!req.finale && !effacer && (lu.etat.annonces || []).indexOf(Number(req.match)) >= 0) {
-      lu.etat.annonces = lu.etat.annonces.filter(function (i) { return i !== Number(req.match); });
-      ecrireEtatTournoi_(lu.etat); // un match joué sort de « À suivre »
+      const c = lu.cells[i], f = lu.res.finale[i];
+      c.j1 = f.j1; c.j2 = f.j2; c.a = a; c.b = b; // le score va avec les joueurs du moment
+    } else {
+      lu.scores[Number(req.match)] = [a, b];
+      if (!effacer) lu.etat.annonces = (lu.etat.annonces || []).filter(function (x) { return x !== Number(req.match); }); // un match joué sort de « À suivre »
     }
-    return majTournoi_(lu).statut;
+    lu.res = calculTournoi_(lu.etat, lu.plan, lu.scores, lu.cells, lu.departage);
+    return sauverTournoi_(lu).statut;
   } finally {
     lock.releaseLock();
   }
@@ -1705,19 +1830,18 @@ function ecrireScore_(req) {
 
 /** Colonne « Départage » d'un joueur (égalité parfaite en poule). */
 function ecrireDepartage_(nom, valeur) {
-  const lu = lireTournoi_();
-  const C = TOURNOI.colD;
-  let ligne = null;
-  lu.plan.blocs.forEach(function (b) {
-    const noms = lu.sh.getRange(b.debut, C + 1, b.n, 1).getValues();
-    noms.forEach(function (x, i) { if (String(x[0]).trim() === nom) ligne = b.debut + i; });
-  });
-  if (!ligne) throw new Error('Joueur introuvable dans les poules : « ' + nom + ' ».');
-  const v = valeur === '' || valeur === null || valeur === undefined ? '' : Number(valeur);
-  if (v !== '' && (!Number.isInteger(v) || v < 1 || v > 20)) throw new Error('Départage : un nombre de 1 à 20.');
-  lu.sh.getRange(ligne, C + 8).setValue(v);
-  SpreadsheetApp.flush();
-  return majTournoi_().statut;
+  const lock = prendreVerrou_();
+  try {
+    const lu = lireTournoi_();
+    if ([].concat.apply([], lu.etat.poules).indexOf(nom) < 0) throw new Error('Joueur introuvable dans les poules : « ' + nom + ' ».');
+    const v = valeur === '' || valeur === null || valeur === undefined ? '' : Number(valeur);
+    if (v !== '' && (!Number.isInteger(v) || v < 1 || v > 20)) throw new Error('Départage : un nombre de 1 à 20.');
+    if (v === '') delete lu.departage[nom]; else lu.departage[nom] = v;
+    lu.res = calculTournoi_(lu.etat, lu.plan, lu.scores, lu.cells, lu.departage);
+    return sauverTournoi_(lu).statut;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
@@ -1725,8 +1849,7 @@ function ecrireDepartage_(nom, valeur) {
  * Le barrage doit être l'un de ceux que le calcul demande en ce moment.
  */
 function ecrireBarrage_(req) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const lu = lireTournoi_();
     const p = Number(req.poule), a = String(req.j1 || ''), b = String(req.j2 || '');
@@ -1740,9 +1863,8 @@ function ecrireBarrage_(req) {
     const meme = function (x) { return x.p === p && ((x.j1 === m.j1 && x.j2 === m.j2) || (x.j1 === m.j2 && x.j2 === m.j1)); };
     etat.barrages = (etat.barrages || []).filter(function (x) { return !meme(x); });
     etat.barrages.push({ p: p, j1: m.j1, j2: m.j2, a: v ? (v === m.j1 ? 1 : 0) : '', b: v ? (v === m.j2 ? 1 : 0) : '' });
-    ecrireEtatTournoi_(etat);
-    SpreadsheetApp.flush();
-    majTournoi_();
+    lu.res = calculTournoi_(etat, lu.plan, lu.scores, lu.cells, lu.departage);
+    sauverTournoi_(lu);
     return v ? 'Barrage : ' + v + ' gagne contre ' + (v === m.j1 ? m.j2 : m.j1) + '.' : 'Résultat du barrage effacé.';
   } finally {
     lock.releaseLock();
@@ -1754,8 +1876,7 @@ function ecrireBarrage_(req) {
  * tirées au sort par la page et modifiables. Refusé si l'un des barrages actuels est déjà joué.
  */
 function tirerBarrages_(req) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const lu = lireTournoi_();
     const p = Number(req.poule);
@@ -1774,16 +1895,15 @@ function tirerBarrages_(req) {
     const etat = lu.etat;
     etat.barrages = (etat.barrages || []).filter(function (x) { return !dans(x); })
       .concat(paires.map(function (x) { return { p: p, j1: x[0], j2: x[1], a: '', b: '' }; }));
-    ecrireEtatTournoi_(etat);
-    SpreadsheetApp.flush();
-    majTournoi_();
+    lu.res = calculTournoi_(etat, lu.plan, lu.scores, lu.cells, lu.departage);
+    sauverTournoi_(lu);
     return 'Barrages : ' + paires.map(function (x) { return x[0] + ' contre ' + x[1]; }).join(', ') + '.';
   } finally {
     lock.releaseLock();
   }
 }
 
-/** Après un changement de nom : le tournoi en cours suit (poules et noms affichés dans l'onglet). */
+/** Après un changement de nom : le tournoi en cours suit (poules, phase finale, départages, records...). */
 function renommerDansTournoi_(ancien, nouveau) {
   const etat = lireEtatTournoi_();
   if (!etat || [].concat.apply([], etat.poules).indexOf(ancien) < 0) return;
@@ -1793,19 +1913,9 @@ function renommerDansTournoi_(ancien, nouveau) {
   if (etat.pauses) etat.pauses = etat.pauses.map(r);
   if (etat.records) etat.records.forEach(function (x) { x.nom = r(x.nom); });
   if (etat.barrages) etat.barrages.forEach(function (x) { x.j1 = r(x.j1); x.j2 = r(x.j2); });
-  const sh = ss_().getSheetByName(TOURNOI.onglet);
-  sh.getDeveloperMetadata().forEach(function (m) { if (m.getKey() === TOURNOI.meta) m.setValue(JSON.stringify(etat)); });
-  const rg = sh.getRange(1, 1, planTournoi_(etat).derniereLigne, 17);
-  const vals = rg.getValues();
-  let change = false;
-  vals.forEach(function (l) { l.forEach(function (x, j) { if (x === ancien) { l[j] = nouveau; change = true; } }); });
-  if (change) {
-    // N'écrit que les cellules de noms, pour ne pas toucher aux menus et mises en forme
-    vals.forEach(function (l, i) {
-      l.forEach(function (x, j) { if (x === nouveau) sh.getRange(i + 1, j + 1).setValue(nouveau); });
-    });
-  }
-  majTournoi_();
+  if (etat.finale) Object.keys(etat.finale).forEach(function (k) { const c = etat.finale[k]; c.j1 = r(c.j1); c.j2 = r(c.j2); });
+  if (etat.departage && etat.departage[ancien] !== undefined) { etat.departage[nouveau] = etat.departage[ancien]; delete etat.departage[ancien]; }
+  sauverTournoi_(lireTournoi_(etat));
 }
 
 /**
@@ -1817,8 +1927,7 @@ function renommerDansTournoi_(ancien, nouveau) {
  * retirer = n° (à partir de 0) d'un des détenteurs de ce type à retirer, sans toucher aux autres.
  */
 function noterRecord_(type, score, nom, retirer) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const etat = lireEtatTournoi_();
     if (!etat) throw new Error('Aucun tournoi en cours.');
@@ -1869,8 +1978,7 @@ function noterRecord_(type, score, nom, retirer) {
 
 /** Annonce un match de poule dans « À suivre » (on = true) ou l'en retire. Ses joueurs ne sont plus en pause. */
 function annoncerMatch_(i, on) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const etat = lireEtatTournoi_();
     if (!etat) throw new Error('Aucun tournoi en cours.');
@@ -1891,8 +1999,7 @@ function annoncerMatch_(i, on) {
 
 /** Met un joueur en pause (ses matchs ne sont plus proposés dans « À suivre ») ou l'en sort. */
 function pauseJoueur_(nom, on) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const etat = lireEtatTournoi_();
     if (!etat) throw new Error('Aucun tournoi en cours.');
@@ -1915,8 +2022,7 @@ function pauseJoueur_(nom, on) {
  * Refusé si cela change les joueurs d'un match déjà joué (il faut d'abord effacer son score).
  */
 function forcerAffiches_(affiches) {
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const lu = lireTournoi_();
     const grosse = estGrosse_(lu.etat);
@@ -1941,7 +2047,8 @@ function forcerAffiches_(affiches) {
         choix[id] = l;
       });
     }
-    const etat = JSON.parse(JSON.stringify(lu.etat));
+    nettoyer_(lu);
+    const etat = lu.etat;
     if (choix) etat.forcage = choix; else delete etat.forcage;
     const res = calculTournoi_(etat, lu.plan, lu.scores, lu.cells, lu.departage);
     const touche = res.finale.filter(function (f, i) { return f.effacer && lu.res.finale[i].joue; });
@@ -1949,9 +2056,8 @@ function forcerAffiches_(affiches) {
       throw new Error('Le match « ' + LIBELLES_FINALE[touche[0].id] +
         ' » est déjà joué : efface d\'abord son score pour changer ses joueurs.');
     }
-    ecrireEtatTournoi_(etat);
-    SpreadsheetApp.flush();
-    majTournoi_();
+    lu.res = res;
+    sauverTournoi_(lu);
     return choix ? 'Affiches de la phase finale modifiées.' : 'Phase finale : retour au calcul automatique.';
   } finally {
     lock.releaseLock();
@@ -2031,8 +2137,7 @@ function ecrireAnnonce_(req) {
   const message = String(req.message || '').replace(/\s+/g, ' ').trim();
   if (message.length > ANNONCES.messageMax) throw new Error('Message trop long (' + ANNONCES.messageMax + ' caractères au plus).');
   if (!annule && !message) throw new Error('Indique que la soirée est annulée ou écris un message (pour retirer l\'annonce : « Supprimer »).');
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const A = lireAnnonces_(true), sh = A.sh;
     if (!A.iA || !A.iM) {
@@ -2068,8 +2173,7 @@ function ecrireAnnonce_(req) {
 /** Supprime l'annonce d'un jeudi. */
 function supprimerAnnonce_(iso) {
   invaliderEtat_();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const A = lireAnnonces_(false);
     const rows = A ? A.lignes.filter(function (l) { return l.iso === iso; }).map(function (l) { return l.row; }) : [];
@@ -2094,7 +2198,8 @@ const ENTETES_MATCHS = ['Date', 'Phase', 'Joueur 1', 'Legs 1', 'Joueur 2', 'Legs
 function lignesMatchs_(iso) {
   const etat = lireEtatTournoi_();
   if (!etat || etat.date !== iso) return null;
-  const lu = lireTournoi_();
+  const lu = lireTournoi_(etat);
+  nettoyer_(lu);
   const d = serie_(iso), lignes = [];
   lu.plan.matchs.forEach(function (m, i) {
     const L = legsPoule_(lu.etat, m.poule);
@@ -2480,8 +2585,7 @@ function bilanSoiree_(iso) {
 /** Efface la soirée partout et renvoie le message de confirmation. */
 function retirerSoiree_(iso) {
   invaliderEtat_();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const b = bilanSoiree_(iso);
     const sh = feuille_(CFG.champ);
@@ -2514,7 +2618,7 @@ function retirerSoiree_(iso) {
     if (sansSoiree.length) msg += '\n\nCes joueurs n\'ont plus aucune soirée (ils n\'apparaissent plus sur le site, mais restent dans la liste) : ' +
       sansSoiree.join(', ') + '. Pour les enlever : menu « Supprimer un joueur ».';
     const etat = lireEtatTournoi_();
-    if (etat && etat.date === iso) msg += '\n\nL\'onglet « Tournoi » de ce soir-là est toujours là : « Valider le tournoi » permet de réenregistrer la soirée.';
+    if (etat && etat.date === iso) msg += '\n\nLe tournoi de ce soir-là est toujours en mémoire : « Valider la soirée » (page du tournoi) ou « Valider le tournoi » (menu) permet de la réenregistrer.';
     return msg;
   } finally {
     lock.releaseLock();
@@ -2832,8 +2936,7 @@ function planSaison_(courante) {
 /** Archive les saisons terminées et remet le championnat à zéro. Renvoie le plan exécuté. */
 function nouvelleSaison_(courante) {
   invaliderEtat_();
-  const lock = LockService.getDocumentLock();
-  lock.waitLock(30000);
+  const lock = prendreVerrou_();
   try {
     const plan = planSaison_(courante);
     feuilleSaisons_(true);
@@ -3628,7 +3731,7 @@ function init(d){
   VENUES = d.venues || {}; HABITUES = d.habitues || 6;
   $('date').value = d.date;
   $('date').onchange = dessinerJoueurs;
-  if (d.enCours) $('encours').textContent = "(l'onglet Tournoi contient le tournoi du " + d.enCours.split('-').reverse().join('/') + ")";
+  if (d.enCours) $('encours').textContent = "(le tournoi du " + d.enCours.split('-').reverse().join('/') + " est encore en mémoire)";
   $('legsF').innerHTML = optionsLegs(2);
   $('reglage').textContent = 'Réglage : 2 poules dès ' + S2 + ' joueurs, 3 poules dès ' + S3 + ' (menu Réglages du tournoi).';
   dessinerJoueurs();
