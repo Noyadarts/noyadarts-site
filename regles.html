@@ -13,6 +13,16 @@
 <meta property="og:url" content="https://noyadarts.github.io/noyadarts-site/regles.html">
 <meta property="og:locale" content="fr_FR">
 <meta name="theme-color" content="#1b2224">
+<script>
+/* Thème clair ou sombre. Choix retenu sur l'appareil (clé noyadarts-theme, commune à toutes les pages),
+   sinon réglage de l'appareil. Pour garder le sombre par défaut : SUIVRE_APPAREIL = false. */
+(function(){
+  var SUIVRE_APPAREIL = true, t = null;
+  try{ t = localStorage.getItem("noyadarts-theme"); }catch(e){}
+  if(t !== "light" && t !== "dark") t = SUIVRE_APPAREIL ? null : "dark";
+  if(t) document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,6 +33,10 @@
   --slate:#1b2224; --slate-2:#242e31; --slate-3:#2f3b3f; --slate-4:#3b4a4f;
   --chalk:#eceae2; --chalk-dim:#a7afab;
   --red:#d4453b; --green:#34a56b; --sisal:#e3d4ae;
+  --on-accent:#f6f4ee; --on-green:#12201a;
+  --red-ink:#d4453b; --green-ink:#34a56b; --err-ink:#f2b8b2; --ok-ink:#bfe9d1;
+  --ombre:rgba(0,0,0,.45); --ombre-logo:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  --carte-filtre:invert(.9) hue-rotate(180deg) saturate(.55) brightness(.92); --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 0.96 0.16 0 0 0 -0.072'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
   --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   box-sizing:border-box;
@@ -30,13 +44,35 @@
   padding-bottom:env(safe-area-inset-bottom,0px);
   color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
-:root[data-theme="dark"]{ color-scheme:dark; }
+/* Mode clair : choisi avec le bouton (data-theme="light") ou réglage clair de l'appareil */
+:root[data-theme="light"]{
+  --slate:#e2e7e7; --slate-2:#f4f6f5; --slate-3:#cfd7d8; --slate-4:#a9b5b7;
+  --chalk:#1b2224; --chalk-dim:#56625f; --sisal:#7a5b18;
+  --red-ink:#b5362c; --green-ink:#1d7547; --err-ink:#a92f27; --ok-ink:#1b6a42;
+  --win:rgba(52,165,107,.2); --loss:rgba(212,69,59,.12);
+  --ombre:rgba(27,34,36,.16); --ombre-logo:drop-shadow(0 14px 22px rgba(27,34,36,.22)) drop-shadow(0 0 34px rgba(212,69,59,.12));
+  --carte-filtre:none; --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.13 0 0 0 0 0.14 0.13 0 0 0 -0.059'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:light;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --slate:#e2e7e7; --slate-2:#f4f6f5; --slate-3:#cfd7d8; --slate-4:#a9b5b7;
+  --chalk:#1b2224; --chalk-dim:#56625f; --sisal:#7a5b18;
+  --red-ink:#b5362c; --green-ink:#1d7547; --err-ink:#a92f27; --ok-ink:#1b6a42;
+  --win:rgba(52,165,107,.2); --loss:rgba(212,69,59,.12);
+  --ombre:rgba(27,34,36,.16); --ombre-logo:drop-shadow(0 14px 22px rgba(27,34,36,.22)) drop-shadow(0 0 34px rgba(212,69,59,.12));
+  --carte-filtre:none; --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.13 0 0 0 0 0.14 0.13 0 0 0 -0.059'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:light;
+} }
+/* Fondu bref au changement de thème (seulement au clic sur le bouton) */
+html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after{
+  transition:background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease !important; }
+@media (prefers-reduced-motion: reduce){ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after{ transition:none !important; } }
 *,*::before,*::after{ box-sizing:inherit; }
 html{ scroll-behavior:smooth; scroll-padding-top:calc(env(safe-area-inset-top,0px) + 1rem); }
 body{
   margin:0;
   background:
+    var(--grain),
     radial-gradient(1200px 700px at 80% -15%, rgba(52,165,107,.10), transparent 60%),
     radial-gradient(900px 600px at -10% 115%, rgba(212,69,59,.09), transparent 60%),
     var(--slate);
@@ -48,8 +84,11 @@ a{ color:var(--sisal); text-underline-offset:3px; }
 .wrap{ width:min(52rem, 100% - 2.5rem); margin-inline:auto; }
 .top{ border-bottom:1px solid var(--slate-3); }
 .top .wrap{ display:flex; align-items:center; gap:1rem; padding:.9rem 0; flex-wrap:wrap; }
-.top img{ width:56px; height:auto; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
-.top nav{ margin-left:auto; display:flex; gap:1.1rem; flex-wrap:wrap; font-weight:600; }
+.top img{ width:56px; height:auto; filter:drop-shadow(0 4px 10px var(--ombre)); }
+.top nav{ margin-left:auto; display:flex; gap:1.1rem; flex-wrap:wrap; align-items:center; font-weight:600; }
+.btn-theme{ font:600 .95rem/1 var(--body); color:var(--chalk-dim); background:transparent; border:0; border-radius:999px; padding:.35rem .75rem; box-shadow:inset 0 0 0 1px var(--slate-3); cursor:pointer; white-space:nowrap; }
+.btn-theme:hover{ color:var(--chalk); box-shadow:inset 0 0 0 1px var(--chalk-dim); }
+@media print{ .btn-theme{ display:none; } }
 .top nav a{ color:var(--chalk-dim); text-decoration:none; }
 .top nav a:hover,.top nav a[aria-current]{ color:var(--sisal); }
 h1{ font-family:var(--display); font-weight:900; font-size:clamp(2.6rem,7vw,4.4rem); line-height:.95; margin:2.2rem 0 .6rem; }
@@ -74,7 +113,7 @@ th{ font-family:var(--display); font-weight:800; font-size:1.1rem; color:var(--s
 td.num{ text-align:center; font-family:var(--display); font-weight:800; font-size:1.2rem; }
 .etapes{ counter-reset:e; list-style:none; padding:0; }
 .etapes > li{ counter-increment:e; position:relative; padding-left:2.6rem; margin:.8rem 0; }
-.etapes > li::before{ content:counter(e); position:absolute; left:0; top:.05rem; width:1.9rem; height:1.9rem; border-radius:50%; background:var(--red); color:var(--chalk); font-family:var(--display); font-weight:900; display:grid; place-items:center; }
+.etapes > li::before{ content:counter(e); position:absolute; left:0; top:.05rem; width:1.9rem; height:1.9rem; border-radius:50%; background:var(--red); color:var(--on-accent); font-family:var(--display); font-weight:900; display:grid; place-items:center; }
 kbd,.ui{ font-family:var(--body); font-weight:600; background:var(--slate-3); border-radius:5px; padding:.05rem .4rem; font-size:.95em; white-space:nowrap; }
 footer{ margin-top:3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
 footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; justify-content:space-between; }
@@ -92,6 +131,7 @@ footer .wrap{ padding:1.2rem 0 2rem; display:flex; gap:1rem; flex-wrap:wrap; jus
       <a href="tournoi.html">Tournoi en direct</a>
       <a href="regles.html" aria-current="page">Règles</a>
       <a href="guide-organisateur.html" class="orga" hidden>Guide de l'organisateur</a>
+      <button class="btn-theme" type="button" title="Passer en mode clair">☀️ Clair</button>
     </nav>
   </div>
 </header>
@@ -238,6 +278,31 @@ fetch(API_URL, { cache:"no-store" }).then(r => r.json()).then(d => {
   mettre(".s2", s.seuil2); mettre(".s2m", s.seuil2 - 1); mettre(".s3", s.seuil3); mettre(".s3m", s.seuil3 - 1);
   document.getElementById("seuilsNote").textContent = "Réglage actuel du club. Les organisateurs peuvent choisir un autre nombre de poules au lancement.";
 }).catch(() => {});
+</script>
+<script>
+/* Bouton(s) .btn-theme : passe du clair au sombre et inversement, met à jour la couleur de la barre du navigateur */
+(function(){
+  var r = document.documentElement, mq = window.matchMedia ? matchMedia("(prefers-color-scheme: light)") : null, minuteur = 0;
+  function actuel(){ return r.getAttribute("data-theme") || (mq && mq.matches ? "light" : "dark"); }
+  function maj(){
+    var t = actuel(), m = document.querySelector('meta[name="theme-color"]');
+    if(m) m.setAttribute("content", t === "light" ? "#e2e7e7" : "#1b2224");
+    document.querySelectorAll(".btn-theme").forEach(function(b){
+      b.textContent = t === "light" ? "🌙 Sombre" : "☀️ Clair";
+      b.title = t === "light" ? "Passer en mode sombre" : "Passer en mode clair";
+      b.setAttribute("aria-label", b.title);
+    });
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".btn-theme"); if(!b) return;
+    var n = actuel() === "light" ? "dark" : "light";
+    r.classList.add("theme-anim"); r.setAttribute("data-theme", n);
+    try{ localStorage.setItem("noyadarts-theme", n); }catch(err){}
+    maj(); clearTimeout(minuteur); minuteur = setTimeout(function(){ r.classList.remove("theme-anim"); }, 450);
+  });
+  if(mq){ if(mq.addEventListener) mq.addEventListener("change", maj); else if(mq.addListener) mq.addListener(maj); }
+  maj();
+})();
 </script>
 </body>
 </html>

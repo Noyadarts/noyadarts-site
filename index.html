@@ -8,6 +8,16 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#1b2224">
+<script>
+/* Thème clair ou sombre. Choix retenu sur l'appareil (clé noyadarts-theme, commune à toutes les pages),
+   sinon réglage de l'appareil. Pour garder le sombre par défaut : SUIVRE_APPAREIL = false. */
+(function(){
+  var SUIVRE_APPAREIL = true, t = null;
+  try{ t = localStorage.getItem("noyadarts-theme"); }catch(e){}
+  if(t !== "light" && t !== "dark") t = SUIVRE_APPAREIL ? null : "dark";
+  if(t) document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 <meta property="og:type" content="website">
 <meta property="og:title" content="Noya'Darts, club de fléchettes de Noyarey">
 <meta property="og:description" content="Tous les jeudis dès 19 h, salle Chartreuse de la Maison des Associations de Noyarey. Ouvert à tous, débutants compris.">
@@ -59,6 +69,11 @@
   --red-deep:#a92f27;
   --green:#34a56b;
   --sisal:#e3d4ae;
+  --slate-4:#3b4a4f;
+  --on-accent:#f6f4ee; --on-green:#12201a;
+  --red-ink:#d4453b; --green-ink:#34a56b; --err-ink:#ff8a80; --ok-ink:#bfe9d1;
+  --ombre:rgba(0,0,0,.45); --ombre-logo:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  --carte-filtre:invert(.9) hue-rotate(180deg) saturate(.7) brightness(.92); --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 0.96 0.16 0 0 0 -0.072'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
   --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   box-sizing:border-box;
@@ -66,13 +81,45 @@
   padding-bottom:env(safe-area-inset-bottom,0px);
   color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
-:root[data-theme="dark"]{ color-scheme:dark; }
+/* Mode clair : choisi avec le bouton (data-theme="light") ou réglage clair de l'appareil */
+:root[data-theme="light"]{
+  --slate:#e2e7e7; --slate-2:#f4f6f5; --slate-3:#cfd7d8; --slate-4:#a9b5b7;
+  --chalk:#1b2224; --chalk-dim:#56625f; --sisal:#7a5b18;
+  --red-ink:#b5362c; --green-ink:#1d7547; --err-ink:#a92f27; --ok-ink:#1b6a42;
+  --win:rgba(52,165,107,.2); --loss:rgba(212,69,59,.12);
+  --ombre:rgba(27,34,36,.16); --ombre-logo:drop-shadow(0 14px 22px rgba(27,34,36,.22)) drop-shadow(0 0 34px rgba(212,69,59,.12));
+  --carte-filtre:none; --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.13 0 0 0 0 0.14 0.13 0 0 0 -0.059'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:light;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --slate:#e2e7e7; --slate-2:#f4f6f5; --slate-3:#cfd7d8; --slate-4:#a9b5b7;
+  --chalk:#1b2224; --chalk-dim:#56625f; --sisal:#7a5b18;
+  --red-ink:#b5362c; --green-ink:#1d7547; --err-ink:#a92f27; --ok-ink:#1b6a42;
+  --win:rgba(52,165,107,.2); --loss:rgba(212,69,59,.12);
+  --ombre:rgba(27,34,36,.16); --ombre-logo:drop-shadow(0 14px 22px rgba(27,34,36,.22)) drop-shadow(0 0 34px rgba(212,69,59,.12));
+  --carte-filtre:none; --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.13 0 0 0 0 0.14 0.13 0 0 0 -0.059'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:light;
+} }
+/* Ces éléments restent sombres dans les deux modes */
+.mur, .lightbox, .oneeighty{
+  --slate:#1b2224; --slate-2:#242e31; --slate-3:#2f3b3f; --slate-4:#3b4a4f;
+  --chalk:#eceae2; --chalk-dim:#a7afab; --sisal:#e3d4ae;
+  --red-ink:#d4453b; --green-ink:#34a56b; --err-ink:#ff8a80; --ok-ink:#bfe9d1;
+  --win:rgba(52,165,107,.22); --loss:rgba(212,69,59,.14);
+  --ombre:rgba(0,0,0,.45); --ombre-logo:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  --carte-filtre:invert(.9) hue-rotate(180deg) saturate(.7) brightness(.92); --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 0.96 0.16 0 0 0 -0.072'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:dark;
+}
+/* Fondu bref au changement de thème (seulement au clic sur le bouton) */
+html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after{
+  transition:background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease !important; }
+@media (prefers-reduced-motion: reduce){ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after{ transition:none !important; } }
 *,*::before,*::after{ box-sizing:inherit; }
 html{ scroll-behavior:smooth; scroll-padding-top:env(safe-area-inset-top,0px); }
 body{
   margin:0;
   background:
+    var(--grain),
     radial-gradient(1200px 700px at 75% -10%, rgba(52,165,107,.10), transparent 60%),
     radial-gradient(900px 600px at -10% 110%, rgba(212,69,59,.09), transparent 60%),
     var(--slate);
@@ -114,7 +161,7 @@ a{ color:var(--sisal); }
   width:clamp(240px, 70vw, 440px);
   height:auto;
   margin:0 0 0 -.6rem;
-  filter:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  filter:var(--ombre-logo);
   animation:logo-in .7s cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes logo-in{ from{ opacity:0; transform:scale(.94) rotate(-2deg); } to{ opacity:1; transform:none; } }
@@ -137,7 +184,7 @@ a{ color:var(--sisal); }
   font-size:1.3rem;
   letter-spacing:.02em;
   text-decoration:none;
-  color:var(--chalk);
+  color:var(--on-accent);
   background:var(--red);
   padding:.7rem 1.5rem .75rem;
   border-radius:999px;
@@ -146,8 +193,8 @@ a{ color:var(--sisal); }
   transition:background .15s ease, transform .15s ease;
 }
 .btn:hover{ background:var(--red-deep); }
-.btn-line{ background:transparent; box-shadow:inset 0 0 0 2px var(--red); }
-.btn-line:hover{ background:var(--red); }
+.btn-line{ background:transparent; color:var(--chalk); box-shadow:inset 0 0 0 2px var(--red); }
+.btn-line:hover{ background:var(--red); color:var(--on-accent); }
 .join{ margin-top:1.4rem; }
 .btn:active{ transform:translateY(1px); }
 .hint{ color:var(--chalk-dim); font-size:.98rem; }
@@ -165,7 +212,7 @@ a{ color:var(--sisal); }
   transform:translate(-50%,-50%) scale(.6);
   font-family:var(--display); font-weight:900;
   font-size:clamp(2rem,6vw,3.2rem);
-  color:var(--chalk);
+  color:#eceae2;
   text-shadow:0 3px 0 rgba(0,0,0,.55), 0 0 24px rgba(0,0,0,.6);
   pointer-events:none; opacity:0; white-space:nowrap;
 }
@@ -254,8 +301,8 @@ input:focus, textarea:focus{ border-color:var(--sisal); outline:none; }
 textarea{ min-height:8rem; resize:vertical; }
 .form-note{ font-size:.92rem; color:var(--chalk-dim); margin:0; }
 .form-status{ min-height:1.4em; margin:0; font-size:.98rem; }
-.form-status.err{ color:#ff8a80; }
-.form-status.ok{ color:var(--green); }
+.form-status.err{ color:var(--err-ink); }
+.form-status.ok{ color:var(--green-ink); }
 
 footer{ padding:2.5rem 0 3rem; border-top:1px solid var(--slate-3); color:var(--chalk-dim); font-size:.95rem; }
 footer .wrap{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; }
@@ -274,8 +321,43 @@ input[type=text], input[type=email], textarea{ cursor:text; }
 .topnav ul{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:.4rem 1.6rem; justify-content:flex-end; }
 .topnav a{ color:var(--chalk-dim); text-decoration:none; font-weight:500; }
 .topnav a:hover{ color:var(--chalk); }
+.topnav ul{ align-items:center; }
+.btn-theme{ font:500 1rem/1 var(--body); color:var(--chalk-dim); background:transparent; border:0; border-radius:999px; padding:.4rem .8rem; box-shadow:inset 0 0 0 1px var(--slate-3); white-space:nowrap; }
+.btn-theme:hover{ color:var(--chalk); box-shadow:inset 0 0 0 1px var(--chalk-dim); }
 
-.maplink{ display:inline-block; margin-top:.6rem; font-weight:600; color:var(--sisal); }
+.maplink{ display:inline-block; margin-top:.5rem; font-weight:600; color:var(--sisal); }
+/* Mini-carte : aperçu dessiné (fléchette plantée à la place de l'épingle), la vraie carte Google seulement au clic */
+.fact dd.carte{ margin-top:.9rem; max-width:none; position:relative; aspect-ratio:16 / 9; max-height:180px; width:100%; border-radius:12px; overflow:hidden; background:var(--slate-2); }
+.carte::after{ content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 0 2px var(--slate-3); pointer-events:none; }
+.carte iframe{ display:block; width:100%; height:100%; border:0; filter:var(--carte-filtre); }
+.carte-apercu{ all:unset; box-sizing:border-box; position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-start; gap:.1rem; padding:.7rem .85rem; border-radius:12px; }
+.carte-apercu svg{ position:absolute; inset:0; width:100%; height:100%; }
+.carte-apercu:focus-visible{ outline:3px solid var(--sisal); outline-offset:-3px; }
+.carte-cta{ position:relative; font:800 1.15rem/1 var(--display); color:var(--on-accent); background:var(--red); border-radius:999px; padding:.4rem .85rem .45rem; transition:background .15s; }
+.carte-apercu:hover .carte-cta{ background:var(--red-deep); }
+.carte-note{ position:relative; font-size:.76rem; line-height:1.25; color:var(--chalk-dim); background:var(--slate-2); border-radius:6px; padding:.1rem .4rem; margin-top:.25rem; }
+.carte .c-sol{ fill:var(--slate-2); }
+.carte .c-parc{ fill:var(--green); opacity:.13; }
+.carte .c-eau{ fill:none; stroke:#5aa9e6; stroke-width:9; opacity:.28; stroke-linecap:round; }
+.carte .c-route{ fill:none; stroke:var(--slate-3); stroke-width:4; stroke-linecap:round; }
+.carte .c-route.large{ stroke:var(--slate-4); stroke-width:6; opacity:.7; }
+.carte .c-route.fine{ stroke-width:2; }
+.carte .c-impact{ fill:none; stroke:var(--red); stroke-width:1.5; opacity:.35; }
+.carte .c-impact.fort{ opacity:.8; stroke-width:2; }
+.carte .c-ombre{ stroke:#000; stroke-width:5; stroke-linecap:round; opacity:.12; filter:blur(2px); }
+.carte .c-pointe{ stroke:#c9ccc8; stroke-width:1.8; stroke-linecap:round; }
+.carte .c-futs{ fill:#3b4649; stroke:#1b2224; stroke-width:.8; }
+.carte .c-stries{ stroke:#8b9496; stroke-width:.9; }
+.carte .c-tige{ stroke:#1b2224; stroke-width:2.4; stroke-linecap:round; }
+.carte .c-ailette{ fill:var(--green); stroke:#12201a; stroke-width:.9; stroke-linejoin:round; }
+.carte .c-ailette.milieu{ fill:#e3d4ae; stroke:none; }
+@media (prefers-reduced-motion:no-preference){
+  .carte-apercu:hover .c-flechette, .carte-apercu:focus-visible .c-flechette{ animation:vibre .55s ease-out; }
+  @keyframes vibre{ 0%{ transform:rotate(0); } 20%{ transform:rotate(4deg); } 45%{ transform:rotate(-3deg); } 70%{ transform:rotate(1.5deg); } 100%{ transform:rotate(0); } }
+}
+.carte-liens{ display:flex; flex-wrap:wrap; align-items:baseline; gap:.2rem 1.2rem; }
+.carte-masquer{ font:inherit; font-size:.9rem; color:var(--chalk-dim); background:none; border:0; padding:0; text-decoration:underline; text-underline-offset:3px; }
+.carte-masquer:hover{ color:var(--chalk); }
 .section-intro{ max-width:60ch; margin:-1rem 0 2.5rem; color:var(--chalk-dim); }
 
 /* ---------- Règles ---------- */
@@ -334,8 +416,8 @@ tr.top2 .bar i, tr.top3 .bar i{ background:var(--green); }
 td.num{ color:var(--chalk-dim); font-variant-numeric:tabular-nums; }
 th.num, td.num{ text-align:center; }
 .move{ display:inline-block; margin-left:.5rem; font:700 .85rem/1 var(--body); font-variant-numeric:tabular-nums; vertical-align:.08em; white-space:nowrap; }
-.move.up{ color:var(--green); }
-.move.down{ color:var(--red); }
+.move.up{ color:var(--green-ink); }
+.move.down{ color:var(--red-ink); }
 .move.same{ color:var(--chalk-dim); font-weight:500; }
 .move.new{ color:var(--sisal); font-weight:600; font-size:.78rem; }
 .points-rule{ color:var(--chalk-dim); font-size:.95rem; max-width:70ch; margin:1rem 0 0; }
@@ -351,9 +433,9 @@ td.pct{ width:40%; min-width:150px; }
 .fame{ display:grid; gap:1.6rem; }
 @media (min-width:780px){ .fame{ grid-template-columns:repeat(3,1fr); } }
 .wall{ background:var(--slate-2); border-radius:14px; padding:1.1rem 1.2rem 1rem; }
-.wall h4{ margin:0; font-family:var(--display); font-weight:900; font-size:3.2rem; line-height:.95; color:var(--red); }
+.wall h4{ margin:0; font-family:var(--display); font-weight:900; font-size:3.2rem; line-height:.95; color:var(--red-ink); }
 .wall:nth-child(2) h4{ color:var(--sisal); }
-.wall:nth-child(3) h4{ color:var(--green); }
+.wall:nth-child(3) h4{ color:var(--green-ink); }
 .wall h4 small{ font-size:.42em; font-weight:800; color:var(--chalk); margin-left:.4rem; }
 .wall .what{ margin:.3rem 0 .7rem; color:var(--chalk-dim); font-size:.92rem; }
 .wall ol{ list-style:none; margin:0; padding:0; }
@@ -511,7 +593,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 }
 .nextnight.today{ border-left-color:var(--red); }
 .nextnight p{ margin:0; }
-.nn-alert{ flex-basis:100%; color:#ff8a80; font-weight:600; }
+.nn-alert{ flex-basis:100%; color:var(--err-ink); font-weight:600; }
 .nn-main{ flex:1 1 auto; display:flex; flex-wrap:wrap; align-items:baseline; gap:.1rem .8rem; }
 .nn-label{ color:var(--chalk-dim); font-size:.95rem; }
 .nn-date{ font-family:var(--display); font-weight:800; font-size:1.6rem; line-height:1.1; color:var(--chalk); }
@@ -519,9 +601,9 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .nn-info{ flex-basis:100%; color:var(--sisal); }
 .nn-cta{ font-family:var(--display); font-weight:800; font-size:1.2rem; color:var(--sisal); text-decoration:none; border-bottom:2px solid currentColor; }
 .nn-cta:hover{ color:var(--chalk); }
-.nn-live{ color:var(--chalk); background:var(--red); border:0; border-radius:999px; padding:.35rem .95rem; }
-.nn-live::before{ content:""; display:inline-block; width:.55rem; height:.55rem; margin-right:.5rem; border-radius:50%; background:var(--chalk); vertical-align:.12em; animation:nnPulse 1.6s ease-in-out infinite; }
-.nn-live:hover{ background:var(--red-deep); color:var(--chalk); }
+.nn-live{ color:var(--on-accent); background:var(--red); border:0; border-radius:999px; padding:.35rem .95rem; }
+.nn-live::before{ content:""; display:inline-block; width:.55rem; height:.55rem; margin-right:.5rem; border-radius:50%; background:var(--on-accent); vertical-align:.12em; animation:nnPulse 1.6s ease-in-out infinite; }
+.nn-live:hover{ background:var(--red-deep); color:var(--on-accent); }
 @keyframes nnPulse{ 50%{ opacity:.25; } }
 @media (prefers-reduced-motion: reduce){ .nn-live::before{ animation:none; } }
 
@@ -539,9 +621,10 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
   width:min(560px, 100% - 1.6rem); max-width:none; max-height:min(88dvh, 880px); overflow:auto;
 }
 .pcard::backdrop{ background:rgba(12,16,17,.85); }
+.pcard{ box-shadow:0 30px 70px var(--ombre); }
 .pc{ position:relative; padding:1.6rem 1.6rem 1.8rem; }
 .pc-close{ position:absolute; top:.8rem; right:.8rem; width:2.6rem; height:2.6rem; display:grid; place-items:center; border:0; border-radius:50%; background:var(--slate-3); color:var(--chalk); font:700 1.5rem/1 var(--body); transition:background .2s; }
-.pc-close:hover{ background:var(--red); }
+.pc-close:hover{ background:var(--red); color:var(--on-accent); }
 .pc-name{ font-family:var(--display); font-weight:900; font-size:clamp(2.2rem,8vw,3rem); line-height:.95; margin:0 3rem .35rem 0; }
 .pc-sub{ margin:0 0 1.4rem; color:var(--chalk-dim); }
 .pc-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:.7rem; margin:0 0 1.8rem; }
@@ -563,8 +646,8 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc th, .pc td{ padding:.5rem .45rem; }
 .pc th:first-child, .pc td:first-child{ padding-left:0; white-space:nowrap; }
 .pc tbody tr:first-child td{ color:inherit; font-weight:inherit; }
-.pc tbody tr td.place-1{ color:var(--red); font-weight:600; }
-.pc tbody tr td.place-2, .pc tbody tr td.place-3{ color:var(--green); font-weight:600; }
+.pc tbody tr td.place-1{ color:var(--red-ink); font-weight:600; }
+.pc tbody tr td.place-2, .pc tbody tr td.place-3{ color:var(--green-ink); font-weight:600; }
 .pc tbody tr td.recs{ color:var(--chalk-dim); font-size:.9rem; }
 .pc tfoot td{ font-weight:600; color:var(--chalk); border-bottom:0; }
 .pc-win{ display:flex; align-items:center; gap:.8rem; margin:.3rem 0 .6rem; }
@@ -585,8 +668,8 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc-form .lbl{ color:var(--chalk-dim); font-size:.92rem; }
 .pc-form .dots{ display:flex; gap:.35rem; }
 .pc-form .f{ width:1.75rem; height:1.75rem; border-radius:50%; display:grid; place-items:center; font:800 1rem/1 var(--display); }
-.pc-form .f.v{ background:var(--green); color:var(--slate); }
-.pc-form .f.d{ background:var(--red); color:var(--chalk); }
+.pc-form .f.v{ background:var(--green); color:var(--on-green); }
+.pc-form .f.d{ background:var(--red); color:var(--on-accent); }
 .pc-form .f:last-child{ box-shadow:0 0 0 2px var(--slate-2), 0 0 0 4px var(--sisal); }
 .pc-faces{ margin:.4rem 0 .5rem; border-top:1px solid var(--slate-3); }
 .pc-faces summary{ padding:.6rem 0; color:var(--sisal); font-weight:600; }
@@ -618,8 +701,8 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc table.cmp tr.cmp-titre td{ padding-top:1rem; color:var(--chalk-dim); font-size:.82rem; font-weight:600; border-bottom-color:var(--slate-3); }
 .pc table.cmp .dots{ display:inline-flex; gap:.2rem; }
 .pc table.cmp .f{ width:1.3rem; height:1.3rem; border-radius:50%; display:inline-grid; place-items:center; font:800 .78rem/1 var(--display); }
-.pc table.cmp .f.v{ background:var(--green); color:var(--slate); }
-.pc table.cmp .f.d{ background:var(--red); color:var(--chalk); }
+.pc table.cmp .f.v{ background:var(--green); color:var(--on-green); }
+.pc table.cmp .f.d{ background:var(--red); color:var(--on-accent); }
 .pc-graph{ margin:.4rem 0 .4rem; }
 .pc-graph svg{ display:block; width:100%; height:auto; overflow:visible; }
 .pc-graph .g-grille{ stroke:var(--slate-3); stroke-dasharray:3 4; }
@@ -632,7 +715,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .pc-graph .g-barre{ fill:var(--slate-3); }
 .pc-graph .g-barre.v{ fill:var(--red-deep); }
 .bilan-cta{ margin:-1.4rem 0 2.2rem; }
-.bilan-btn{ font:800 1.25rem/1 var(--display); color:var(--chalk); background:var(--red); border:0; border-radius:999px; padding:.7rem 1.3rem; transition:background .2s; }
+.bilan-btn{ font:800 1.25rem/1 var(--display); color:var(--on-accent); background:var(--red); border:0; border-radius:999px; padding:.7rem 1.3rem; transition:background .2s; }
 .bilan-btn:hover{ background:var(--red-deep); }
 .lien-bilan{ font:inherit; color:var(--sisal); background:none; border:0; padding:0; border-bottom:2px dashed var(--slate-3); }
 .lien-bilan:hover{ color:var(--chalk); }
@@ -640,7 +723,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
 .bilan-tabs{ display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 .8rem; }
 .bilan-tabs:empty{ display:none; }
 .bilan-tabs button{ font:800 1.05rem/1 var(--display); color:var(--chalk-dim); background:transparent; border:0; border-radius:999px; padding:.45rem .85rem; box-shadow:inset 0 0 0 2px var(--slate-3); }
-.bilan-tabs button[aria-pressed="true"]{ color:var(--chalk); background:var(--red); box-shadow:none; }
+.bilan-tabs button[aria-pressed="true"]{ color:var(--on-accent); background:var(--red); box-shadow:none; }
 .podium{ display:grid; grid-template-columns:repeat(3,1fr); align-items:end; gap:.6rem; margin:0 0 1.6rem; text-align:center; }
 .podium .marche{ border-radius:12px 12px 0 0; background:var(--slate); padding:.9rem .6rem .8rem; border-top:4px solid var(--green); }
 .podium .m1{ order:2; padding-top:1.6rem; padding-bottom:1.8rem; border-top-color:var(--red); }
@@ -680,6 +763,7 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
       <li><a href="#photos">Photos</a></li>
       <li><a href="#contact">Contact</a></li>
       <li><a href="https://noya-darts.assoconnect.com/collect/description/755785-t-adhesion-annuelle" target="_blank" rel="noopener">Adhérer</a></li>
+      <li><button class="btn-theme" type="button" title="Passer en mode clair">☀️ Clair</button></li>
     </ul>
   </nav>
   <div class="wrap">
@@ -725,7 +809,35 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
         <div class="fact">
           <dt>Où</dt>
           <dd><strong>Salle Chartreuse</strong> de la Maison des Associations de Noyarey, en Isère.</dd>
-          <dd><a class="maplink" href="https://maps.app.goo.gl/kagyR61QmXeApAX8A" target="_blank" rel="noopener">Voir sur Google Maps</a></dd>
+          <dd class="carte" id="carte">
+            <button class="carte-apercu" id="carteBtn" type="button">
+              <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect class="c-sol" width="320" height="180"/>
+                <path class="c-parc" d="M-10 120 C40 105 70 130 110 122 S170 140 190 180 L-10 180Z"/>
+                <path class="c-eau" d="M-10 150 C60 138 120 168 190 150 S290 128 330 140"/>
+                <path class="c-route large" d="M-10 64 C70 70 120 52 200 60 S290 82 330 74"/>
+                <path class="c-route" d="M104 -10 C110 40 150 80 146 190"/>
+                <path class="c-route" d="M210 -10 C214 50 236 90 252 190"/>
+                <path class="c-route fine" d="M146 98 L252 112 M30 20 L104 30 M250 30 L330 22 M60 64 L52 130"/>
+                <g transform="translate(226 94)">
+                  <circle class="c-impact" r="13"/><circle class="c-impact fort" r="6"/>
+                  <path class="c-ombre" d="M2 1 L32 19"/>
+                  <g transform="rotate(38)"><g class="c-flechette">
+                    <path class="c-pointe" d="M0 0 L0 -15"/>
+                    <rect class="c-futs" x="-3.4" y="-40" width="6.8" height="26" rx="2.4"/>
+                    <path class="c-stries" d="M-3.4 -34 H3.4 M-3.4 -30 H3.4 M-3.4 -26 H3.4 M-3.4 -22 H3.4"/>
+                    <path class="c-tige" d="M0 -40 L0 -60"/>
+                    <path class="c-ailette" d="M0 -52 L-12 -66 L-12 -78 L0 -70 Z"/>
+                    <path class="c-ailette" d="M0 -52 L12 -66 L12 -78 L0 -70 Z"/>
+                    <path class="c-ailette milieu" d="M-1.6 -54 L1.6 -54 L1.6 -76 L-1.6 -76 Z"/>
+                  </g></g>
+                </g>
+              </svg>
+              <span class="carte-cta">Afficher le plan</span>
+              <span class="carte-note">Chargé depuis Google Maps (cookies)</span>
+            </button>
+          </dd>
+          <dd class="carte-liens"><a class="maplink" href="https://maps.app.goo.gl/kagyR61QmXeApAX8A" target="_blank" rel="noopener">Ouvrir dans Google Maps</a><button class="carte-masquer" id="carteMasquer" type="button" hidden>Masquer le plan</button></dd>
         </div>
         <div class="fact">
           <dt>Pour qui</dt>
@@ -2793,6 +2905,55 @@ const PORTRAITS = {};
   resize();
   if(record) msg.innerHTML = "Ton record : <strong>" + record + "</strong>. À toi de le battre.";
   requestAnimationFrame(frame);
+})();
+</script>
+<script>
+/* Bouton(s) .btn-theme : passe du clair au sombre et inversement, met à jour la couleur de la barre du navigateur */
+(function(){
+  var r = document.documentElement, mq = window.matchMedia ? matchMedia("(prefers-color-scheme: light)") : null, minuteur = 0;
+  function actuel(){ return r.getAttribute("data-theme") || (mq && mq.matches ? "light" : "dark"); }
+  function maj(){
+    var t = actuel(), m = document.querySelector('meta[name="theme-color"]');
+    if(m) m.setAttribute("content", t === "light" ? "#e2e7e7" : "#1b2224");
+    document.querySelectorAll(".btn-theme").forEach(function(b){
+      b.textContent = t === "light" ? "🌙 Sombre" : "☀️ Clair";
+      b.title = t === "light" ? "Passer en mode sombre" : "Passer en mode clair";
+      b.setAttribute("aria-label", b.title);
+    });
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".btn-theme"); if(!b) return;
+    var n = actuel() === "light" ? "dark" : "light";
+    r.classList.add("theme-anim"); r.setAttribute("data-theme", n);
+    try{ localStorage.setItem("noyadarts-theme", n); }catch(err){}
+    maj(); clearTimeout(minuteur); minuteur = setTimeout(function(){ r.classList.remove("theme-anim"); }, 450);
+  });
+  if(mq){ if(mq.addEventListener) mq.addEventListener("change", maj); else if(mq.addListener) mq.addListener(maj); }
+  maj();
+})();
+</script>
+<script>
+/* Plan d'accès : la carte Google n'est chargée qu'au clic (cookies), choix retenu sur l'appareil (clé noyadarts-carte).
+   Si l'épingle n'est pas au bon endroit : dans Google Maps, ouvrir la salle, Partager > Intégrer une carte,
+   copier l'adresse entre guillemets après src= et la coller dans CARTE_URL. */
+(function(){
+  var CARTE_URL = "https://maps.google.com/maps?q=Maison%20des%20Associations%2C%2038360%20Noyarey&z=15&hl=fr&output=embed";
+  var boite = document.getElementById("carte"), btn = document.getElementById("carteBtn"), masquer = document.getElementById("carteMasquer");
+  if(!boite || !btn) return;
+  function afficher(){
+    var f = document.createElement("iframe");
+    f.src = CARTE_URL; f.title = "Plan : Maison des Associations de Noyarey";
+    f.loading = "lazy"; f.referrerPolicy = "no-referrer-when-downgrade";
+    btn.hidden = true; boite.appendChild(f); masquer.hidden = false;
+  }
+  btn.addEventListener("click", function(){ try{ localStorage.setItem("noyadarts-carte", "oui"); }catch(e){} afficher(); });
+  masquer.addEventListener("click", function(){
+    try{ localStorage.removeItem("noyadarts-carte"); }catch(e){}
+    var f = boite.querySelector("iframe"); if(f) f.remove();
+    btn.hidden = false; masquer.hidden = true; btn.focus();
+  });
+  var ok = null; try{ ok = localStorage.getItem("noyadarts-carte"); }catch(e){}
+  if(ok === "oui") afficher();
 })();
 </script>
 </body>

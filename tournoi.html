@@ -7,6 +7,16 @@
 <meta name="description" content="Le tournoi du jeudi du club de fléchettes Noya'Darts, en direct : poules, phase finale et classement.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#1b2224">
+<script>
+/* Thème clair ou sombre. Choix retenu sur l'appareil (clé noyadarts-theme, commune à toutes les pages),
+   sinon réglage de l'appareil. Pour garder le sombre par défaut : SUIVRE_APPAREIL = false. */
+(function(){
+  var SUIVRE_APPAREIL = true, t = null;
+  try{ t = localStorage.getItem("noyadarts-theme"); }catch(e){}
+  if(t !== "light" && t !== "dark") t = SUIVRE_APPAREIL ? null : "dark";
+  if(t) document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,6 +28,10 @@
   --chalk:#eceae2; --chalk-dim:#a7afab;
   --red:#d4453b; --red-deep:#a92f27; --green:#34a56b; --sisal:#e3d4ae;
   --win:rgba(52,165,107,.22); --loss:rgba(212,69,59,.14);
+  --on-accent:#f6f4ee; --on-green:#12201a;
+  --red-ink:#d4453b; --green-ink:#34a56b; --err-ink:#f2b8b2; --ok-ink:#bfe9d1;
+  --ombre:rgba(0,0,0,.45); --ombre-logo:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  --carte-filtre:invert(.9) hue-rotate(180deg) saturate(.55) brightness(.92); --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 0.96 0.16 0 0 0 -0.072'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --display:"Big Shoulders Display","Arial Narrow","Helvetica Neue",Arial,sans-serif;
   --body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   box-sizing:border-box;
@@ -25,13 +39,45 @@
   padding-bottom:env(safe-area-inset-bottom,0px);
   color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
-:root[data-theme="dark"]{ color-scheme:dark; }
+/* Mode clair : choisi avec le bouton (data-theme="light") ou réglage clair de l'appareil */
+:root[data-theme="light"]{
+  --slate:#e2e7e7; --slate-2:#f4f6f5; --slate-3:#cfd7d8; --slate-4:#a9b5b7;
+  --chalk:#1b2224; --chalk-dim:#56625f; --sisal:#7a5b18;
+  --red-ink:#b5362c; --green-ink:#1d7547; --err-ink:#a92f27; --ok-ink:#1b6a42;
+  --win:rgba(52,165,107,.2); --loss:rgba(212,69,59,.12);
+  --ombre:rgba(27,34,36,.16); --ombre-logo:drop-shadow(0 14px 22px rgba(27,34,36,.22)) drop-shadow(0 0 34px rgba(212,69,59,.12));
+  --carte-filtre:none; --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.13 0 0 0 0 0.14 0.13 0 0 0 -0.059'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:light;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --slate:#e2e7e7; --slate-2:#f4f6f5; --slate-3:#cfd7d8; --slate-4:#a9b5b7;
+  --chalk:#1b2224; --chalk-dim:#56625f; --sisal:#7a5b18;
+  --red-ink:#b5362c; --green-ink:#1d7547; --err-ink:#a92f27; --ok-ink:#1b6a42;
+  --win:rgba(52,165,107,.2); --loss:rgba(212,69,59,.12);
+  --ombre:rgba(27,34,36,.16); --ombre-logo:drop-shadow(0 14px 22px rgba(27,34,36,.22)) drop-shadow(0 0 34px rgba(212,69,59,.12));
+  --carte-filtre:none; --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.13 0 0 0 0 0.14 0.13 0 0 0 -0.059'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:light;
+} }
+/* Ces éléments restent sombres dans les deux modes */
+.fete{
+  --slate:#1b2224; --slate-2:#242e31; --slate-3:#2f3b3f; --slate-4:#3b4a4f;
+  --chalk:#eceae2; --chalk-dim:#a7afab; --sisal:#e3d4ae;
+  --red-ink:#d4453b; --green-ink:#34a56b; --err-ink:#f2b8b2; --ok-ink:#bfe9d1;
+  --win:rgba(52,165,107,.22); --loss:rgba(212,69,59,.14);
+  --ombre:rgba(0,0,0,.45); --ombre-logo:drop-shadow(0 18px 30px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(212,69,59,.18));
+  --carte-filtre:invert(.9) hue-rotate(180deg) saturate(.55) brightness(.92); --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 0.96 0.16 0 0 0 -0.072'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  color-scheme:dark;
+}
+/* Fondu bref au changement de thème (seulement au clic sur le bouton) */
+html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after{
+  transition:background-color .35s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease, fill .35s ease, stroke .35s ease !important; }
+@media (prefers-reduced-motion: reduce){ html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after{ transition:none !important; } }
 *,*::before,*::after{ box-sizing:inherit; }
 html{ scroll-padding-top:env(safe-area-inset-top,0px); }
 body{
   margin:0; min-height:100vh;
   background:
+    var(--grain),
     radial-gradient(1200px 700px at 80% -15%, rgba(52,165,107,.10), transparent 60%),
     radial-gradient(900px 600px at -10% 115%, rgba(212,69,59,.09), transparent 60%),
     var(--slate);
@@ -49,25 +95,47 @@ button,select,input{ font:inherit; color:inherit; }
   padding:.9rem clamp(1rem,2.5vw,2.5rem);
   border-bottom:1px solid var(--slate-3);
 }
-.top img{ width:64px; height:auto; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+.top img{ width:64px; height:auto; filter:drop-shadow(0 4px 10px var(--ombre)); }
 .top h1{ margin:0; font-family:var(--display); font-weight:900; font-size:clamp(1.7rem,2.6vw,2.6rem); line-height:1; }
 .top .statut{ margin:.25rem 0 0; color:var(--chalk-dim); font-size:1rem; }
 .top .statut.fin{ color:var(--sisal); font-weight:600; }
 .top .actions{ margin-left:auto; display:flex; gap:.6rem; align-items:center; }
 .btn{
   font-family:var(--display); font-weight:800; font-size:1.15rem; letter-spacing:.02em;
-  background:var(--red); color:var(--chalk); border:0; border-radius:999px;
+  background:var(--red); color:var(--on-accent); border:0; border-radius:999px;
   padding:.5rem 1.2rem .55rem; cursor:pointer; transition:background .15s ease;
 }
 .btn:hover{ background:var(--red-deep); }
 .btn:disabled{ opacity:.5; cursor:default; }
-.btn.ghost{ background:transparent; box-shadow:inset 0 0 0 2px var(--slate-4); }
+.btn.ghost{ background:transparent; color:var(--chalk); box-shadow:inset 0 0 0 2px var(--slate-4); }
 .btn.ghost:hover{ box-shadow:inset 0 0 0 2px var(--chalk-dim); background:transparent; }
 .btn.small{ font-size:1rem; padding:.35rem .9rem .4rem; }
-#btnSon{ white-space:nowrap; }
+#btnSon, .btn-theme, #btnProj{ white-space:nowrap; }
+#btnProj[aria-pressed="true"]{ background:var(--slate-3); box-shadow:inset 0 0 0 2px var(--sisal); }
+/* Mode projecteur : tout grandit (lisible au fond de la salle), noms et scores encore un peu plus */
+html.projecteur{ font-size:122%; }
+html.projecteur .joueur b{ font-size:1.75rem; }
+html.projecteur .joueur .legs{ font-size:1.85rem; }
+html.projecteur .classement td.nom{ font-size:1.7rem; }
+html.projecteur .classement td{ font-size:1.5rem; }
+html.projecteur .chip b{ font-size:1.45rem; }
+html.projecteur .suivre .m b{ font-size:clamp(2rem,3vw,3rem); }
+html.projecteur .top img{ width:72px; }
+/* Entrée de la finale : les traits de l'arbre se dessinent, la finale s'illumine (une seule fois par tournoi et par écran) */
+@media (prefers-reduced-motion:no-preference){
+  #svgTraits.trace polyline{ stroke-dasharray:1; stroke-dashoffset:1; animation:traceTrait .9s cubic-bezier(.6,0,.2,1) forwards; }
+  #svgTraits.trace polyline + polyline{ animation-delay:.25s; }
+  @keyframes traceTrait{ to{ stroke-dashoffset:0; } }
+  .match.finale.eclat{ animation:eclatFinale 1.4s .9s ease-out both; }
+  @keyframes eclatFinale{
+    0%{ box-shadow:inset 0 0 0 2px var(--red), 0 0 0 0 rgba(212,69,59,.55); transform:scale(1); }
+    35%{ box-shadow:inset 0 0 0 2px var(--red), 0 0 0 14px rgba(212,69,59,0); transform:scale(1.035); }
+    100%{ box-shadow:inset 0 0 0 2px var(--red), 0 0 0 0 rgba(212,69,59,0); transform:scale(1); }
+  }
+}
 .lien{ background:none; border:0; color:var(--sisal); cursor:pointer; padding:0; text-decoration:underline; text-underline-offset:3px; }
 .messages{ padding:0 clamp(1rem,2.5vw,2.5rem); }
-.messages p{ margin:.7rem 0 0; padding:.55rem .9rem; border-radius:8px; background:rgba(212,69,59,.16); color:#f2b8b2; }
+.messages p{ margin:.7rem 0 0; padding:.55rem .9rem; border-radius:8px; background:rgba(212,69,59,.16); color:var(--err-ink); }
 
 /* ---------- À suivre ---------- */
 .suivre{
@@ -122,7 +190,7 @@ table.classement{ border-collapse:collapse; }
 .classement td.nom{ font-size:1.5rem; white-space:nowrap; }
 .classement td.nom em{ font-family:var(--body); font-style:normal; font-weight:600; font-size:.8rem; color:var(--sisal); background:var(--slate-3); border-radius:999px; padding:.05rem .5rem; margin-left:.4rem; vertical-align:middle; }
 .classement tr.qualif td.nom{ color:var(--sisal); }
-.classement tr.qualif td.rang{ color:var(--green); }
+.classement tr.qualif td.rang{ color:var(--green-ink); }
 .classement tr.pause td.nom{ color:var(--chalk-dim); }
 .classement td.rang{ color:var(--chalk-dim); }
 .classement td.eg{ color:var(--red); }
@@ -149,7 +217,7 @@ table.classement{ border-collapse:collapse; }
 .chip.clic:hover{ border-color:var(--sisal); }
 .chips.joues .chip{ background:transparent; box-shadow:inset 0 0 0 1px var(--slate-4); padding:.15rem .55rem .2rem; }
 .chips.joues .chip b{ font-size:1.1rem; color:var(--chalk-dim); font-weight:700; }
-.chips.joues .chip b.g{ color:#bfe9d1; }
+.chips.joues .chip b.g{ color:var(--ok-ink); }
 .chips.joues .chip .sc{ font-family:var(--display); font-weight:900; font-size:1.15rem; color:var(--sisal); }
 .legende{ color:var(--chalk-dim); font-size:.9rem; margin:.3rem 0 0; }
 
@@ -206,7 +274,7 @@ a.fiche:hover, a.fiche:focus-visible{ text-decoration:underline; text-underline-
 /* ---------- Panneau de gestion ---------- */
 .panneau{
   position:fixed; top:0; right:0; bottom:0; width:min(520px,100%); z-index:20;
-  background:var(--slate-2); box-shadow:-20px 0 50px rgba(0,0,0,.45);
+  background:var(--slate-2); box-shadow:-20px 0 50px var(--ombre);
   display:flex; flex-direction:column;
   transform:translateX(105%); transition:transform .25s ease;
   padding-top:env(safe-area-inset-top,0px);
@@ -245,13 +313,13 @@ a.fiche:hover, a.fiche:focus-visible{ text-decoration:underline; text-underline-
 .annonce .tete{ display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap; }
 .annonce .tete b{ font-family:var(--display); font-weight:800; font-size:1.2rem; }
 .annonce .badge{ font-size:.8rem; font-weight:600; padding:.05rem .5rem; border-radius:999px; background:var(--slate-3); color:var(--sisal); }
-.annonce .badge.annule{ background:rgba(212,69,59,.25); color:#f2b8b2; }
+.annonce .badge.annule{ background:rgba(212,69,59,.25); color:var(--err-ink); }
 .annonce p{ margin:.15rem 0 .3rem; color:var(--chalk-dim); }
 .annonce .actions{ display:flex; gap:1rem; }
 a.btn{ text-decoration:none; display:inline-block; }
 .note{ padding:.6rem .8rem; border-radius:8px; margin:.8rem 0; line-height:1.4; }
-.note.ok{ background:rgba(52,165,107,.18); color:#bfe9d1; }
-.note.err{ background:rgba(212,69,59,.18); color:#f2b8b2; }
+.note.ok{ background:rgba(52,165,107,.18); color:var(--ok-ink); }
+.note.err{ background:rgba(212,69,59,.18); color:var(--err-ink); }
 .note.warn{ background:rgba(227,212,174,.14); color:var(--sisal); }
 .rec{ display:grid; grid-template-columns:9.5rem 5.5rem 1fr; gap:.5rem; align-items:center; margin:.4rem 0; }
 .rec-plus{ margin:-.1rem 0 .6rem 10rem; font-size:.9rem; }
@@ -260,7 +328,7 @@ a.btn{ text-decoration:none; display:inline-block; }
 /* ---------- Fenêtres ---------- */
 .fond{ position:fixed; inset:0; background:rgba(10,14,15,.65); z-index:30; display:grid; place-items:center; padding:1rem; }
 .fond[hidden]{ display:none; }
-.modal{ background:var(--slate-2); border-radius:14px; padding:1.3rem 1.5rem; width:min(560px,100%); box-shadow:0 30px 60px rgba(0,0,0,.5); }
+.modal{ background:var(--slate-2); border-radius:14px; padding:1.3rem 1.5rem; width:min(560px,100%); box-shadow:0 30px 60px var(--ombre); }
 .modal h2{ margin:0 0 .2rem; font-family:var(--display); font-weight:900; font-size:1.8rem; }
 .duel{ display:grid; grid-template-columns:1fr auto auto auto 1fr; gap:.6rem; align-items:center; margin:1.2rem 0 .4rem; }
 .duel b{ font-family:var(--display); font-weight:800; font-size:1.7rem; line-height:1.1; }
@@ -276,9 +344,9 @@ a.btn{ text-decoration:none; display:inline-block; }
 .toast{
   position:fixed; left:50%; bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:40;
   background:var(--chalk); color:var(--slate); padding:.6rem 1.1rem; border-radius:10px; font-weight:600;
-  box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:min(90vw,40rem);
+  box-shadow:0 10px 30px var(--ombre); max-width:min(90vw,40rem);
 }
-.toast.err{ background:var(--red); color:var(--chalk); }
+.toast.err{ background:var(--red); color:var(--on-accent); }
 .toast[hidden]{ display:none; }
 
 /* Célébration : score parfait ou nouveau record du soir, sur tous les écrans qui suivent le tournoi */
@@ -318,7 +386,9 @@ a.btn{ text-decoration:none; display:inline-block; }
   </div>
   <div class="actions">
     <a class="btn ghost small" href="regles.html" title="Les règles du tournoi et du championnat">Règles</a>
+    <button class="btn ghost small" id="btnProj" type="button" aria-pressed="false" title="Agrandit noms et scores pour le projecteur (retenu sur cet écran)">Projecteur</button>
     <button class="btn ghost small" id="btnPlein" type="button" title="Plein écran (pour le projecteur)">Plein écran</button>
+    <button class="btn ghost small btn-theme" type="button" title="Passer en mode clair">☀️ Clair</button>
     <button class="btn ghost small" id="btnSon" type="button" aria-pressed="true" title="Son des célébrations (180, 140, vainqueur) sur cet écran">🔊 Son</button>
     <button class="btn small" id="btnGerer" type="button">Gérer</button>
   </div>
@@ -749,7 +819,15 @@ function traits(){
   const y = r => r.top + r.height / 2 - base.top;
   const T = DATA.tournoi;
   const fait = id => (T.finale.find(x => x.id === id) || {}).joue;
-  const trait = (pts, on) => '<polyline fill="none" stroke="' + (on ? "#d4453b" : "#3b4a4f") + '" stroke-width="3" stroke-linejoin="round" points="' + pts + '"/>';
+  const trait = (pts, on) => '<polyline fill="none" pathLength="1" style="stroke:var(' + (on ? "--red" : "--slate-4") + ')" stroke-width="3" stroke-linejoin="round" points="' + pts + '"/>';
+  // Finale connue (les deux demi-finales jouées) : on la met en scène une fois par tournoi sur cet écran
+  let anime = false;
+  if(fait("D1") && fait("D2")){
+    let deja = null; try{ deja = localStorage.getItem("noyadarts-arbre-anime"); }catch(e){}
+    if(deja !== T.date){ anime = true; try{ localStorage.setItem("noyadarts-arbre-anime", T.date); }catch(e){} }
+  }
+  svg.classList.toggle("trace", anime);
+  const mf = $("m-F"); if(mf && anime){ mf.classList.remove("eclat"); void mf.offsetWidth; mf.classList.add("eclat"); }
   svg.innerHTML =
     trait(x0+","+y(d1)+" "+xm+","+y(d1)+" "+xm+","+y(f)+" "+x1+","+y(f), fait("D1")) +
     trait(x0+","+y(d2)+" "+xm+","+y(d2)+" "+xm+","+y(f)+" "+x1+","+y(f), fait("D2"));
@@ -1220,6 +1298,18 @@ $("formCode").onsubmit = async e => {
     $("fondCode").hidden = true; ouvrirPanneau(); afficher();
   } catch(err){ CODE = ""; note($("codeMsg"), esc(err.message), "err"); }
 };
+/* Mode projecteur, retenu sur cet écran */
+function majProjecteur(on){
+  document.documentElement.classList.toggle("projecteur", on);
+  $("btnProj").setAttribute("aria-pressed", on ? "true" : "false");
+  requestAnimationFrame(traits);
+}
+(function(){ let on = false; try{ on = localStorage.getItem("noyadarts-projecteur") === "1"; }catch(e){} majProjecteur(on); })();
+$("btnProj").onclick = () => {
+  const on = !document.documentElement.classList.contains("projecteur");
+  try{ localStorage.setItem("noyadarts-projecteur", on ? "1" : "0"); }catch(e){}
+  majProjecteur(on);
+};
 $("btnPlein").onclick = () => {
   if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {});
 };
@@ -1537,6 +1627,31 @@ if(!API_URL){
   setInterval(ping, PING_MS);
   document.addEventListener("visibilitychange", () => { if(!document.hidden) rafraichir(); });
 }
+</script>
+<script>
+/* Bouton(s) .btn-theme : passe du clair au sombre et inversement, met à jour la couleur de la barre du navigateur */
+(function(){
+  var r = document.documentElement, mq = window.matchMedia ? matchMedia("(prefers-color-scheme: light)") : null, minuteur = 0;
+  function actuel(){ return r.getAttribute("data-theme") || (mq && mq.matches ? "light" : "dark"); }
+  function maj(){
+    var t = actuel(), m = document.querySelector('meta[name="theme-color"]');
+    if(m) m.setAttribute("content", t === "light" ? "#e2e7e7" : "#1b2224");
+    document.querySelectorAll(".btn-theme").forEach(function(b){
+      b.textContent = t === "light" ? "🌙 Sombre" : "☀️ Clair";
+      b.title = t === "light" ? "Passer en mode sombre" : "Passer en mode clair";
+      b.setAttribute("aria-label", b.title);
+    });
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".btn-theme"); if(!b) return;
+    var n = actuel() === "light" ? "dark" : "light";
+    r.classList.add("theme-anim"); r.setAttribute("data-theme", n);
+    try{ localStorage.setItem("noyadarts-theme", n); }catch(err){}
+    maj(); clearTimeout(minuteur); minuteur = setTimeout(function(){ r.classList.remove("theme-anim"); }, 450);
+  });
+  if(mq){ if(mq.addEventListener) mq.addEventListener("change", maj); else if(mq.addListener) mq.addListener(maj); }
+  maj();
+})();
 </script>
 </body>
 </html>
