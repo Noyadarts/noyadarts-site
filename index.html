@@ -340,18 +340,26 @@ input[type=text], input[type=email], textarea{ cursor:text; }
 .fact dd.carte{ margin-top:.9rem; max-width:none; position:relative; aspect-ratio:16 / 9; max-height:180px; width:100%; border-radius:12px; overflow:hidden; background:var(--slate-2); }
 .carte::after{ content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:inset 0 0 0 2px var(--slate-3); pointer-events:none; }
 .carte iframe{ display:block; width:100%; height:100%; border:0; filter:var(--carte-filtre); }
-.carte-apercu{ all:unset; box-sizing:border-box; position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-start; gap:.1rem; padding:.7rem .85rem; border-radius:12px; }
+.carte-apercu{ all:unset; box-sizing:border-box; position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:flex-end; gap:.1rem; padding:.7rem .85rem; border-radius:12px; }
 .carte-apercu svg{ position:absolute; inset:0; width:100%; height:100%; }
 .carte-apercu:focus-visible{ outline:3px solid var(--sisal); outline-offset:-3px; }
-.carte-cta{ position:relative; font:800 1.15rem/1 var(--display); color:var(--on-accent); background:var(--red); border-radius:999px; padding:.4rem .85rem .45rem; transition:background .15s; }
+.carte-cta{ position:relative; font:800 1.02rem/1 var(--display); color:var(--on-accent); background:var(--red); border-radius:999px; padding:.4rem .85rem .45rem; transition:background .15s; }
 .carte-apercu:hover .carte-cta{ background:var(--red-deep); }
-.carte-note{ position:relative; font-size:.76rem; line-height:1.25; color:var(--chalk-dim); background:var(--slate-2); border-radius:6px; padding:.1rem .4rem; margin-top:.25rem; }
+.carte-note{ position:relative; font-size:.72rem; line-height:1.25; color:var(--chalk-dim); background:var(--slate-2); border-radius:6px; padding:.1rem .4rem; margin-top:.25rem; }
 .carte .c-sol{ fill:var(--slate-2); }
-.carte .c-parc{ fill:var(--green); opacity:.13; }
-.carte .c-eau{ fill:none; stroke:#5aa9e6; stroke-width:9; opacity:.28; stroke-linecap:round; }
-.carte .c-route{ fill:none; stroke:var(--slate-3); stroke-width:4; stroke-linecap:round; }
-.carte .c-route.large{ stroke:var(--slate-4); stroke-width:6; opacity:.7; }
-.carte .c-route.fine{ stroke-width:2; }
+.carte .c-vert{ fill:var(--green); opacity:.12; }
+.carte .c-bati{ fill:var(--slate-3); opacity:.85; }
+.carte .c-route{ fill:none; stroke:var(--chalk-dim); stroke-opacity:.22; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+.carte .c-route.chemin{ stroke-width:2.2; stroke-opacity:.16; }
+.carte .c-route.moyenne{ stroke-width:7.5; stroke-opacity:.3; }
+.carte .c-route.principale{ stroke-width:12; stroke-opacity:.38; }
+.carte .c-mairie{ fill:var(--slate-4); }
+.carte .c-mda{ fill:var(--sisal); fill-opacity:.4; stroke:var(--sisal); stroke-width:1.2; stroke-linejoin:round; }
+.carte .c-lib{ font:600 8.5px var(--body); fill:var(--chalk-dim); stroke:var(--slate-2); stroke-width:2.6px; stroke-linejoin:round; paint-order:stroke; }
+.carte .c-lib.fort{ font-weight:700; font-size:9.5px; fill:var(--chalk); }
+.carte .c-lib.petit{ font-size:7px; font-weight:500; }
+.carte .c-d1532 rect{ fill:#e8c45a; stroke:#8a6a16; stroke-width:.6; }
+.carte .c-d1532 text{ font:700 6.5px var(--body); fill:#1b2224; }
 .carte .c-impact{ fill:none; stroke:var(--red); stroke-width:1.5; opacity:.35; }
 .carte .c-impact.fort{ opacity:.8; stroke-width:2; }
 .carte .c-ombre{ stroke:#000; stroke-width:5; stroke-linecap:round; opacity:.12; filter:blur(2px); }
@@ -821,18 +829,30 @@ legend{ font-weight:500; font-size:.98rem; margin-bottom:.4rem; padding:0; }
           <dd><strong>Salle Chartreuse</strong> de la Maison des Associations de Noyarey, dans l'agglomération grenobloise.</dd>
           <dd class="carte" id="carte">
             <button class="carte-apercu" id="carteBtn" type="button">
-              <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                <rect class="c-sol" width="320" height="180"/>
-                <path class="c-parc" d="M-10 120 C40 105 70 130 110 122 S170 140 190 180 L-10 180Z"/>
-                <path class="c-eau" d="M-10 150 C60 138 120 168 190 150 S290 128 330 140"/>
-                <path class="c-route large" d="M-10 64 C70 70 120 52 200 60 S290 82 330 74"/>
-                <path class="c-route" d="M104 -10 C110 40 150 80 146 190"/>
-                <path class="c-route" d="M210 -10 C214 50 236 90 252 190"/>
-                <path class="c-route fine" d="M146 98 L252 112 M30 20 L104 30 M250 30 L330 22 M60 64 L52 130"/>
-                <g transform="translate(226 94)">
-                  <circle class="c-impact" r="13"/><circle class="c-impact fort" r="6"/>
-                  <path class="c-ombre" d="M2 1 L32 19"/>
-                  <g transform="rotate(38)"><g class="c-flechette">
+              <svg viewBox="-12 18 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <!-- Plan simplifié du centre de Noyarey : D1532, rue du Maupas, mairie et Maison des Associations -->
+                <rect class="c-sol" x="-30" y="0" width="380" height="220"/>
+                <path class="c-vert" d="M-30 0 H193 C189 40 183 90 175 122 L166 220 H-30 Z"/>
+                <g class="c-bati">
+                  <path d="M84 2h9v10h-9zM95 3h11v14h-11zM109 4h8v13h-8zM89 30l9-3 3 10-9 3zM110 33l8-4 4 7-8 4zM88 40h12v12h-12zM146 50l8-6 6 8-8 6z"/>
+                  <path d="M211 12l14-4 3 8-14 4zM219 52h9v7h-9zM213 60h9v8h-9zM235 57h14v12h-14zM228 74h4v8h-4zM245 82l16-4 3 13-9 2 1 9-6 1zM268 72l12-6 5 9-12 6zM275 34l11-5 4 9-11 5zM190 85h12v24h-12zM192 115h7v11h-7zM246 110l14 3-2 7-14-3zM228 102h8v16h-8zM262 128l12 4-4 13-12-4zM300 128h11v16h-11zM204 160l60-10 4 10-60 12zM212 186l40-6 2 9-40 6zM150 182h10v9h-10z"/>
+                </g>
+                <path class="c-route chemin" d="M128 56 C133 80 137 100 134 118 M166 12 L164 58 M178 12 L172 58 M207 118 C200 135 196 150 198 160 L212 153 M139 163 C142 176 150 186 160 196"/>
+                <path class="c-route" d="M2 220 C18 140 30 60 44 -4"/>
+                <path class="c-route" d="M302 58 C296 90 292 120 286 152"/>
+                <path class="c-route moyenne" d="M104 -5 C108 25 112 45 124 58 S160 92 174 104 M146 68 L188 52 M186 54 L330 -2 M180 106 L262 140 L330 170"/>
+                <path class="c-route principale" d="M195 -5 C190 40 184 90 176 122 S170 160 166 220"/>
+                <path class="c-mairie" d="M101 73l12-4 5 25-12 3z"/>
+                <path class="c-mda" d="M126 117h13v22h6v15h5v6l-19 3-2-16-9-7v-7l7-1z"/>
+                <text class="c-lib" x="97" y="84" text-anchor="end">Mairie</text>
+                <text class="c-lib fort" x="119" y="136" text-anchor="end"><tspan x="119">Maison des</tspan><tspan x="119" dy="10.5">Associations</tspan></text>
+                <text class="c-lib petit" transform="translate(111 36) rotate(68)">Rue du Maupas</text>
+                <text class="c-lib petit" transform="translate(200 58) rotate(-21)">Rte de la Vanne</text>
+                <g class="c-d1532" transform="translate(178 70)"><rect x="-10" y="-5" width="20" height="10" rx="2"/><text y="2.6" text-anchor="middle">D1532</text></g>
+                <g transform="translate(135 138)">
+                  <circle class="c-impact" r="12"/><circle class="c-impact fort" r="5.5"/>
+                  <path class="c-ombre" d="M2 1 L30 17"/>
+                  <g transform="rotate(38) scale(.86)"><g class="c-flechette">
                     <path class="c-pointe" d="M0 0 L0 -15"/>
                     <rect class="c-futs" x="-3.4" y="-40" width="6.8" height="26" rx="2.4"/>
                     <path class="c-stries" d="M-3.4 -34 H3.4 M-3.4 -30 H3.4 M-3.4 -26 H3.4 M-3.4 -22 H3.4"/>
@@ -2949,7 +2969,7 @@ const PORTRAITS = {};
    Si l'épingle n'est pas au bon endroit : dans Google Maps, ouvrir la salle, Partager > Intégrer une carte,
    copier l'adresse entre guillemets après src= et la coller dans CARTE_URL. */
 (function(){
-  var CARTE_URL = "https://maps.google.com/maps?q=Maison%20des%20Associations%2C%2038360%20Noyarey&z=15&hl=fr&output=embed";
+  var CARTE_URL = "https://maps.google.com/maps?q=Maison%20des%20Associations%2C%2038360%20Noyarey&z=18&hl=fr&output=embed";
   var boite = document.getElementById("carte"), btn = document.getElementById("carteBtn"), masquer = document.getElementById("carteMasquer");
   if(!boite || !btn) return;
   function afficher(){
